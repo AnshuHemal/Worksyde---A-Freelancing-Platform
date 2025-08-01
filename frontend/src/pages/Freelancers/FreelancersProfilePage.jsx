@@ -51,6 +51,8 @@ const FreelancersProfilePage = () => {
   const [educationEndYear, setEducationEndYear] = useState("");
   const [educationDescription, setEducationDescription] = useState("");
   const [educationIsExpected, setEducationIsExpected] = useState(false);
+  const [editingEducationIndex, setEditingEducationIndex] = useState(null);
+  const [isEditingEducation, setIsEditingEducation] = useState(false);
   const [showProfileImageModal, setShowProfileImageModal] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(0);
   const [rotationAngle, setRotationAngle] = useState(0);
@@ -64,6 +66,21 @@ const FreelancersProfilePage = () => {
   const [videoTitle, setVideoTitle] = useState("");
   const [showVideoPlayerModal, setShowVideoPlayerModal] = useState(false);
   const [videoId, setVideoId] = useState("");
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState("");
+  const [selectedProficiency, setSelectedProficiency] = useState("");
+  const [showProficiencyDropdown, setShowProficiencyDropdown] = useState(false);
+  const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [availableLanguages, setAvailableLanguages] = useState([]);
+  const [loadingLanguages, setLoadingLanguages] = useState(false);
+  const [showEditLanguageModal, setShowEditLanguageModal] = useState(false);
+  const [editingLanguage, setEditingLanguage] = useState("");
+  const [editingProficiency, setEditingProficiency] = useState("");
+  const [showEditProficiencyDropdown, setShowEditProficiencyDropdown] = useState(false);
+  const [selectedLanguageIndex, setSelectedLanguageIndex] = useState(0);
+  const [editingLanguages, setEditingLanguages] = useState([]);
+  const [showHourlyRateModal, setShowHourlyRateModal] = useState(false);
+  const [hourlyRateValue, setHourlyRateValue] = useState("1000");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -130,6 +147,116 @@ const FreelancersProfilePage = () => {
     return null;
   };
 
+  // Handle editing education
+  const handleEditEducation = (index) => {
+    const edu = education[index];
+
+    if (edu) {
+      setEducationInstitution(edu.school || "");
+      setEducationDegree(edu.degree || "");
+      setEducationField(edu.fieldOfStudy || "");
+      setEducationStartYear(edu.startYear || "");
+      setEducationEndYear(edu.endYear || "");
+      setEducationDescription(edu.description || "");
+      setEducationIsExpected(edu.isExpected || false);
+      setEditingEducationIndex(index);
+      setIsEditingEducation(true);
+      setShowEducationModal(true);
+    }
+  };
+
+  // Handle adding new education
+  const handleAddEducation = () => {
+    // Reset form for adding new education
+    setEducationInstitution("");
+    setEducationDegree("");
+    setEducationField("");
+    setEducationStartYear("");
+    setEducationEndYear("");
+    setEducationDescription("");
+    setEducationIsExpected(false);
+    setEditingEducationIndex(null);
+    setIsEditingEducation(false);
+    setShowEducationModal(true);
+  };
+
+  // Handle closing education modal
+  const handleCloseEducationModal = () => {
+    setShowEducationModal(false);
+    setEditingEducationIndex(null);
+    setIsEditingEducation(false);
+    // Reset form
+    setEducationInstitution("");
+    setEducationDegree("");
+    setEducationField("");
+    setEducationStartYear("");
+    setEducationEndYear("");
+    setEducationDescription("");
+    setEducationIsExpected(false);
+  };
+
+  // Fetch available languages from LanguageTool API
+  const fetchAvailableLanguages = async () => {
+    setLoadingLanguages(true);
+    try {
+      const response = await axios.get('https://api.languagetoolplus.com/v2/languages');
+      if (response.data && Array.isArray(response.data)) {
+        // Extract language names and sort them alphabetically
+        const languageNames = response.data
+          .map(lang => lang.name)
+          .filter((name, index, arr) => arr.indexOf(name) === index) // Remove duplicates
+          .sort((a, b) => a.localeCompare(b)); // Sort alphabetically
+
+        setAvailableLanguages(languageNames);
+      } else {
+        // Fallback to static list if API doesn't return expected format
+        setAvailableLanguages([
+          "Afrikaans", "Albanian", "Arabic", "Austrian German", "Basque", "Belarusian",
+          "Belgian French", "Bengali", "Bosnian", "Brazilian Portuguese", "Breton",
+          "Bulgarian", "Canadian French", "Catalan", "Chinese (Cantonese)",
+          "Chinese (Mandarin)", "Corsican", "Croatian", "Czech", "Danish", "Dutch",
+          "East Timorese Portuguese", "Emilian", "English", "Estonian",
+          "European Portuguese", "Filipino", "Finnish", "Flemish", "French",
+          "Frisian", "Friulian", "Galician", "German", "Goan Portuguese", "Greek",
+          "Guinea-Bissau Portuguese", "Gujarati", "Hebrew", "Hindi", "Hungarian", "Icelandic",
+          "Indonesian", "Irish", "Italian", "Japanese", "Korean", "Ladin",
+          "Latvian", "Lithuanian", "Lombard", "Low German", "Luxembourgish",
+          "Macedonian", "Macanese Portuguese", "Malay", "Norwegian", "Occitan",
+          "Persian", "Piedmontese", "Polish", "Portuguese", "Romanian", "Romansh",
+          "Romagnol", "Russian", "Sardinian", "Scottish Gaelic", "Serbian",
+          "Sicilian", "Slovak", "Slovenian", "Spanish", "Swedish", "Swiss French",
+          "Swiss German", "Swiss Italian", "São Tomé and Príncipe Portuguese",
+          "Thai", "Turkish", "Ukrainian", "Urdu", "Venetian", "Vietnamese",
+          "Welsh", "Yiddish"
+        ]);
+      }
+    } catch (error) {
+      console.error("Error fetching languages from LanguageTool API:", error);
+      // Fallback to static list on error
+      setAvailableLanguages([
+        "Afrikaans", "Albanian", "Arabic", "Austrian German", "Basque", "Belarusian",
+        "Belgian French", "Bengali", "Bosnian", "Brazilian Portuguese", "Breton",
+        "Bulgarian", "Canadian French", "Catalan", "Chinese (Cantonese)",
+        "Chinese (Mandarin)", "Corsican", "Croatian", "Czech", "Danish", "Dutch",
+        "East Timorese Portuguese", "Emilian", "English", "Estonian",
+        "European Portuguese", "Filipino", "Finnish", "Flemish", "French",
+        "Frisian", "Friulian", "Galician", "German", "Goan Portuguese", "Greek",
+        "Guinea-Bissau Portuguese", "Hebrew", "Hindi", "Hungarian", "Icelandic",
+        "Indonesian", "Irish", "Italian", "Japanese", "Korean", "Ladin",
+        "Latvian", "Lithuanian", "Lombard", "Low German", "Luxembourgish",
+        "Macedonian", "Macanese Portuguese", "Malay", "Norwegian", "Occitan",
+        "Persian", "Piedmontese", "Polish", "Portuguese", "Romanian", "Romansh",
+        "Romagnol", "Russian", "Sardinian", "Scottish Gaelic", "Serbian",
+        "Sicilian", "Slovak", "Slovenian", "Spanish", "Swedish", "Swiss French",
+        "Swiss German", "Swiss Italian", "São Tomé and Príncipe Portuguese",
+        "Thai", "Turkish", "Ukrainian", "Urdu", "Venetian", "Vietnamese",
+        "Welsh", "Yiddish"
+      ]);
+    } finally {
+      setLoadingLanguages(false);
+    }
+  };
+
   // Initialize title and bio values when profile loads
   useEffect(() => {
     if (profile || summary) {
@@ -159,6 +286,13 @@ const FreelancersProfilePage = () => {
     }
   }, [showSkillsModal, safeSummary.skills, safeProfile.skills]);
 
+  // Fetch languages when language modal opens
+  useEffect(() => {
+    if (showLanguageModal && availableLanguages.length === 0) {
+      fetchAvailableLanguages();
+    }
+  }, [showLanguageModal, availableLanguages.length]);
+
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
   if (error) return <div style={{ padding: 40, color: "red" }}>{error}</div>;
   if (!summary || !profile)
@@ -174,8 +308,8 @@ const FreelancersProfilePage = () => {
   const hourlyRate = safeSummary.hourlyRate
     ? `Rs. ${safeSummary.hourlyRate}/hr`
     : safeProfile.hourlyRate
-    ? `Rs. ${safeProfile.hourlyRate}/hr`
-    : "-";
+      ? `Rs. ${safeProfile.hourlyRate}/hr`
+      : "-";
   const skills = (safeSummary.skills || safeProfile.skills || [])
     .map((s) => s.name)
     .filter(Boolean);
@@ -600,7 +734,7 @@ const FreelancersProfilePage = () => {
                     <FiTrash2 size={16} />
                   </motion.div>
                 </div>
-                
+
                 {/* Video Thumbnail Card */}
                 <motion.div
                   style={{
@@ -629,7 +763,7 @@ const FreelancersProfilePage = () => {
                       e.target.src = "https://via.placeholder.com/300x160?text=Video+Thumbnail";
                     }}
                   />
-                  
+
                   {/* Play Button Overlay */}
                   <div
                     style={{
@@ -658,7 +792,7 @@ const FreelancersProfilePage = () => {
                       }}
                     />
                   </div>
-                  
+
 
                 </motion.div>
               </div>
@@ -741,6 +875,7 @@ const FreelancersProfilePage = () => {
                     scale: 1.05,
                   }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowLanguageModal(true)}
                 >
                   <FiPlus size={16} />
                 </motion.div>
@@ -761,6 +896,26 @@ const FreelancersProfilePage = () => {
                     scale: 1.05,
                   }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    if (languages.length > 0) {
+                      // Parse all languages and create editing array
+                      const parsedLanguages = languages.map((lang, index) => {
+                        const languageParts = lang.split(": ");
+                        return {
+                          id: index,
+                          language: languageParts[0] || "",
+                          proficiency: languageParts[1] || "Basic",
+                          original: lang
+                        };
+                      });
+
+                      setEditingLanguages(parsedLanguages);
+                      setShowEditLanguageModal(true);
+                    } else {
+                      // If no languages exist, open the add language modal instead
+                      setShowLanguageModal(true);
+                    }
+                  }}
                 >
                   <MdEdit size={16} />
                 </motion.div>
@@ -782,35 +937,88 @@ const FreelancersProfilePage = () => {
                 </div>
                 {education.length > 0 ? (
                   education.map((edu, idx) => (
-                    <div key={idx} style={{ marginTop: "12px" }}>
-                      <div
-                        style={{
-                          color: "#121212",
-                          fontSize: 17,
-                          fontWeight: 600,
-                          marginBottom: "4px",
-                        }}
-                      >
-                        {edu.institution || "LJ University"}
+                    <div key={idx} style={{
+                      marginTop: "12px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: "12px"
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div
+                          style={{
+                            color: "#121212",
+                            fontSize: 17,
+                            fontWeight: 600,
+                            marginBottom: "4px",
+                          }}
+                        >
+                          {edu.School || "LJ University"}
+                        </div>
+                        <div
+                          style={{
+                            color: "#666",
+                            fontSize: 16,
+                            marginBottom: "2px",
+                          }}
+                        >
+                          {edu.degree || "Bachelor of Engineering (BEng)"},{" "}
+                          {edu.fieldOfStudy || "Computer science"}
+                        </div>
+                        <div
+                          style={{
+                            color: "#666",
+                            fontSize: 16,
+                          }}
+                        >
+                          {edu.startYear || "2023"}-{edu.endYear || "2027"}{" "}
+                          {edu.isExpected ? "(expected)" : ""}
+                        </div>
                       </div>
-                      <div
-                        style={{
-                          color: "#666",
-                          fontSize: 16,
-                          marginBottom: "2px",
-                        }}
-                      >
-                        {edu.degree || "Bachelor of Engineering (BEng)"},{" "}
-                        {edu.field || "Computer science"}
-                      </div>
-                      <div
-                        style={{
-                          color: "#666",
-                          fontSize: 16,
-                        }}
-                      >
-                        {edu.startYear || "2023"}-{edu.endYear || "2027"}{" "}
-                        {edu.isExpected ? "(expected)" : ""}
+                      <div style={{ display: "flex", gap: "6px" }}>
+                        <motion.div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            color: "#007674",
+                            border: "2px solid #007674",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                          whileHover={{
+                            scale: 1.05,
+                          }}
+                          whileTap={{ scale: 0.95 }}
+                          title="Edit Education"
+                          onClick={() => handleEditEducation(idx)}
+                        >
+                          <MdEdit size={16} />
+                        </motion.div>
+                        <motion.div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            color: "#007674",
+                            border: "2px solid #007674",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                          whileHover={{
+                            scale: 1.05,
+                          }}
+                          whileTap={{ scale: 0.95 }}
+                          title="Delete Education"
+                        >
+                          <FiTrash2 size={16} />
+                        </motion.div>
                       </div>
                     </div>
                   ))
@@ -873,56 +1081,11 @@ const FreelancersProfilePage = () => {
                   }}
                   whileTap={{ scale: 0.95 }}
                   title="Add Education"
-                  onClick={() => setShowEducationModal(true)}
+                  onClick={handleAddEducation}
                 >
                   <FiPlus size={16} />
                 </motion.div>
-                {education.length > 0 && (
-                  <div className="d-flex gap-2">
-                    <motion.div
-                      style={{
-                        width: "32px",
-                        height: "32px",
-                        borderRadius: "50%",
-                        color: "#007674",
-                        border: "2px solid #007674",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                      }}
-                      whileHover={{
-                        scale: 1.05,
-                      }}
-                      whileTap={{ scale: 0.95 }}
-                      title="Edit Education"
-                    >
-                      <MdEdit size={16} />
-                    </motion.div>
-                    <motion.div
-                      style={{
-                        width: "32px",
-                        height: "32px",
-                        borderRadius: "50%",
-                        color: "#007674",
-                        border: "2px solid #007674",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                      }}
-                      whileHover={{
-                        scale: 1.05,
-                      }}
-                      whileTap={{ scale: 0.95 }}
-                      title="Delete Education"
-                    >
-                      <FiTrash2 size={16} />
-                    </motion.div>
-                  </div>
-                )}
+
               </div>
             </div>
           </div>
@@ -940,35 +1103,76 @@ const FreelancersProfilePage = () => {
               style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 12,
+                justifyContent: "space-between",
+                marginBottom: "16px",
               }}
             >
-              <div style={{ fontSize: 26, fontWeight: 600 }}>{title}</div>
-              <motion.div
-                style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "50%",
-                  color: "#007674",
-                  border: "2px solid #007674",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
+              <div style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 12 
+              }}>
+                <div style={{ fontSize: 26, fontWeight: 600 }}>{title}</div>
+                <motion.div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    color: "#007674",
+                    border: "2px solid #007674",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                  }}
+                  whileHover={{
+                    scale: 1.05,
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Edit Title"
+                  onClick={() => setShowTitleModal(true)}
+                >
+                  <MdEdit size={16} />
+                </motion.div>
+              </div>
+              <div style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 12,
+                fontSize: 22, 
+                fontWeight: 600, 
+                color: "#007476" 
+              }}>
+                <div>{hourlyRate}</div>
+                <motion.div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    color: "#007674",
+                    border: "2px solid #007674",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                  }}
+                  whileHover={{
+                    scale: 1.05,
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                  title="Edit Hourly Rate"
+                                  onClick={() => {
+                  // Extract numeric value from hourly rate (e.g., "₹1000/hr" -> "1000")
+                  const numericValue = hourlyRate.replace(/[^0-9]/g, "");
+                  setHourlyRateValue(numericValue || "1000");
+                  setShowHourlyRateModal(true);
                 }}
-                whileHover={{
-                  scale: 1.05,
-                }}
-                whileTap={{ scale: 0.95 }}
-                title="Edit Title"
-                onClick={() => setShowTitleModal(true)}
-              >
-                <MdEdit size={16} />
-              </motion.div>
-            </div>
-            <div style={{ fontSize: 22, fontWeight: 600, color: "#007476" }}>
-              {hourlyRate}
+                >
+                  <MdEdit size={16} />
+                </motion.div>
+              </div>
             </div>
             {/* Bio */}
             <div
@@ -1044,9 +1248,6 @@ const FreelancersProfilePage = () => {
                 whileTap={{ scale: 0.95 }}
                 title="Edit Bio"
                 onClick={() => {
-                  console.log("Opening bio modal, current bioValue:", bioValue);
-                  console.log("Current safeProfile.bio:", safeProfile.bio);
-                  console.log("Current safeSummary.bio:", safeSummary.bio);
                   setShowBioModal(true);
                 }}
               >
@@ -1720,7 +1921,7 @@ const FreelancersProfilePage = () => {
               <motion.button
                 onClick={() => {
                   // Here you would typically save the title to your backend
-                  console.log("Saving title:", titleValue);
+
                   setShowTitleModal(false);
                   // You can add API call here to save the title
                 }}
@@ -1905,7 +2106,7 @@ const FreelancersProfilePage = () => {
                   <textarea
                     value={bioValue || ""}
                     onChange={(e) => {
-                      console.log("Textarea onChange:", e.target.value);
+
                       setBioValue(e.target.value);
                     }}
                     style={{
@@ -1983,7 +2184,7 @@ const FreelancersProfilePage = () => {
               <motion.button
                 onClick={() => {
                   // Here you would typically save the bio to your backend
-                  console.log("Saving bio:", bioValue);
+
                   setShowBioModal(false);
                   // You can add API call here to save the bio
                 }}
@@ -2243,7 +2444,7 @@ const FreelancersProfilePage = () => {
               <motion.button
                 onClick={() => {
                   // Here you would typically save the skills to your backend
-                  console.log("Saving skills:", skillsValue);
+
                   setShowSkillsModal(false);
                   // You can add API call here to save the skills
                 }}
@@ -2467,10 +2668,7 @@ const FreelancersProfilePage = () => {
               <motion.button
                 onClick={() => {
                   // Here you would typically save the other experience to your backend
-                  console.log("Saving other experience:", {
-                    subject: otherExperienceSubject,
-                    description: otherExperienceDescription,
-                  });
+
                   setShowOtherExperiencesModal(false);
                   setOtherExperienceSubject("");
                   setOtherExperienceDescription("");
@@ -2519,7 +2717,7 @@ const FreelancersProfilePage = () => {
             justifyContent: "center",
             padding: "20px",
           }}
-          onClick={() => setShowEducationModal(false)}
+          onClick={handleCloseEducationModal}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -2554,10 +2752,10 @@ const FreelancersProfilePage = () => {
                   color: "#1a1a1a",
                 }}
               >
-                Add Education
+                {isEditingEducation ? "Edit Education" : "Add Education"}
               </h3>
               <motion.button
-                onClick={() => setShowEducationModal(false)}
+                onClick={handleCloseEducationModal}
                 style={{
                   background: "none",
                   border: "none",
@@ -2849,13 +3047,13 @@ const FreelancersProfilePage = () => {
               }}
             >
               <motion.button
-                onClick={() => setShowEducationModal(false)}
+                onClick={handleCloseEducationModal}
                 style={{
-                  padding: "8px 16px",
+                  padding: "10px 20px",
                   border: "none",
                   background: "none",
                   color: "#007674",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "600",
                   cursor: "pointer",
                   borderRadius: "6px",
@@ -2870,41 +3068,43 @@ const FreelancersProfilePage = () => {
               </motion.button>
               <motion.button
                 onClick={() => {
-                  // Here you would typically save the education to your backend
-                  console.log("Saving education:", {
+                  const educationData = {
                     institution: educationInstitution,
                     degree: educationDegree,
                     field: educationField,
                     startYear: educationStartYear,
                     endYear: educationEndYear,
                     description: educationDescription,
-                  });
-                  setShowEducationModal(false);
-                  setEducationInstitution("");
-                  setEducationDegree("");
-                  setEducationField("");
-                  setEducationStartYear("");
-                  setEducationEndYear("");
-                  setEducationDescription("");
-                  // You can add API call here to save the education
+                    isExpected: educationIsExpected,
+                  };
+
+                  if (isEditingEducation) {
+                    // Here you would typically update the education in your backend
+                    // You can add API call here to update the education
+                  } else {
+                    // Here you would typically save the education to your backend
+                    // You can add API call here to save the education
+                  }
+
+                  handleCloseEducationModal();
                 }}
                 style={{
-                  padding: "8px 16px",
+                  padding: "10px 20px",
                   border: "none",
-                  background: "#e5e7eb",
+                  background: "#007674",
                   color: "#fff",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "600",
                   cursor: "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#e5e7eb",
+                  background: "#005a58",
                 }}
                 whileTap={{ scale: 0.95 }}
               >
-                Save
+                {isEditingEducation ? "Update" : "Save"}
               </motion.button>
             </div>
           </motion.div>
@@ -3050,7 +3250,7 @@ const FreelancersProfilePage = () => {
                       }}
                     />
                   </div>
-                  
+
                   {/* Move Button Overlay */}
                   <motion.button
                     style={{
@@ -3352,10 +3552,6 @@ const FreelancersProfilePage = () => {
               <motion.button
                 onClick={() => {
                   // Here you would typically save the edited image
-                  console.log("Saving edited profile image...");
-                  console.log("Zoom level:", zoomLevel);
-                  console.log("Rotation angle:", rotationAngle);
-                  console.log("Selected image:", selectedImage);
                   setShowProfileImageModal(false);
                   // You can add API call here to save the edited image
                 }}
@@ -3561,9 +3757,7 @@ const FreelancersProfilePage = () => {
                     setVideoThumbnail(videoInfo.thumbnailUrl);
                     setVideoId(videoInfo.videoId);
                     setVideoTitle("Meet " + name); // Using the freelancer's name
-                    console.log("Saving video URL:", videoUrl);
-                    console.log("Video thumbnail:", videoInfo.thumbnailUrl);
-                    console.log("Video ID:", videoInfo.videoId);
+
                   } else {
                     alert("Please enter a valid YouTube URL");
                     return;
@@ -3706,214 +3900,1175 @@ const FreelancersProfilePage = () => {
                 allowFullScreen
               />
 
-              {/* Video Title Overlay */}
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: "16px",
-                  left: "16px",
-                  right: "16px",
-                  textAlign: "center",
-                }}
-              >
-                <div
-                  style={{
-                    color: "#fff",
-                    fontSize: "18px",
-                    fontWeight: "600",
-                    textShadow: "2px 2px 4px rgba(0, 0, 0, 0.8)",
-                    fontFamily: "cursive, serif",
-                    marginBottom: "4px",
-                  }}
-                >
-                  Pal Pal Dil Ke Paas
-                </div>
-                <div
-                  style={{
-                    color: "#fff",
-                    fontSize: "14px",
-                    fontWeight: "500",
-                    textShadow: "1px 1px 2px rgba(0, 0, 0, 0.8)",
-                  }}
-                >
-                  Title Track
-                </div>
-              </div>
 
-              {/* Watch on YouTube Button */}
-              <motion.button
-                onClick={() => window.open(savedVideoUrl, '_blank')}
-                style={{
-                  position: "absolute",
-                  bottom: "16px",
-                  left: "16px",
-                  background: "#000",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "8px 12px",
-                  fontSize: "12px",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div
-                  style={{
-                    width: "16px",
-                    height: "16px",
-                    background: "#ff0000",
-                    borderRadius: "2px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 0,
-                      height: 0,
-                      borderLeft: "6px solid #fff",
-                      borderTop: "4px solid transparent",
-                      borderBottom: "4px solid transparent",
-                    }}
-                  />
-                </div>
-                Watch on YouTube
-              </motion.button>
-
-              {/* Copy Link Button */}
-              <motion.button
-                onClick={() => {
-                  navigator.clipboard.writeText(savedVideoUrl);
-                  // You could add a toast notification here
-                  alert("Link copied to clipboard!");
-                }}
-                style={{
-                  position: "absolute",
-                  top: "16px",
-                  right: "16px",
-                  background: "rgba(0, 0, 0, 0.7)",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: "6px",
-                  padding: "8px 12px",
-                  fontSize: "12px",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "6px",
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <div
-                  style={{
-                    width: "12px",
-                    height: "12px",
-                    border: "1px solid #fff",
-                    borderRadius: "2px",
-                    position: "relative",
-                  }}
-                >
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: "2px",
-                      left: "2px",
-                      width: "6px",
-                      height: "6px",
-                      border: "1px solid #fff",
-                      borderRadius: "1px",
-                    }}
-                  />
-                </div>
-                Copy link
-              </motion.button>
             </div>
 
-            {/* Video Stats */}
+
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Language Modal */}
+      {showLanguageModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+          onClick={() => setShowLanguageModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "700px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
             <div
               style={{
                 display: "flex",
-                alignItems: "center",
                 justifyContent: "space-between",
-                padding: "16px",
-                background: "#f8f9fa",
-                borderRadius: "8px",
-                border: "1px solid #e5e7eb",
+                alignItems: "center",
+                marginBottom: "24px",
+                paddingBottom: "16px",
+                borderBottom: "1px solid #e5e7eb",
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                <div
+              <h2
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  color: "#111827",
+                  margin: 0,
+                }}
+              >
+                Add language
+              </h2>
+              <motion.button
+                onClick={() => setShowLanguageModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "32px",
+                  height: "32px",
+                }}
+                whileHover={{
+                  background: "#f3f4f6",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Modal Body */}
+            <div
+              style={{
+                display: "flex",
+                gap: "24px",
+                marginBottom: "24px",
+              }}
+            >
+              {/* Language Section */}
+              <div style={{ flex: 1, position: "relative" }}>
+                <label
                   style={{
-                    background: "rgba(0, 0, 0, 0.8)",
-                    color: "#fff",
-                    padding: "8px 12px",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Language
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    value={selectedLanguage}
+                    onChange={(e) => setSelectedLanguage(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                      paddingRight: "40px",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007674";
+                      setShowLanguageDropdown(true);
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                      // Delay hiding dropdown to allow clicking on options
+                      setTimeout(() => setShowLanguageDropdown(false), 200);
+                    }}
+                    placeholder="Search for language"
+                    autoFocus
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: "12px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "#6b7280",
+                      pointerEvents: "none",
+                      fontSize: "12px",
+                    }}
+                  >
+                    {showLanguageDropdown ? "▲" : "▼"}
+                  </div>
+                </div>
+
+                {/* Language Dropdown */}
+                {showLanguageDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      background: "#fff",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                      zIndex: 10,
+                      marginTop: "4px",
+                      maxHeight: "300px",
+                      overflow: "auto",
+                    }}
+                  >
+                    {loadingLanguages ? (
+                      <div style={{ padding: "20px", textAlign: "center", color: "#666" }}>
+                        Loading languages...
+                      </div>
+                    ) : (
+                      availableLanguages
+                        .filter(language =>
+                          language.toLowerCase().includes(selectedLanguage.toLowerCase())
+                        )
+                        .map((language, index) => (
+                          <motion.div
+                            key={index}
+                            onClick={() => {
+                              setSelectedLanguage(language);
+                              setShowLanguageDropdown(false);
+                            }}
+                            style={{
+                              padding: "12px 16px",
+                              cursor: "pointer",
+                              borderBottom: index < availableLanguages.length - 1 ? "1px solid #f3f4f6" : "none",
+                              transition: "background-color 0.2s ease",
+                            }}
+                            whileHover={{
+                              background: "#f8f9fa",
+                            }}
+                            whileTap={{ scale: 0.98 }}
+                          >
+                            <div
+                              style={{
+                                fontSize: "14px",
+                                fontWeight: "500",
+                                color: "#1a1a1a",
+                              }}
+                            >
+                              {language}
+                            </div>
+                          </motion.div>
+                        ))
+                    )}
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Proficiency Level Section */}
+              <div style={{ flex: 1, position: "relative" }}>
+                <label
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Proficiency level
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type="text"
+                    value={selectedProficiency}
+                    onChange={(e) => setSelectedProficiency(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                      paddingRight: "40px",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007674";
+                      setShowProficiencyDropdown(true);
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                      // Delay hiding dropdown to allow clicking on options
+                      setTimeout(() => setShowProficiencyDropdown(false), 200);
+                    }}
+                    placeholder="Search for proficiency level"
+                  />
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: "12px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      color: "#6b7280",
+                      pointerEvents: "none",
+                      fontSize: "12px",
+                    }}
+                  >
+                    {showProficiencyDropdown ? "▲" : "▼"}
+                  </div>
+                </div>
+
+                {/* Proficiency Dropdown */}
+                {showProficiencyDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      background: "#fff",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                      zIndex: 10,
+                      marginTop: "4px",
+                      maxHeight: "300px",
+                      overflow: "auto",
+                    }}
+                  >
+                    {[
+                      {
+                        level: "Basic",
+                        description: "I am only able to communicate in this language through written communication"
+                      },
+                      {
+                        level: "Conversational",
+                        description: "I know this language well enough to verbally discuss project details with a client"
+                      },
+                      {
+                        level: "Fluent",
+                        description: "I have complete command of this language with perfect grammar"
+                      },
+                      {
+                        level: "Native or Bilingual",
+                        description: "I have complete command of this language, including breadth of vocabulary, idioms, and colloquialisms"
+                      }
+                    ].map((option, index) => (
+                      <motion.div
+                        key={index}
+                        onClick={() => {
+                          setSelectedProficiency(option.level);
+                          setShowProficiencyDropdown(false);
+                        }}
+                        style={{
+                          padding: "12px 16px",
+                          cursor: "pointer",
+                          borderBottom: index < 3 ? "1px solid #f3f4f6" : "none",
+                          transition: "background-color 0.2s ease",
+                        }}
+                        whileHover={{
+                          background: "#f8f9fa",
+                        }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            fontWeight: "600",
+                            color: "#1a1a1a",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          {option.level}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "12px",
+                            color: "#6b7280",
+                            lineHeight: "1.4",
+                          }}
+                        >
+                          {option.description}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                paddingTop: "20px",
+                borderTop: "1px solid #e5e7eb",
+              }}
+            >
+              <motion.button
+                onClick={() => {
+                  // Here you would typically add the language to your backend
+
+                  setShowLanguageModal(false);
+                  setSelectedLanguage("");
+                  setSelectedProficiency("");
+                  // You can add API call here to save the language
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: "#374151",
+                  color: "#fff",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#1f2937",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Add language
+              </motion.button>
+
+              <div style={{ display: "flex", gap: "12px" }}>
+                <motion.button
+                  onClick={() => {
+                    setSelectedLanguage("");
+                    setSelectedProficiency("");
+                    setShowLanguageModal(false);
+                  }}
+                  style={{
+                    padding: "10px 20px",
+                    border: "none",
+                    background: "none",
+                    color: "#007674",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer",
                     borderRadius: "6px",
-                    textAlign: "center",
-                    minWidth: "80px",
+                    transition: "all 0.2s ease",
+                  }}
+                  whileHover={{
+                    background: "#f8f9fa",
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  onClick={() => {
+                    // Here you would typically save the language to your backend
+
+                    setShowLanguageModal(false);
+                    setSelectedLanguage("");
+                    setSelectedProficiency("");
+                    // You can add API call here to save the language
+                  }}
+                  style={{
+                    padding: "10px 20px",
+                    border: "none",
+                    background: "#e5e7eb",
+                    color: "#9ca3af",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "not-allowed",
+                    borderRadius: "6px",
+                    transition: "all 0.2s ease",
+                  }}
+                  disabled={true}
+                >
+                  Save
+                </motion.button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Edit Language Modal */}
+      {showEditLanguageModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+          onClick={() => setShowEditLanguageModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "800px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+                paddingBottom: "16px",
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  color: "#111827",
+                  margin: 0,
+                }}
+              >
+                Edit languages
+              </h2>
+              <motion.button
+                onClick={() => setShowEditLanguageModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "32px",
+                  height: "32px",
+                }}
+                whileHover={{
+                  background: "#f3f4f6",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* All Languages List */}
+            <div style={{ marginBottom: "24px" }}>
+              <label
+                style={{
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
+                  display: "block",
+                  marginBottom: "16px",
+                }}
+              >
+                Edit Your Languages
+              </label>
+
+              {editingLanguages.map((langItem, index) => (
+                <div
+                  key={langItem.id}
+                  style={{
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "12px",
+                    padding: "20px",
+                    marginBottom: "16px",
+                    background: "#fff",
                   }}
                 >
-                  <div style={{ fontSize: "16px", fontWeight: "700", lineHeight: "1" }}>
-                    460+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "flex-start",
+                      gap: "20px",
+                    }}
+                  >
+                    {/* Language Section */}
+                    <div style={{ flex: 1 }}>
+                      <label
+                        style={{
+                          fontSize: "14px",
+                          fontWeight: "600",
+                          color: "#1a1a1a",
+                          display: "block",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        Language {index + 1}
+                      </label>
+                      <input
+                        type="text"
+                        value={langItem.language}
+                        readOnly
+                        style={{
+                          width: "100%",
+                          padding: "12px 16px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "8px",
+                          fontSize: "16px",
+                          outline: "none",
+                          transition: "border-color 0.2s ease",
+                          boxSizing: "border-box",
+                          background: "#f8f9fa",
+                          color: "#374151",
+                          cursor: "not-allowed",
+                        }}
+                        placeholder="Language"
+                      />
+                    </div>
+
+                    {/* Proficiency Level Section */}
+                    <div style={{ flex: 1, position: "relative" }}>
+                      <label
+                        style={{
+                          fontSize: "14px",
+                          fontWeight: "600",
+                          color: "#1a1a1a",
+                          display: "block",
+                          marginBottom: "8px",
+                        }}
+                      >
+                        Proficiency level
+                      </label>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          type="text"
+                          value={langItem.proficiency}
+                          onChange={(e) => {
+                            const updatedLanguages = [...editingLanguages];
+                            updatedLanguages[index].proficiency = e.target.value;
+                            setEditingLanguages(updatedLanguages);
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "12px 16px",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            fontSize: "16px",
+                            outline: "none",
+                            transition: "border-color 0.2s ease",
+                            boxSizing: "border-box",
+                            paddingRight: "40px",
+                          }}
+                          onFocus={(e) => {
+                            e.target.style.borderColor = "#007674";
+                            // Set the current language as active for dropdown
+                            setEditingLanguage(langItem.language);
+                            setEditingProficiency(langItem.proficiency);
+                            setSelectedLanguageIndex(index);
+                            setShowEditProficiencyDropdown(true);
+                          }}
+                          onBlur={(e) => {
+                            e.target.style.borderColor = "#d1d5db";
+                            // Delay hiding dropdown to allow clicking on options
+                            setTimeout(() => setShowEditProficiencyDropdown(false), 200);
+                          }}
+                          placeholder="Search for proficiency level"
+                        />
+                        <div
+                          style={{
+                            position: "absolute",
+                            right: "12px",
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            color: "#6b7280",
+                            pointerEvents: "none",
+                            fontSize: "12px",
+                          }}
+                        >
+                          {showEditProficiencyDropdown && selectedLanguageIndex === index ? "▲" : "▼"}
+                        </div>
+                      </div>
+
+                      {/* Proficiency Dropdown */}
+                      {showEditProficiencyDropdown && selectedLanguageIndex === index && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          style={{
+                            position: "absolute",
+                            top: "100%",
+                            left: 0,
+                            right: 0,
+                            background: "#fff",
+                            border: "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                            zIndex: 10,
+                            marginTop: "4px",
+                            maxHeight: "300px",
+                            overflow: "auto",
+                          }}
+                        >
+                          {[
+                            {
+                              level: "Basic",
+                              description: "I am only able to communicate in this language through written communication"
+                            },
+                            {
+                              level: "Conversational",
+                              description: "I know this language well enough to verbally discuss project details with a client"
+                            },
+                            {
+                              level: "Fluent",
+                              description: "I have complete command of this language with perfect grammar"
+                            },
+                            {
+                              level: "Native or Bilingual",
+                              description: "I have complete command of this language, including breadth of vocabulary, idioms, and colloquialisms"
+                            }
+                          ].map((option, optionIndex) => (
+                            <motion.div
+                              key={optionIndex}
+                              onClick={() => {
+                                const updatedLanguages = [...editingLanguages];
+                                updatedLanguages[index].proficiency = option.level;
+                                setEditingLanguages(updatedLanguages);
+                                setShowEditProficiencyDropdown(false);
+                              }}
+                              style={{
+                                padding: "12px 16px",
+                                cursor: "pointer",
+                                borderBottom: optionIndex < 3 ? "1px solid #f3f4f6" : "none",
+                                transition: "background-color 0.2s ease",
+                              }}
+                              whileHover={{
+                                background: "#f8f9fa",
+                              }}
+                              whileTap={{ scale: 0.98 }}
+                            >
+                              <div
+                                style={{
+                                  fontSize: "14px",
+                                  fontWeight: "600",
+                                  color: "#1a1a1a",
+                                  marginBottom: "4px",
+                                }}
+                              >
+                                {option.level}
+                              </div>
+                              <div
+                                style={{
+                                  fontSize: "12px",
+                                  color: "#6b7280",
+                                  lineHeight: "1.4",
+                                }}
+                              >
+                                {option.description}
+                              </div>
+                            </motion.div>
+                          ))}
+                        </motion.div>
+                      )}
+                    </div>
+
+                    {/* Remove Button */}
+                    <div style={{ display: "flex", alignItems: "center", paddingTop: "32px" }}>
+                      <motion.button
+                        whileHover={{ scale: 1.05, background: "#fef2f2" }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          const updatedLanguages = editingLanguages.filter((_, i) => i !== index);
+                          setEditingLanguages(updatedLanguages);
+                        }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#ef4444",
+                          cursor: "pointer",
+                          padding: "8px",
+                          borderRadius: "6px",
+                          transition: "background-color 0.2s ease",
+                        }}
+                      >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                        </svg>
+                      </motion.button>
+                    </div>
                   </div>
-                  <div style={{ fontSize: "10px", fontWeight: "600", lineHeight: "1" }}>
-                    MILLION VIEWS
+                </div>
+              ))}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+                paddingTop: "20px",
+                borderTop: "1px solid #e5e7eb",
+              }}
+            >
+              <motion.button
+                onClick={() => {
+                  setEditingLanguages([]);
+                  setShowEditLanguageModal(false);
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: "none",
+                  color: "#007674",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  // Format all languages as "Language: Proficiency"
+                  const formattedLanguages = editingLanguages.map(lang => `${lang.language}: ${lang.proficiency}`);
+
+                  setShowEditLanguageModal(false);
+                  setEditingLanguages([]);
+                  // You can add API call here to save the edited languages
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: editingLanguages.length > 0 ? "#007476" : "#e5e7eb",
+                  color: editingLanguages.length > 0 ? "#fff" : "#9ca3af",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: editingLanguages.length > 0 ? "pointer" : "not-allowed",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={
+                  editingLanguages.length > 0
+                    ? { background: "#005a58" }
+                    : {}
+                }
+                whileTap={editingLanguages.length > 0 ? { scale: 0.95 } : {}}
+                disabled={editingLanguages.length === 0}
+              >
+                Save
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+                  {/* Hourly Rate Modal */}
+            {showHourlyRateModal && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  backgroundColor: "rgba(0, 0, 0, 0.5)",
+                  backdropFilter: "blur(4px)",
+                  zIndex: 9999,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "20px",
+                }}
+                onClick={() => setShowHourlyRateModal(false)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                  transition={{ duration: 0.3, type: "spring", damping: 25 }}
+                  style={{
+                    background: "#fff",
+                    borderRadius: "12px",
+                    padding: "24px",
+                    width: "100%",
+                    maxWidth: "800px",
+                    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+                    border: "1px solid #e6e6e6",
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "24px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
+                }}
+              >
+                Change hourly rate
+              </h3>
+              <motion.button
+                onClick={() => setShowHourlyRateModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#666",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  color: "#1a1a1a",
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ marginBottom: "24px" }}>
+              {/* Note */}
+              <div style={{ marginBottom: "20px" }}>
+                <p style={{ 
+                  fontSize: "16px", 
+                  color: "#666", 
+                  margin: "0 0 16px 0",
+                  lineHeight: "1.5"
+                }}>
+                  Please note that your new hourly rate will only apply to new contracts.
+                </p>
+                <p style={{ 
+                  fontSize: "18px", 
+                  color: "#1a1a1a", 
+                  margin: "0 0 24px 0",
+                  fontWeight: "500"
+                }}>
+                  Your profile rate: ₹{hourlyRateValue}/hr
+                </p>
+              </div>
+
+              {/* Rate Calculation Section */}
+              <div style={{ marginBottom: "24px" }}>
+                {/* Hourly Rate */}
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ marginBottom: "8px" }}>
+                    <label style={{
+                      fontSize: "18px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "4px"
+                    }}>
+                      Hourly Rate
+                    </label>
+                    <div style={{
+                      fontSize: "16px",
+                      color: "#666",
+                      marginBottom: "8px"
+                    }}>
+                      Total amount the client will see
+                    </div>
                   </div>
-                  <div style={{ fontSize: "10px", marginTop: "2px" }}>
-                    ACROSS YouTube
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    padding: "12px 16px",
+                    background: "#fff",
+                    position: "relative"
+                  }}>
+                    <span style={{
+                      color: "#666",
+                      fontSize: "18px",
+                      marginRight: "8px"
+                    }}>
+                      ₹
+                    </span>
+                    <input
+                      type="number"
+                      value={hourlyRateValue}
+                      onChange={(e) => setHourlyRateValue(e.target.value)}
+                      style={{
+                        border: "none",
+                        outline: "none",
+                        fontSize: "18px",
+                        color: "#1a1a1a",
+                        background: "transparent",
+                        width: "100%",
+                        flex: 1
+                      }}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                    />
+                    <span style={{
+                      color: "#666",
+                      fontSize: "18px",
+                      marginLeft: "8px"
+                    }}>
+                      /hr
+                    </span>
+                  </div>
+                </div>
+
+                {/* Upwork Service Fee */}
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ marginBottom: "8px" }}>
+                    <label style={{
+                      fontSize: "18px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "4px"
+                    }}>
+                      Worksyde Service Fee
+                    </label>
+                    <div style={{
+                      fontSize: "16px",
+                      color: "#666",
+                      marginBottom: "8px"
+                    }}>
+                      Fees vary and are shown before contract acceptance
+                    </div>
+                  </div>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    padding: "12px 16px",
+                    background: "#f8f9fa",
+                    color: "#666"
+                  }}>
+                    <span style={{
+                      fontSize: "18px",
+                      marginRight: "8px"
+                    }}>
+                      -₹
+                    </span>
+                    <span style={{
+                      fontSize: "18px",
+                      flex: 1
+                    }}>
+                      {(parseFloat(hourlyRateValue || 0) * 0.1).toFixed(2)}
+                    </span>
+                    <span style={{
+                      fontSize: "18px",
+                      marginLeft: "8px"
+                    }}>
+                      /hr
+                    </span>
+                  </div>
+                </div>
+
+                {/* You'll Receive */}
+                <div style={{ marginBottom: "16px" }}>
+                  <div style={{ marginBottom: "8px" }}>
+                    <label style={{
+                      fontSize: "18px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "4px"
+                    }}>
+                      You'll Receive
+                    </label>
+                    <div style={{
+                      fontSize: "16px",
+                      color: "#666",
+                      marginBottom: "8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px"
+                    }}>
+                      The estimated amount you'll receive after service fees
+                      <span style={{
+                        color: "#007674",
+                        cursor: "pointer",
+                        fontSize: "16px"
+                      }}>
+                        ?
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    padding: "12px 16px",
+                    background: "#f8f9fa",
+                    color: "#1a1a1a"
+                  }}>
+                                        <span style={{
+                      fontSize: "18px",
+                      marginRight: "8px"
+                    }}>
+                      ₹
+                    </span>
+                    <span style={{
+                      fontSize: "18px",
+                      flex: 1,
+                      fontWeight: "600"
+                    }}>
+                      {(parseFloat(hourlyRateValue || 0) * 0.9).toFixed(2)}
+                    </span>
+                    <span style={{
+                      fontSize: "18px",
+                      marginLeft: "8px"
+                    }}>
+                      /hr
+                    </span>
                   </div>
                 </div>
               </div>
-              
-              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <div
-                  style={{
-                    background: "rgba(255, 255, 255, 0.9)",
-                    color: "#000",
-                    padding: "4px 8px",
-                    borderRadius: "4px",
-                    fontSize: "10px",
-                    fontWeight: "600",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  Z MUSIC CO.
-                </div>
-                <div
-                  style={{
-                    background: "rgba(255, 255, 255, 0.9)",
-                    color: "#000",
-                    padding: "2px 6px",
-                    borderRadius: "3px",
-                    fontSize: "8px",
-                    fontWeight: "600",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  ZEE MUSIC
-                </div>
-                <div
-                  style={{
-                    background: "rgba(255, 255, 255, 0.9)",
-                    color: "#000",
-                    padding: "2px 6px",
-                    borderRadius: "3px",
-                    fontSize: "8px",
-                    fontWeight: "600",
-                    fontFamily: "monospace",
-                  }}
-                >
-                  ZEE STUDIOS
-                </div>
-              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+              }}
+            >
+              <motion.button
+                onClick={() => setShowHourlyRateModal(false)}
+                style={{
+                  padding: "8px 16px",
+                  border: "none",
+                  background: "none",
+                  color: "#007674",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  // Here you would typically save the hourly rate to your backend
+                  setShowHourlyRateModal(false);
+                  // You can add API call here to save the hourly rate
+                }}
+                style={{
+                  padding: "8px 16px",
+                  border: "none",
+                  background: "#007674",
+                  color: "#fff",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#005a58",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Save
+              </motion.button>
             </div>
           </motion.div>
         </motion.div>
