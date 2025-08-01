@@ -9,6 +9,10 @@ import {
   FiTrash2,
   FiBriefcase,
   FiFolder,
+  FiZoomIn,
+  FiRotateCw,
+  FiMove,
+  FiExternalLink,
 } from "react-icons/fi";
 import { GoLocation } from "react-icons/go";
 import { MdEdit } from "react-icons/md";
@@ -48,6 +52,18 @@ const FreelancersProfilePage = () => {
   const [educationDescription, setEducationDescription] = useState("");
   const [educationIsExpected, setEducationIsExpected] = useState(false);
   const [showProfileImageModal, setShowProfileImageModal] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(0);
+  const [rotationAngle, setRotationAngle] = useState(0);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const fileInputRef = React.useRef(null);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [videoUrl, setVideoUrl] = useState("");
+  const [savedVideoUrl, setSavedVideoUrl] = useState("");
+  const [videoThumbnail, setVideoThumbnail] = useState("");
+  const [videoTitle, setVideoTitle] = useState("");
+  const [showVideoPlayerModal, setShowVideoPlayerModal] = useState(false);
+  const [videoId, setVideoId] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -87,6 +103,31 @@ const FreelancersProfilePage = () => {
       year: "numeric",
       month: "long",
     });
+  };
+
+  // Handle image file selection
+  const handleImageSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Extract YouTube video ID and generate thumbnail
+  const extractYouTubeInfo = (url) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    if (match && match[2].length === 11) {
+      const videoId = match[2];
+      const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+      return { videoId, thumbnailUrl };
+    }
+    return null;
   };
 
   // Initialize title and bio values when profile loads
@@ -168,6 +209,58 @@ const FreelancersProfilePage = () => {
             color: white;
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(0, 118, 116, 0.3);
+          }
+
+          /* Custom range input styling */
+          input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+          }
+
+          input[type="range"]::-webkit-slider-track {
+            background: #e5e7eb;
+            height: 4px;
+            border-radius: 2px;
+          }
+
+          input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            background: #007476;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+          }
+
+          input[type="range"]::-webkit-slider-thumb:hover {
+            background: #005a58;
+            transform: scale(1.1);
+          }
+
+          input[type="range"]::-moz-range-track {
+            background: #e5e7eb;
+            height: 4px;
+            border-radius: 2px;
+            border: none;
+          }
+
+          input[type="range"]::-moz-range-thumb {
+            background: #007476;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+          }
+
+          input[type="range"]::-moz-range-thumb:hover {
+            background: #005a58;
           }
         `}
       </style>
@@ -431,38 +524,145 @@ const FreelancersProfilePage = () => {
             </div>
 
             {/* Video introduction */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 28,
-              }}
-            >
-              <span style={{ fontWeight: 600, fontSize: 20 }}>
-                Video introduction
-              </span>
-              <motion.div
+            {!savedVideoUrl ? (
+              <div
                 style={{
-                  width: "32px",
-                  height: "32px",
-                  borderRadius: "50%",
-                  color: "#007674",
-                  border: "2px solid #007674",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  transition: "all 0.2s ",
+                  justifyContent: "space-between",
+                  marginBottom: 28,
                 }}
-                whileHover={{
-                  scale: 1.05,
-                }}
-                whileTap={{ scale: 0.95 }}
               >
-                <FiPlus size={16} />
-              </motion.div>
-            </div>
+                <span style={{ fontWeight: 600, fontSize: 20 }}>
+                  Video introduction
+                </span>
+                <motion.div
+                  style={{
+                    width: "32px",
+                    height: "32px",
+                    borderRadius: "50%",
+                    color: "#007674",
+                    border: "2px solid #007674",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    transition: "all 0.2s ",
+                  }}
+                  whileHover={{
+                    scale: 1.05,
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowVideoModal(true)}
+                >
+                  <FiPlus size={16} />
+                </motion.div>
+              </div>
+            ) : (
+              <div style={{ marginBottom: 28 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: "16px",
+                  }}
+                >
+                  <span style={{ fontWeight: 600, fontSize: 20 }}>
+                    {videoTitle}
+                  </span>
+                  <motion.div
+                    style={{
+                      width: "32px",
+                      height: "32px",
+                      borderRadius: "50%",
+                      color: "#dc2626",
+                      border: "2px solid #dc2626",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                    whileHover={{
+                      scale: 1.05,
+                      background: "#dc2626",
+                      color: "#fff",
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      setSavedVideoUrl("");
+                      setVideoThumbnail("");
+                      setVideoTitle("");
+                    }}
+                    title="Remove video"
+                  >
+                    <FiTrash2 size={16} />
+                  </motion.div>
+                </div>
+                
+                {/* Video Thumbnail Card */}
+                <motion.div
+                  style={{
+                    position: "relative",
+                    borderRadius: "12px",
+                    overflow: "hidden",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                    cursor: "pointer",
+                    background: "#000",
+                  }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => setShowVideoPlayerModal(true)}
+                >
+                  {/* Thumbnail Image */}
+                  <img
+                    src={videoThumbnail}
+                    alt="Video thumbnail"
+                    style={{
+                      width: "100%",
+                      height: "160px",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                    onError={(e) => {
+                      e.target.src = "https://via.placeholder.com/300x160?text=Video+Thumbnail";
+                    }}
+                  />
+                  
+                  {/* Play Button Overlay */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "50%",
+                      left: "50%",
+                      transform: "translate(-50%, -50%)",
+                      width: "60px",
+                      height: "60px",
+                      borderRadius: "50%",
+                      background: "rgba(255, 255, 255, 0.9)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.3)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 0,
+                        height: 0,
+                        borderLeft: "12px solid #007476",
+                        borderTop: "8px solid transparent",
+                        borderBottom: "8px solid transparent",
+                        marginLeft: "4px",
+                      }}
+                    />
+                  </div>
+                  
+
+                </motion.div>
+              </div>
+            )}
 
             {/* Hours per week
           <div
@@ -2728,6 +2928,7 @@ const FreelancersProfilePage = () => {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 1000,
+            padding: "20px",
           }}
           onClick={() => setShowProfileImageModal(false)}
         >
@@ -2737,11 +2938,15 @@ const FreelancersProfilePage = () => {
             exit={{ scale: 0.9, opacity: 0 }}
             style={{
               background: "#fff",
-              borderRadius: "6px",
-              padding: "16px",
-              width: "90%",
-              maxWidth: "400px",
-              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "800px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              display: "flex",
+              flexDirection: "column",
+              maxHeight: "90vh",
+              overflow: "hidden",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2751,36 +2956,36 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "16px",
-                paddingBottom: "8px",
+                marginBottom: "24px",
+                paddingBottom: "16px",
                 borderBottom: "1px solid #e5e7eb",
               }}
             >
               <h2
                 style={{
-                  fontSize: "16px",
+                  fontSize: "20px",
                   fontWeight: "600",
                   color: "#111827",
                   margin: 0,
                 }}
               >
-                Profile Photo
+                Edit photo
               </h2>
               <motion.button
                 onClick={() => setShowProfileImageModal(false)}
                 style={{
                   background: "none",
                   border: "none",
-                  fontSize: "18px",
+                  fontSize: "24px",
                   color: "#6b7280",
                   cursor: "pointer",
-                  padding: "2px",
-                  borderRadius: "3px",
+                  padding: "4px",
+                  borderRadius: "4px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: "20px",
-                  height: "20px",
+                  width: "32px",
+                  height: "32px",
                 }}
                 whileHover={{
                   background: "#f3f4f6",
@@ -2791,130 +2996,350 @@ const FreelancersProfilePage = () => {
               </motion.button>
             </div>
 
-            {/* Current Profile Image */}
+            {/* Modal Content */}
             <div
               style={{
                 display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                marginBottom: "16px",
-                padding: "12px",
-                background: "#f8f9fa",
-                borderRadius: "6px",
+                gap: "24px",
+                flex: 1,
+                overflow: "hidden",
               }}
             >
+              {/* Left Side - Main Photo Preview and Controls */}
               <div
                 style={{
-                  width: "60px",
-                  height: "60px",
-                  borderRadius: "50%",
-                  background: "#e5e7eb",
+                  flex: 1,
                   display: "flex",
+                  flexDirection: "column",
                   alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: "8px",
-                  overflow: "hidden",
-                  border: "1px solid #d1d5db",
                 }}
               >
-                <img
-                  src={
-                    safeProfile.profileImage ||
-                    "https://via.placeholder.com/60x60?text=Profile"
-                  }
-                  alt="Profile"
+                {/* Main Photo Preview */}
+                <div
                   style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "cover",
+                    position: "relative",
+                    marginBottom: "24px",
                   }}
-                />
+                >
+                  <div
+                    style={{
+                      width: "200px",
+                      height: "200px",
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      border: "3px solid #f8f9fa",
+                      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                      position: "relative",
+                      background: "#f8f9fa",
+                    }}
+                  >
+                    <img
+                      src={
+                        imagePreview ||
+                        safeProfile.profileImage ||
+                        avatar ||
+                        "https://via.placeholder.com/200x200?text=Profile"
+                      }
+                      alt="Profile Preview"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        transform: `scale(${1 + zoomLevel / 100}) rotate(${rotationAngle}deg)`,
+                        transition: "transform 0.3s ease",
+                      }}
+                    />
+                  </div>
+                  
+                  {/* Move Button Overlay */}
+                  <motion.button
+                    style={{
+                      position: "absolute",
+                      bottom: "8px",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      background: "rgba(0, 0, 0, 0.7)",
+                      color: "#fff",
+                      border: "none",
+                      borderRadius: "20px",
+                      padding: "8px 16px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "6px",
+                    }}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    <FiMove size={14} />
+                    Move
+                  </motion.button>
+                </div>
+
+                {/* Zoom and Rotate Controls */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "24px",
+                    alignItems: "center",
+                    marginBottom: "24px",
+                  }}
+                >
+                  {/* Zoom Control */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <FiZoomIn size={16} style={{ color: "#666" }} />
+                    <span style={{ fontSize: "14px", fontWeight: "500" }}>Zoom</span>
+                    <input
+                      type="range"
+                      min="-50"
+                      max="50"
+                      value={zoomLevel}
+                      onChange={(e) => setZoomLevel(parseInt(e.target.value))}
+                      style={{
+                        width: "100px",
+                        height: "4px",
+                        borderRadius: "2px",
+                        background: "#e5e7eb",
+                        outline: "none",
+                        cursor: "pointer",
+                      }}
+                    />
+                    <span style={{ fontSize: "12px", color: "#666", minWidth: "20px" }}>
+                      {zoomLevel}
+                    </span>
+                  </div>
+
+                  {/* Rotate Control */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <FiRotateCw size={16} style={{ color: "#666" }} />
+                    <span style={{ fontSize: "14px", fontWeight: "500" }}>Rotate</span>
+                    <input
+                      type="range"
+                      min="-180"
+                      max="180"
+                      value={rotationAngle}
+                      onChange={(e) => setRotationAngle(parseInt(e.target.value))}
+                      style={{
+                        width: "100px",
+                        height: "4px",
+                        borderRadius: "2px",
+                        background: "#e5e7eb",
+                        outline: "none",
+                        cursor: "pointer",
+                      }}
+                    />
+                    <span style={{ fontSize: "12px", color: "#666", minWidth: "20px" }}>
+                      {rotationAngle}°
+                    </span>
+                  </div>
+                </div>
               </div>
-              <p
+
+              {/* Right Side - Tips and Previews */}
+              <div
                 style={{
-                  fontSize: "12px",
-                  color: "#6b7280",
-                  margin: 0,
-                  textAlign: "center",
-                  fontWeight: "400",
+                  width: "280px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "20px",
                 }}
               >
-                Current profile photo
-              </p>
+                {/* Headline */}
+                <div
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    lineHeight: "1.4",
+                  }}
+                >
+                  Show clients the best version of yourself!
+                </div>
+
+                {/* Small Previews */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "12px",
+                    justifyContent: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "60px",
+                      height: "60px",
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      border: "2px solid #e5e7eb",
+                    }}
+                  >
+                    <img
+                      src={
+                        imagePreview ||
+                        safeProfile.profileImage ||
+                        avatar ||
+                        "https://via.placeholder.com/60x60?text=Profile"
+                      }
+                      alt="Small Preview 1"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        transform: `scale(${1 + zoomLevel / 100}) rotate(${rotationAngle}deg)`,
+                      }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      width: "50px",
+                      height: "50px",
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      border: "2px solid #e5e7eb",
+                    }}
+                  >
+                    <img
+                      src={
+                        imagePreview ||
+                        safeProfile.profileImage ||
+                        avatar ||
+                        "https://via.placeholder.com/50x50?text=Profile"
+                      }
+                      alt="Small Preview 2"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        transform: `scale(${1 + zoomLevel / 100}) rotate(${rotationAngle}deg)`,
+                      }}
+                    />
+                  </div>
+                  <div
+                    style={{
+                      width: "50px",
+                      height: "50px",
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      border: "2px solid #e5e7eb",
+                    }}
+                  >
+                    <img
+                      src={
+                        imagePreview ||
+                        safeProfile.profileImage ||
+                        avatar ||
+                        "https://via.placeholder.com/50x50?text=Profile"
+                      }
+                      alt="Small Preview 3"
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                        transform: `scale(${1 + zoomLevel / 100}) rotate(${rotationAngle}deg)`,
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Guidelines */}
+                <div
+                  style={{
+                    fontSize: "14px",
+                    color: "#666",
+                    lineHeight: "1.5",
+                    padding: "16px",
+                    background: "#f8f9fa",
+                    borderRadius: "8px",
+                    border: "1px solid #e5e7eb",
+                  }}
+                >
+                  Must be an actual photo of you. Logos, clip-art, group photos, and digitally-altered images are not allowed.
+                </div>
+
+                {/* Learn More Link */}
+                <motion.div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    color: "#007476",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                  whileHover={{ color: "#005a58" }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <span>Learn more</span>
+                  <FiExternalLink size={12} />
+                </motion.div>
+              </div>
             </div>
 
-            {/* Upload Section */}
-            <div
-              style={{
-                border: "1px dashed #d1d5db",
-                borderRadius: "4px",
-                padding: "20px 12px",
-                textAlign: "center",
-                marginBottom: "16px",
-                background: "#fafafa",
-                cursor: "pointer",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.borderColor = "#007476";
-                e.target.style.background = "#f0fdfa";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.borderColor = "#d1d5db";
-                e.target.style.background = "#fafafa";
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "24px",
-                  color: "#9ca3af",
-                  marginBottom: "6px",
-                }}
-              >
-                📷
-              </div>
-              <p
-                style={{
-                  fontSize: "13px",
-                  fontWeight: "500",
-                  color: "#374151",
-                  margin: "0 0 4px 0",
-                }}
-              >
-                Upload a new photo
-              </p>
-              <p
-                style={{
-                  fontSize: "11px",
-                  color: "#6b7280",
-                  margin: 0,
-                }}
-              >
-                JPG, PNG or GIF. Max size of 800K
-              </p>
-            </div>
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept="image/*"
+              onChange={handleImageSelect}
+              style={{ display: "none" }}
+            />
 
             {/* Modal Footer */}
             <div
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
-                gap: "6px",
-                paddingTop: "8px",
+                gap: "12px",
+                marginTop: "24px",
+                paddingTop: "20px",
                 borderTop: "1px solid #e5e7eb",
               }}
             >
               <motion.button
-                onClick={() => setShowProfileImageModal(false)}
+                onClick={() => {
+                  // Trigger file input
+                  fileInputRef.current?.click();
+                }}
                 style={{
-                  padding: "6px 12px",
+                  padding: "10px 20px",
                   border: "1px solid #d1d5db",
                   background: "#fff",
                   color: "#374151",
-                  fontSize: "12px",
-                  fontWeight: "400",
+                  fontSize: "14px",
+                  fontWeight: "500",
                   cursor: "pointer",
-                  borderRadius: "3px",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f9fafb",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Change image
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  // Reset values and close modal
+                  setZoomLevel(0);
+                  setRotationAngle(0);
+                  setSelectedImage(null);
+                  setImagePreview(null);
+                  setShowProfileImageModal(false);
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "1px solid #d1d5db",
+                  background: "#fff",
+                  color: "#374151",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={{
@@ -2926,29 +3351,569 @@ const FreelancersProfilePage = () => {
               </motion.button>
               <motion.button
                 onClick={() => {
-                  // Here you would typically handle the image upload
-                  console.log("Uploading profile image...");
+                  // Here you would typically save the edited image
+                  console.log("Saving edited profile image...");
+                  console.log("Zoom level:", zoomLevel);
+                  console.log("Rotation angle:", rotationAngle);
+                  console.log("Selected image:", selectedImage);
                   setShowProfileImageModal(false);
-                  // You can add API call here to upload the image
+                  // You can add API call here to save the edited image
                 }}
                 style={{
-                  padding: "6px 12px",
+                  padding: "10px 20px",
                   border: "none",
                   background: "#007476",
                   color: "#fff",
-                  fontSize: "12px",
-                  fontWeight: "400",
+                  fontSize: "14px",
+                  fontWeight: "500",
                   cursor: "pointer",
-                  borderRadius: "3px",
+                  borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#005a5c",
+                  background: "#005a58",
                 }}
                 whileTap={{ scale: 0.95 }}
               >
-                Upload Photo
+                Save photo
               </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Video Introduction Modal */}
+      {showVideoModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+          onClick={() => setShowVideoModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "500px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+                paddingBottom: "16px",
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  color: "#111827",
+                  margin: 0,
+                }}
+              >
+                Add video introduction
+              </h2>
+              <motion.button
+                onClick={() => setShowVideoModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "32px",
+                  height: "32px",
+                }}
+                whileHover={{
+                  background: "#f3f4f6",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ marginBottom: "24px" }}>
+              <div style={{ marginBottom: "16px" }}>
+                <label
+                  style={{
+                    fontSize: "14px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Link to your YouTube video
+                </label>
+                <input
+                  type="url"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "16px",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007674";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                  placeholder="Ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                  autoFocus
+                />
+              </div>
+
+              {/* Guidelines Link */}
+              <motion.div
+                style={{
+                  color: "#007476",
+                  fontSize: "16px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  display: "inline-block",
+                }}
+                whileHover={{ color: "#005a58" }}
+                transition={{ duration: 0.2 }}
+              >
+                Does your video meet Worksyde's guidelines?
+              </motion.div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+                paddingTop: "20px",
+                borderTop: "1px solid #e5e7eb",
+              }}
+            >
+              <motion.button
+                onClick={() => {
+                  setVideoUrl("");
+                  setShowVideoModal(false);
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: "none",
+                  color: "#007674",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  // Extract YouTube video info
+                  const videoInfo = extractYouTubeInfo(videoUrl);
+                  if (videoInfo) {
+                    setSavedVideoUrl(videoUrl);
+                    setVideoThumbnail(videoInfo.thumbnailUrl);
+                    setVideoId(videoInfo.videoId);
+                    setVideoTitle("Meet " + name); // Using the freelancer's name
+                    console.log("Saving video URL:", videoUrl);
+                    console.log("Video thumbnail:", videoInfo.thumbnailUrl);
+                    console.log("Video ID:", videoInfo.videoId);
+                  } else {
+                    alert("Please enter a valid YouTube URL");
+                    return;
+                  }
+                  setShowVideoModal(false);
+                  // You can add API call here to save the video URL
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: videoUrl.trim() ? "#007476" : "#e5e7eb",
+                  color: videoUrl.trim() ? "#fff" : "#9ca3af",
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  cursor: videoUrl.trim() ? "pointer" : "not-allowed",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={
+                  videoUrl.trim()
+                    ? { background: "#005a58" }
+                    : {}
+                }
+                whileTap={videoUrl.trim() ? { scale: 0.95 } : {}}
+                disabled={!videoUrl.trim()}
+              >
+                Save
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Video Player Modal */}
+      {showVideoPlayerModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.8)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "20px",
+          }}
+          onClick={() => setShowVideoPlayerModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "900px",
+              maxHeight: "90vh",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+                paddingBottom: "16px",
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  color: "#111827",
+                  margin: 0,
+                }}
+              >
+                Video introduction
+              </h2>
+              <motion.button
+                onClick={() => setShowVideoPlayerModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "32px",
+                  height: "32px",
+                }}
+                whileHover={{
+                  background: "#f3f4f6",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Video Player Area */}
+            <div
+              style={{
+                position: "relative",
+                width: "100%",
+                background: "#000",
+                borderRadius: "8px",
+                overflow: "hidden",
+                marginBottom: "20px",
+              }}
+            >
+              {/* YouTube Video Player */}
+              <iframe
+                src={`https://www.youtube.com/embed/${videoId}?autoplay=1&rel=0`}
+                title="Video introduction"
+                style={{
+                  width: "100%",
+                  height: "400px",
+                  border: "none",
+                }}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+
+              {/* Video Title Overlay */}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "16px",
+                  left: "16px",
+                  right: "16px",
+                  textAlign: "center",
+                }}
+              >
+                <div
+                  style={{
+                    color: "#fff",
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    textShadow: "2px 2px 4px rgba(0, 0, 0, 0.8)",
+                    fontFamily: "cursive, serif",
+                    marginBottom: "4px",
+                  }}
+                >
+                  Pal Pal Dil Ke Paas
+                </div>
+                <div
+                  style={{
+                    color: "#fff",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    textShadow: "1px 1px 2px rgba(0, 0, 0, 0.8)",
+                  }}
+                >
+                  Title Track
+                </div>
+              </div>
+
+              {/* Watch on YouTube Button */}
+              <motion.button
+                onClick={() => window.open(savedVideoUrl, '_blank')}
+                style={{
+                  position: "absolute",
+                  bottom: "16px",
+                  left: "16px",
+                  background: "#000",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "8px 12px",
+                  fontSize: "12px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.3)",
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <div
+                  style={{
+                    width: "16px",
+                    height: "16px",
+                    background: "#ff0000",
+                    borderRadius: "2px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 0,
+                      height: 0,
+                      borderLeft: "6px solid #fff",
+                      borderTop: "4px solid transparent",
+                      borderBottom: "4px solid transparent",
+                    }}
+                  />
+                </div>
+                Watch on YouTube
+              </motion.button>
+
+              {/* Copy Link Button */}
+              <motion.button
+                onClick={() => {
+                  navigator.clipboard.writeText(savedVideoUrl);
+                  // You could add a toast notification here
+                  alert("Link copied to clipboard!");
+                }}
+                style={{
+                  position: "absolute",
+                  top: "16px",
+                  right: "16px",
+                  background: "rgba(0, 0, 0, 0.7)",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "8px 12px",
+                  fontSize: "12px",
+                  fontWeight: "500",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <div
+                  style={{
+                    width: "12px",
+                    height: "12px",
+                    border: "1px solid #fff",
+                    borderRadius: "2px",
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "2px",
+                      left: "2px",
+                      width: "6px",
+                      height: "6px",
+                      border: "1px solid #fff",
+                      borderRadius: "1px",
+                    }}
+                  />
+                </div>
+                Copy link
+              </motion.button>
+            </div>
+
+            {/* Video Stats */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "16px",
+                background: "#f8f9fa",
+                borderRadius: "8px",
+                border: "1px solid #e5e7eb",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <div
+                  style={{
+                    background: "rgba(0, 0, 0, 0.8)",
+                    color: "#fff",
+                    padding: "8px 12px",
+                    borderRadius: "6px",
+                    textAlign: "center",
+                    minWidth: "80px",
+                  }}
+                >
+                  <div style={{ fontSize: "16px", fontWeight: "700", lineHeight: "1" }}>
+                    460+
+                  </div>
+                  <div style={{ fontSize: "10px", fontWeight: "600", lineHeight: "1" }}>
+                    MILLION VIEWS
+                  </div>
+                  <div style={{ fontSize: "10px", marginTop: "2px" }}>
+                    ACROSS YouTube
+                  </div>
+                </div>
+              </div>
+              
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <div
+                  style={{
+                    background: "rgba(255, 255, 255, 0.9)",
+                    color: "#000",
+                    padding: "4px 8px",
+                    borderRadius: "4px",
+                    fontSize: "10px",
+                    fontWeight: "600",
+                    fontFamily: "monospace",
+                  }}
+                >
+                  Z MUSIC CO.
+                </div>
+                <div
+                  style={{
+                    background: "rgba(255, 255, 255, 0.9)",
+                    color: "#000",
+                    padding: "2px 6px",
+                    borderRadius: "3px",
+                    fontSize: "8px",
+                    fontWeight: "600",
+                    fontFamily: "monospace",
+                  }}
+                >
+                  ZEE MUSIC
+                </div>
+                <div
+                  style={{
+                    background: "rgba(255, 255, 255, 0.9)",
+                    color: "#000",
+                    padding: "2px 6px",
+                    borderRadius: "3px",
+                    fontSize: "8px",
+                    fontWeight: "600",
+                    fontFamily: "monospace",
+                  }}
+                >
+                  ZEE STUDIOS
+                </div>
+              </div>
             </div>
           </motion.div>
         </motion.div>
