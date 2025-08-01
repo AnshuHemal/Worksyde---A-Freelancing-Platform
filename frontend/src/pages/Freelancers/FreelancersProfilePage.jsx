@@ -80,7 +80,22 @@ const FreelancersProfilePage = () => {
   const [selectedLanguageIndex, setSelectedLanguageIndex] = useState(0);
   const [editingLanguages, setEditingLanguages] = useState([]);
   const [showHourlyRateModal, setShowHourlyRateModal] = useState(false);
+  const [showEmploymentModal, setShowEmploymentModal] = useState(false);
+  const [isEditingEmployment, setIsEditingEmployment] = useState(false);
+  const [editingEmploymentIndex, setEditingEmploymentIndex] = useState(null);
   const [hourlyRateValue, setHourlyRateValue] = useState("1000");
+  
+  // Employment form state
+  const [employmentCompany, setEmploymentCompany] = useState("");
+  const [employmentCity, setEmploymentCity] = useState("");
+  const [employmentCountry, setEmploymentCountry] = useState("");
+  const [employmentTitle, setEmploymentTitle] = useState("");
+  const [employmentStartMonth, setEmploymentStartMonth] = useState("");
+  const [employmentStartYear, setEmploymentStartYear] = useState("");
+  const [employmentEndMonth, setEmploymentEndMonth] = useState("");
+  const [employmentEndYear, setEmploymentEndYear] = useState("");
+  const [employmentCurrentlyWorking, setEmploymentCurrentlyWorking] = useState(false);
+  const [employmentDescription, setEmploymentDescription] = useState("");
 
   useEffect(() => {
     const fetchData = async () => {
@@ -193,6 +208,65 @@ const FreelancersProfilePage = () => {
     setEducationEndYear("");
     setEducationDescription("");
     setEducationIsExpected(false);
+  };
+
+  const handleAddEmployment = () => {
+    setShowEmploymentModal(true);
+    setIsEditingEmployment(false);
+    setEditingEmploymentIndex(null);
+    setEmploymentCompany("");
+    setEmploymentCity("");
+    setEmploymentCountry("");
+    setEmploymentTitle("");
+    setEmploymentStartMonth("");
+    setEmploymentStartYear("");
+    setEmploymentEndMonth("");
+    setEmploymentEndYear("");
+    setEmploymentCurrentlyWorking(false);
+  };
+
+  const handleEditEmployment = (index) => {
+    const experience = employmentHistory[index];
+    setShowEmploymentModal(true);
+    setIsEditingEmployment(true);
+    setEditingEmploymentIndex(index);
+    setEmploymentCompany(experience.company || "");
+    setEmploymentCity(experience.city || "");
+    setEmploymentCountry(experience.country || "");
+    setEmploymentTitle(experience.title || "");
+    setEmploymentDescription(experience.description || "")
+    
+    // Parse start date
+    if (experience.startDate) {
+      const startDate = new Date(experience.startDate);
+      setEmploymentStartMonth((startDate.getMonth() + 1).toString());
+      setEmploymentStartYear(startDate.getFullYear().toString());
+    }
+    
+    // Parse end date
+    if (experience.endDate && experience.endDate !== "Present") {
+      const endDate = new Date(experience.endDate);
+      setEmploymentEndMonth((endDate.getMonth() + 1).toString());
+      setEmploymentEndYear(endDate.getFullYear().toString());
+      setEmploymentCurrentlyWorking(false);
+    } else {
+      setEmploymentCurrentlyWorking(true);
+    }
+  };
+
+  const handleCloseEmploymentModal = () => {
+    setShowEmploymentModal(false);
+    setIsEditingEmployment(false);
+    setEditingEmploymentIndex(null);
+    setEmploymentCompany("");
+    setEmploymentCity("");
+    setEmploymentCountry("");
+    setEmploymentTitle("");
+    setEmploymentStartMonth("");
+    setEmploymentStartYear("");
+    setEmploymentEndMonth("");
+    setEmploymentEndYear("");
+    setEmploymentCurrentlyWorking(false);
   };
 
   // Fetch available languages from LanguageTool API
@@ -538,7 +612,7 @@ const FreelancersProfilePage = () => {
                   background: "#fff",
                   color: "#007674",
                   fontWeight: "600",
-                  fontSize: "15px",
+                  fontSize: "18px",
                   borderRadius: "8px",
                   padding: "10px 20px",
                   cursor: "pointer",
@@ -558,7 +632,7 @@ const FreelancersProfilePage = () => {
                   background: "#007674",
                   color: "#fff",
                   fontWeight: "600",
-                  fontSize: "15px",
+                  fontSize: "18px",
                   borderRadius: "8px",
                   padding: "10px 20px",
                   cursor: "pointer",
@@ -585,7 +659,7 @@ const FreelancersProfilePage = () => {
                 alignItems: "center",
                 gap: "6px",
                 color: "#007674",
-                fontSize: "14px",
+                fontSize: "18px",
                 fontWeight: "600",
                 cursor: "pointer",
                 padding: "4px 8px",
@@ -625,7 +699,7 @@ const FreelancersProfilePage = () => {
               fontSize: 18, // Slightly increased font size for all sidebar text
             }}
           >
-            {/* Connects Box */}
+            {/* Tokens Box */}
             <div
               style={{
                 background: "#fafbfb",
@@ -633,11 +707,11 @@ const FreelancersProfilePage = () => {
                 padding: "18px 20px 14px 20px",
                 marginBottom: 32,
                 boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
-                fontSize: 19, // Slightly larger for Connects box
+                fontSize: 19,
               }}
             >
               <div style={{ fontWeight: 600, fontSize: 20, marginBottom: 8 }}>
-                Connects: 90
+                WS-Tokens: 90
               </div>
               <div
                 style={{
@@ -652,7 +726,7 @@ const FreelancersProfilePage = () => {
                 </span>
                 <span style={{ color: "#bbb" }}>|</span>
                 <span style={{ color: "#007476", cursor: "pointer" }}>
-                  Buy Connects
+                  Buy Tokens
                 </span>
               </div>
             </div>
@@ -1107,10 +1181,10 @@ const FreelancersProfilePage = () => {
                 marginBottom: "16px",
               }}
             >
-              <div style={{ 
-                display: "flex", 
-                alignItems: "center", 
-                gap: 12 
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12
               }}>
                 <div style={{ fontSize: 26, fontWeight: 600 }}>{title}</div>
                 <motion.div
@@ -1136,13 +1210,13 @@ const FreelancersProfilePage = () => {
                   <MdEdit size={16} />
                 </motion.div>
               </div>
-              <div style={{ 
-                display: "flex", 
-                alignItems: "center", 
+              <div style={{
+                display: "flex",
+                alignItems: "center",
                 gap: 12,
-                fontSize: 22, 
-                fontWeight: 600, 
-                color: "#007476" 
+                fontSize: 22,
+                fontWeight: 600,
+                color: "#007476"
               }}>
                 <div>{hourlyRate}</div>
                 <motion.div
@@ -1163,12 +1237,12 @@ const FreelancersProfilePage = () => {
                   }}
                   whileTap={{ scale: 0.95 }}
                   title="Edit Hourly Rate"
-                                  onClick={() => {
-                  // Extract numeric value from hourly rate (e.g., "₹1000/hr" -> "1000")
-                  const numericValue = hourlyRate.replace(/[^0-9]/g, "");
-                  setHourlyRateValue(numericValue || "1000");
-                  setShowHourlyRateModal(true);
-                }}
+                  onClick={() => {
+                    // Extract numeric value from hourly rate (e.g., "₹1000/hr" -> "1000")
+                    const numericValue = hourlyRate.replace(/[^0-9]/g, "");
+                    setHourlyRateValue(numericValue || "1000");
+                    setShowHourlyRateModal(true);
+                  }}
                 >
                   <MdEdit size={16} />
                 </motion.div>
@@ -1410,7 +1484,7 @@ const FreelancersProfilePage = () => {
                 <motion.div
                   style={{
                     color: "#007674",
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: 600,
                     cursor: "pointer",
                     marginBottom: "8px",
@@ -1425,7 +1499,7 @@ const FreelancersProfilePage = () => {
                 <div
                   style={{
                     color: "#1a1a1a",
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: 500,
                     maxWidth: "300px",
                     lineHeight: 1.4,
@@ -1468,6 +1542,7 @@ const FreelancersProfilePage = () => {
                 <motion.button
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={handleAddEmployment}
                   style={{
                     width: 32,
                     height: 32,
@@ -1550,6 +1625,7 @@ const FreelancersProfilePage = () => {
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
+                          onClick={() => handleEditEmployment(index)}
                           style={{
                             width: 32,
                             height: 32,
@@ -1805,7 +1881,7 @@ const FreelancersProfilePage = () => {
               <h3
                 style={{
                   margin: 0,
-                  fontSize: "20px",
+                  fontSize: "24px",
                   fontWeight: "600",
                   color: "#1a1a1a",
                 }}
@@ -1842,7 +1918,7 @@ const FreelancersProfilePage = () => {
               <p
                 style={{
                   margin: "0 0 16px 0",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   color: "#666",
                   lineHeight: "1.5",
                 }}
@@ -1855,7 +1931,7 @@ const FreelancersProfilePage = () => {
               <div style={{ marginBottom: "8px" }}>
                 <label
                   style={{
-                    fontSize: "14px",
+                    fontSize: "18px",
                     fontWeight: "600",
                     color: "#1a1a1a",
                     display: "block",
@@ -1873,7 +1949,7 @@ const FreelancersProfilePage = () => {
                     padding: "12px 16px",
                     border: "1px solid #d1d5db",
                     borderRadius: "8px",
-                    fontSize: "16px",
+                    fontSize: "18px",
                     outline: "none",
                     transition: "border-color 0.2s ease",
                     boxSizing: "border-box",
@@ -2003,7 +2079,7 @@ const FreelancersProfilePage = () => {
               <h3
                 style={{
                   margin: 0,
-                  fontSize: "20px",
+                  fontSize: "24px",
                   fontWeight: "600",
                   color: "#1a1a1a",
                 }}
@@ -2046,7 +2122,7 @@ const FreelancersProfilePage = () => {
               <p
                 style={{
                   margin: "0 0 16px 0",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   color: "#666",
                   lineHeight: "1.5",
                 }}
@@ -2059,7 +2135,7 @@ const FreelancersProfilePage = () => {
                 style={{
                   margin: "0 0 16px 0",
                   paddingLeft: "20px",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   color: "#666",
                   lineHeight: "1.6",
                 }}
@@ -2078,7 +2154,7 @@ const FreelancersProfilePage = () => {
               <motion.div
                 style={{
                   color: "#007674",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "600",
                   cursor: "pointer",
                   marginBottom: "20px",
@@ -2093,7 +2169,7 @@ const FreelancersProfilePage = () => {
               <div style={{ marginBottom: "8px" }}>
                 <label
                   style={{
-                    fontSize: "14px",
+                    fontSize: "18px",
                     fontWeight: "600",
                     color: "#1a1a1a",
                     display: "block",
@@ -2115,7 +2191,7 @@ const FreelancersProfilePage = () => {
                       padding: "16px",
                       border: "1px solid #d1d5db",
                       borderRadius: "8px",
-                      fontSize: "16px",
+                      fontSize: "18px",
                       outline: "none",
                       transition: "border-color 0.2s ease",
                       boxSizing: "border-box",
@@ -2137,7 +2213,7 @@ const FreelancersProfilePage = () => {
                       position: "absolute",
                       bottom: "12px",
                       right: "12px",
-                      fontSize: "12px",
+                      fontSize: "16px",
                       color: "#666",
                       background: "rgba(255, 255, 255, 0.9)",
                       padding: "2px 6px",
@@ -2261,7 +2337,7 @@ const FreelancersProfilePage = () => {
               <h3
                 style={{
                   margin: 0,
-                  fontSize: "20px",
+                  fontSize: "24px",
                   fontWeight: "600",
                   color: "#1a1a1a",
                 }}
@@ -2298,7 +2374,7 @@ const FreelancersProfilePage = () => {
               <div style={{ marginBottom: "8px" }}>
                 <label
                   style={{
-                    fontSize: "14px",
+                    fontSize: "18px",
                     fontWeight: "600",
                     color: "#1a1a1a",
                     display: "block",
@@ -2521,7 +2597,7 @@ const FreelancersProfilePage = () => {
               <h3
                 style={{
                   margin: 0,
-                  fontSize: "22px",
+                  fontSize: "24px",
                   fontWeight: "600",
                   letterSpacing: "0.4px",
                   color: "#1a1a1a",
@@ -2560,7 +2636,7 @@ const FreelancersProfilePage = () => {
               <div style={{ marginBottom: "20px" }}>
                 <label
                   style={{
-                    fontSize: "16px",
+                    fontSize: "18px",
                     fontWeight: "600",
                     color: "#1a1a1a",
                     display: "block",
@@ -2578,7 +2654,7 @@ const FreelancersProfilePage = () => {
                     padding: "12px",
                     border: "1px solid #d1d5db",
                     borderRadius: "8px",
-                    fontSize: "16px",
+                    fontSize: "18px",
                     color: "#1a1a1a",
                     background: "#fff",
                     outline: "none",
@@ -2598,7 +2674,7 @@ const FreelancersProfilePage = () => {
               <div style={{ marginBottom: "20px" }}>
                 <label
                   style={{
-                    fontSize: "17px",
+                    fontSize: "18px",
                     fontWeight: "600",
                     color: "#1a1a1a",
                     display: "block",
@@ -2747,7 +2823,7 @@ const FreelancersProfilePage = () => {
               <h3
                 style={{
                   margin: 0,
-                  fontSize: "22px",
+                  fontSize: "24px",
                   fontWeight: "600",
                   color: "#1a1a1a",
                 }}
@@ -2785,7 +2861,7 @@ const FreelancersProfilePage = () => {
               <div style={{ marginBottom: "20px" }}>
                 <label
                   style={{
-                    fontSize: "16px",
+                    fontSize: "18px",
                     fontWeight: "600",
                     color: "#1a1a1a",
                     display: "block",
@@ -2803,7 +2879,7 @@ const FreelancersProfilePage = () => {
                     padding: "12px",
                     border: "1px solid #d1d5db",
                     borderRadius: "8px",
-                    fontSize: "16px",
+                    fontSize: "18px",
                     color: "#1a1a1a",
                     background: "#fff",
                     outline: "none",
@@ -2823,7 +2899,7 @@ const FreelancersProfilePage = () => {
               <div style={{ marginBottom: "20px" }}>
                 <label
                   style={{
-                    fontSize: "16px",
+                    fontSize: "18px",
                     fontWeight: "600",
                     color: "#1a1a1a",
                     display: "block",
@@ -3163,7 +3239,7 @@ const FreelancersProfilePage = () => {
             >
               <h2
                 style={{
-                  fontSize: "20px",
+                  fontSize: "24px",
                   fontWeight: "600",
                   color: "#111827",
                   margin: 0,
@@ -3290,7 +3366,7 @@ const FreelancersProfilePage = () => {
                   {/* Zoom Control */}
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <FiZoomIn size={16} style={{ color: "#666" }} />
-                    <span style={{ fontSize: "14px", fontWeight: "500" }}>Zoom</span>
+                    <span style={{ fontSize: "16px", fontWeight: "500" }}>Zoom</span>
                     <input
                       type="range"
                       min="-50"
@@ -3314,7 +3390,7 @@ const FreelancersProfilePage = () => {
                   {/* Rotate Control */}
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <FiRotateCw size={16} style={{ color: "#666" }} />
-                    <span style={{ fontSize: "14px", fontWeight: "500" }}>Rotate</span>
+                    <span style={{ fontSize: "16px", fontWeight: "500" }}>Rotate</span>
                     <input
                       type="range"
                       min="-180"
@@ -3626,7 +3702,7 @@ const FreelancersProfilePage = () => {
             >
               <h2
                 style={{
-                  fontSize: "20px",
+                  fontSize: "24px",
                   fontWeight: "600",
                   color: "#111827",
                   margin: 0,
@@ -3664,7 +3740,7 @@ const FreelancersProfilePage = () => {
               <div style={{ marginBottom: "16px" }}>
                 <label
                   style={{
-                    fontSize: "14px",
+                    fontSize: "18px",
                     fontWeight: "600",
                     color: "#1a1a1a",
                     display: "block",
@@ -3677,16 +3753,16 @@ const FreelancersProfilePage = () => {
                   type="url"
                   value={videoUrl}
                   onChange={(e) => setVideoUrl(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "12px 16px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "8px",
-                    fontSize: "16px",
-                    outline: "none",
-                    transition: "border-color 0.2s ease",
-                    boxSizing: "border-box",
-                  }}
+                                      style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "18px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                    }}
                   onFocus={(e) => {
                     e.target.style.borderColor = "#007674";
                   }}
@@ -3735,7 +3811,7 @@ const FreelancersProfilePage = () => {
                   border: "none",
                   background: "none",
                   color: "#007674",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "500",
                   cursor: "pointer",
                   borderRadius: "6px",
@@ -3770,7 +3846,7 @@ const FreelancersProfilePage = () => {
                   border: "none",
                   background: videoUrl.trim() ? "#007476" : "#e5e7eb",
                   color: videoUrl.trim() ? "#fff" : "#9ca3af",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "500",
                   cursor: videoUrl.trim() ? "pointer" : "not-allowed",
                   borderRadius: "6px",
@@ -3956,7 +4032,7 @@ const FreelancersProfilePage = () => {
             >
               <h2
                 style={{
-                  fontSize: "20px",
+                  fontSize: "24px",
                   fontWeight: "600",
                   color: "#111827",
                   margin: 0,
@@ -4001,7 +4077,7 @@ const FreelancersProfilePage = () => {
               <div style={{ flex: 1, position: "relative" }}>
                 <label
                   style={{
-                    fontSize: "14px",
+                    fontSize: "18px",
                     fontWeight: "600",
                     color: "#1a1a1a",
                     display: "block",
@@ -4020,7 +4096,7 @@ const FreelancersProfilePage = () => {
                       padding: "12px 16px",
                       border: "1px solid #d1d5db",
                       borderRadius: "8px",
-                      fontSize: "16px",
+                      fontSize: "18px",
                       outline: "none",
                       transition: "border-color 0.2s ease",
                       boxSizing: "border-box",
@@ -4302,7 +4378,7 @@ const FreelancersProfilePage = () => {
                     border: "none",
                     background: "none",
                     color: "#007674",
-                    fontSize: "14px",
+                    fontSize: "16px",
                     fontWeight: "500",
                     cursor: "pointer",
                     borderRadius: "6px",
@@ -4329,7 +4405,7 @@ const FreelancersProfilePage = () => {
                     border: "none",
                     background: "#e5e7eb",
                     color: "#9ca3af",
-                    fontSize: "14px",
+                    fontSize: "16px",
                     fontWeight: "500",
                     cursor: "not-allowed",
                     borderRadius: "6px",
@@ -4393,7 +4469,7 @@ const FreelancersProfilePage = () => {
             >
               <h2
                 style={{
-                  fontSize: "20px",
+                  fontSize: "24px",
                   fontWeight: "600",
                   color: "#111827",
                   margin: 0,
@@ -4735,44 +4811,44 @@ const FreelancersProfilePage = () => {
         </motion.div>
       )}
 
-                  {/* Hourly Rate Modal */}
-            {showHourlyRateModal && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                style={{
-                  position: "fixed",
-                  top: 0,
-                  left: 0,
-                  width: "100%",
-                  height: "100%",
-                  backgroundColor: "rgba(0, 0, 0, 0.5)",
-                  backdropFilter: "blur(4px)",
-                  zIndex: 9999,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "20px",
-                }}
-                onClick={() => setShowHourlyRateModal(false)}
-              >
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                  transition={{ duration: 0.3, type: "spring", damping: 25 }}
-                  style={{
-                    background: "#fff",
-                    borderRadius: "12px",
-                    padding: "24px",
-                    width: "100%",
-                    maxWidth: "800px",
-                    boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
-                    border: "1px solid #e6e6e6",
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
+      {/* Hourly Rate Modal */}
+      {showHourlyRateModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={() => setShowHourlyRateModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "800px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* Modal Header */}
             <div
               style={{
@@ -4785,7 +4861,7 @@ const FreelancersProfilePage = () => {
               <h3
                 style={{
                   margin: 0,
-                  fontSize: "24px",
+                  fontSize: "26px",
                   fontWeight: "600",
                   color: "#1a1a1a",
                 }}
@@ -4821,16 +4897,16 @@ const FreelancersProfilePage = () => {
             <div style={{ marginBottom: "24px" }}>
               {/* Note */}
               <div style={{ marginBottom: "20px" }}>
-                <p style={{ 
-                  fontSize: "16px", 
+                                <p style={{ 
+                  fontSize: "18px", 
                   color: "#666", 
                   margin: "0 0 16px 0",
                   lineHeight: "1.5"
                 }}>
                   Please note that your new hourly rate will only apply to new contracts.
                 </p>
-                <p style={{ 
-                  fontSize: "18px", 
+                                <p style={{ 
+                  fontSize: "20px", 
                   color: "#1a1a1a", 
                   margin: "0 0 24px 0",
                   fontWeight: "500"
@@ -4904,7 +4980,7 @@ const FreelancersProfilePage = () => {
                   </div>
                 </div>
 
-                {/* Upwork Service Fee */}
+                {/* Worksyde Service Fee */}
                 <div style={{ marginBottom: "16px" }}>
                   <div style={{ marginBottom: "8px" }}>
                     <label style={{
@@ -4993,7 +5069,7 @@ const FreelancersProfilePage = () => {
                     background: "#f8f9fa",
                     color: "#1a1a1a"
                   }}>
-                                        <span style={{
+                    <span style={{
                       fontSize: "18px",
                       marginRight: "8px"
                     }}>
@@ -5028,11 +5104,11 @@ const FreelancersProfilePage = () => {
               <motion.button
                 onClick={() => setShowHourlyRateModal(false)}
                 style={{
-                  padding: "8px 16px",
+                  padding: "10px 20px",
                   border: "none",
                   background: "none",
                   color: "#007674",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "600",
                   cursor: "pointer",
                   borderRadius: "6px",
@@ -5052,11 +5128,11 @@ const FreelancersProfilePage = () => {
                   // You can add API call here to save the hourly rate
                 }}
                 style={{
-                  padding: "8px 16px",
+                  padding: "10px 20px",
                   border: "none",
                   background: "#007674",
                   color: "#fff",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "600",
                   cursor: "pointer",
                   borderRadius: "6px",
@@ -5068,6 +5144,529 @@ const FreelancersProfilePage = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 Save
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Employment Modal */}
+      {showEmploymentModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={handleCloseEmploymentModal}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "800px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "24px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
+                }}
+              >
+                {isEditingEmployment ? "Edit employment" : "Add employment"}
+              </h3>
+              <motion.button
+                onClick={handleCloseEmploymentModal}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#666",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  color: "#1a1a1a",
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ marginBottom: "24px" }}>
+              {/* Company Field */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Company
+                </label>
+                <input
+                  type="text"
+                  value={employmentCompany}
+                  onChange={(e) => setEmploymentCompany(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "18px",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007674";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                  placeholder="Ex: Worksyde"
+                  autoFocus
+                />
+              </div>
+
+              {/* City & Country Fields */}
+              <div style={{ display: "flex", gap: "12px", marginBottom: "20px" }}>
+                <div style={{ flex: 1 }}>
+                  <label
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    value={employmentCity}
+                    onChange={(e) => setEmploymentCity(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "18px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007674";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                    }}
+                    placeholder="Enter city"
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label
+                    style={{
+                      fontSize: "18px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    value={employmentCountry}
+                    onChange={(e) => setEmploymentCountry(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "18px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007674";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                    }}
+                    placeholder="Ex: United States"
+                  />
+                </div>
+              </div>
+
+              {/* Title Field */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={employmentTitle}
+                  onChange={(e) => setEmploymentTitle(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "18px",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007674";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                  placeholder="Ex: Senior Software Engineer"
+                />
+              </div>
+
+              {/* Date Fields */}
+              <div style={{ marginBottom: "20px" }}>
+                <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
+                  <div style={{ flex: 1 }}>
+                    <label
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: "600",
+                        color: "#1a1a1a",
+                        display: "block",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      Month
+                    </label>
+                    <select
+                      value={employmentStartMonth}
+                      onChange={(e) => setEmploymentStartMonth(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "12px 16px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        fontSize: "18px",
+                        outline: "none",
+                        transition: "border-color 0.2s ease",
+                        boxSizing: "border-box",
+                        background: "#fff",
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = "#007674";
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = "#d1d5db";
+                      }}
+                    >
+                      <option value="">From, month</option>
+                      <option value="1">January</option>
+                      <option value="2">February</option>
+                      <option value="3">March</option>
+                      <option value="4">April</option>
+                      <option value="5">May</option>
+                      <option value="6">June</option>
+                      <option value="7">July</option>
+                      <option value="8">August</option>
+                      <option value="9">September</option>
+                      <option value="10">October</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: "600",
+                        color: "#1a1a1a",
+                        display: "block",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      Year
+                    </label>
+                    <select
+                      value={employmentStartYear}
+                      onChange={(e) => setEmploymentStartYear(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "12px 16px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        fontSize: "18px",
+                        outline: "none",
+                        transition: "border-color 0.2s ease",
+                        boxSizing: "border-box",
+                        background: "#fff",
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = "#007674";
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = "#d1d5db";
+                      }}
+                    >
+                      <option value="">From, year</option>
+                      {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: "center", marginBottom: "12px" }}>
+                  <span style={{ fontSize: "16px", color: "#666" }}>through</span>
+                </div>
+
+                <div style={{ display: "flex", gap: "12px" }}>
+                  <div style={{ flex: 1 }}>
+                    <select
+                      value={employmentEndMonth}
+                      onChange={(e) => setEmploymentEndMonth(e.target.value)}
+                      disabled={employmentCurrentlyWorking}
+                      style={{
+                        width: "100%",
+                        padding: "12px 16px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        fontSize: "18px",
+                        outline: "none",
+                        transition: "border-color 0.2s ease",
+                        boxSizing: "border-box",
+                        background: employmentCurrentlyWorking ? "#f8f9fa" : "#fff",
+                        color: employmentCurrentlyWorking ? "#9ca3af" : "#1a1a1a",
+                      }}
+                      onFocus={(e) => {
+                        if (!employmentCurrentlyWorking) {
+                          e.target.style.borderColor = "#007674";
+                        }
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = "#d1d5db";
+                      }}
+                    >
+                      <option value="">Through, month</option>
+                      <option value="1">January</option>
+                      <option value="2">February</option>
+                      <option value="3">March</option>
+                      <option value="4">April</option>
+                      <option value="5">May</option>
+                      <option value="6">June</option>
+                      <option value="7">July</option>
+                      <option value="8">August</option>
+                      <option value="9">September</option>
+                      <option value="10">October</option>
+                      <option value="11">November</option>
+                      <option value="12">December</option>
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <select
+                      value={employmentEndYear}
+                      onChange={(e) => setEmploymentEndYear(e.target.value)}
+                      disabled={employmentCurrentlyWorking}
+                      style={{
+                        width: "100%",
+                        padding: "12px 16px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        fontSize: "18px",
+                        outline: "none",
+                        transition: "border-color 0.2s ease",
+                        boxSizing: "border-box",
+                        background: employmentCurrentlyWorking ? "#f8f9fa" : "#fff",
+                        color: employmentCurrentlyWorking ? "#9ca3af" : "#1a1a1a",
+                      }}
+                      onFocus={(e) => {
+                        if (!employmentCurrentlyWorking) {
+                          e.target.style.borderColor = "#007674";
+                        }
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = "#d1d5db";
+                      }}
+                    >
+                      <option value="">Through, year</option>
+                      {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map(year => (
+                        <option key={year} value={year}>{year}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Currently Working Checkbox */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    cursor: "pointer",
+                    fontSize: "18px",
+                    color: "#1a1a1a",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={employmentCurrentlyWorking}
+                    onChange={(e) => setEmploymentCurrentlyWorking(e.target.checked)}
+                    style={{
+                      marginRight: "12px",
+                      width: "18px",
+                      height: "18px",
+                      accentColor: "#007674",
+                    }}
+                  />
+                  I currently work here
+                </label>
+              </div>
+
+              {/* Description Field */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Description (Optional)
+                </label>
+                <textarea
+                  value={employmentDescription}
+                  onChange={e => setEmploymentDescription(e.target.value)}
+                  style={{
+                    width: "100%",
+                    minHeight: "120px",
+                    padding: "16px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "18px",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                    boxSizing: "border-box",
+                    resize: "vertical",
+                    fontFamily: "inherit",
+                  }}
+                  placeholder="Enter description"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+              }}
+            >
+              <motion.button
+                onClick={handleCloseEmploymentModal}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: "none",
+                  color: "#007674",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  // Here you would typically save the employment to your backend
+                  handleCloseEmploymentModal();
+                  // You can add API call here to save the employment
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: "#007674",
+                  color: "#fff",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#005a58",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                {isEditingEmployment ? "Update" : "Save"}
               </motion.button>
             </div>
           </motion.div>
