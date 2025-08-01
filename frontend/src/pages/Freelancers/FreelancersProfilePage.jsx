@@ -84,7 +84,7 @@ const FreelancersProfilePage = () => {
   const [isEditingEmployment, setIsEditingEmployment] = useState(false);
   const [editingEmploymentIndex, setEditingEmploymentIndex] = useState(null);
   const [hourlyRateValue, setHourlyRateValue] = useState("1000");
-  
+
   // Employment form state
   const [employmentCompany, setEmploymentCompany] = useState("");
   const [employmentCity, setEmploymentCity] = useState("");
@@ -235,14 +235,14 @@ const FreelancersProfilePage = () => {
     setEmploymentCountry(experience.country || "");
     setEmploymentTitle(experience.title || "");
     setEmploymentDescription(experience.description || "")
-    
+
     // Parse start date
     if (experience.startDate) {
       const startDate = new Date(experience.startDate);
       setEmploymentStartMonth((startDate.getMonth() + 1).toString());
       setEmploymentStartYear(startDate.getFullYear().toString());
     }
-    
+
     // Parse end date
     if (experience.endDate && experience.endDate !== "Present") {
       const endDate = new Date(experience.endDate);
@@ -704,7 +704,7 @@ const FreelancersProfilePage = () => {
               style={{
                 background: "#fafbfb",
                 borderRadius: 12,
-                padding: "18px 20px 14px 20px",
+                padding: "18px 20px 16px 20px",
                 marginBottom: 32,
                 boxShadow: "0 1px 2px rgba(0,0,0,0.03)",
                 fontSize: 19,
@@ -1863,7 +1863,7 @@ const FreelancersProfilePage = () => {
               borderRadius: "12px",
               padding: "24px",
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "800px",
               boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
               border: "1px solid #e6e6e6",
             }}
@@ -2406,7 +2406,7 @@ const FreelancersProfilePage = () => {
                         border: "1px solid #e6e6e6",
                         borderRadius: "20px",
                         padding: "6px 12px",
-                        fontSize: "14px",
+                        fontSize: "16px",
                         color: "#1a1a1a",
                         display: "flex",
                         alignItems: "center",
@@ -2468,7 +2468,7 @@ const FreelancersProfilePage = () => {
                     style={{
                       border: "none",
                       outline: "none",
-                      fontSize: "14px",
+                      fontSize: "16px",
                       color: "#1a1a1a",
                       background: "transparent",
                       minWidth: "120px",
@@ -2579,7 +2579,7 @@ const FreelancersProfilePage = () => {
               borderRadius: "12px",
               padding: "24px",
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "800px",
               boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
               border: "1px solid #e6e6e6",
             }}
@@ -2817,7 +2817,7 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "14px",
+                marginBottom: "16px",
               }}
             >
               <h3
@@ -3339,7 +3339,7 @@ const FreelancersProfilePage = () => {
                       border: "none",
                       borderRadius: "20px",
                       padding: "8px 16px",
-                      fontSize: "14px",
+                      fontSize: "16px",
                       fontWeight: "500",
                       cursor: "pointer",
                       display: "flex",
@@ -3522,7 +3522,7 @@ const FreelancersProfilePage = () => {
                 {/* Guidelines */}
                 <div
                   style={{
-                    fontSize: "14px",
+                    fontSize: "16px",
                     color: "#666",
                     lineHeight: "1.5",
                     padding: "16px",
@@ -3541,7 +3541,7 @@ const FreelancersProfilePage = () => {
                     alignItems: "center",
                     gap: "6px",
                     color: "#007476",
-                    fontSize: "14px",
+                    fontSize: "16px",
                     fontWeight: "500",
                     cursor: "pointer",
                     textDecoration: "underline",
@@ -3585,7 +3585,7 @@ const FreelancersProfilePage = () => {
                   border: "1px solid #d1d5db",
                   background: "#fff",
                   color: "#374151",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "500",
                   cursor: "pointer",
                   borderRadius: "6px",
@@ -3612,7 +3612,7 @@ const FreelancersProfilePage = () => {
                   border: "1px solid #d1d5db",
                   background: "#fff",
                   color: "#374151",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "500",
                   cursor: "pointer",
                   borderRadius: "6px",
@@ -3636,7 +3636,7 @@ const FreelancersProfilePage = () => {
                   border: "none",
                   background: "#007476",
                   color: "#fff",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "500",
                   cursor: "pointer",
                   borderRadius: "6px",
@@ -3684,7 +3684,7 @@ const FreelancersProfilePage = () => {
               borderRadius: "12px",
               padding: "24px",
               width: "100%",
-              maxWidth: "500px",
+              maxWidth: "800px",
               boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
             }}
             onClick={(e) => e.stopPropagation()}
@@ -3708,7 +3708,7 @@ const FreelancersProfilePage = () => {
                   margin: 0,
                 }}
               >
-                Add video introduction
+                Add Video Introduction
               </h2>
               <motion.button
                 onClick={() => setShowVideoModal(false)}
@@ -3753,16 +3753,16 @@ const FreelancersProfilePage = () => {
                   type="url"
                   value={videoUrl}
                   onChange={(e) => setVideoUrl(e.target.value)}
-                                      style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "8px",
-                      fontSize: "18px",
-                      outline: "none",
-                      transition: "border-color 0.2s ease",
-                      boxSizing: "border-box",
-                    }}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "18px",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                    boxSizing: "border-box",
+                  }}
                   onFocus={(e) => {
                     e.target.style.borderColor = "#007674";
                   }}
@@ -4178,7 +4178,7 @@ const FreelancersProfilePage = () => {
                           >
                             <div
                               style={{
-                                fontSize: "14px",
+                                fontSize: "16px",
                                 fontWeight: "500",
                                 color: "#1a1a1a",
                               }}
@@ -4196,7 +4196,7 @@ const FreelancersProfilePage = () => {
               <div style={{ flex: 1, position: "relative" }}>
                 <label
                   style={{
-                    fontSize: "14px",
+                    fontSize: "16px",
                     fontWeight: "600",
                     color: "#1a1a1a",
                     display: "block",
@@ -4304,7 +4304,7 @@ const FreelancersProfilePage = () => {
                       >
                         <div
                           style={{
-                            fontSize: "14px",
+                            fontSize: "16px",
                             fontWeight: "600",
                             color: "#1a1a1a",
                             marginBottom: "4px",
@@ -4352,7 +4352,7 @@ const FreelancersProfilePage = () => {
                   border: "none",
                   background: "#374151",
                   color: "#fff",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "500",
                   cursor: "pointer",
                   borderRadius: "6px",
@@ -4506,7 +4506,7 @@ const FreelancersProfilePage = () => {
             <div style={{ marginBottom: "24px" }}>
               <label
                 style={{
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "600",
                   color: "#1a1a1a",
                   display: "block",
@@ -4539,7 +4539,7 @@ const FreelancersProfilePage = () => {
                     <div style={{ flex: 1 }}>
                       <label
                         style={{
-                          fontSize: "14px",
+                          fontSize: "16px",
                           fontWeight: "600",
                           color: "#1a1a1a",
                           display: "block",
@@ -4573,7 +4573,7 @@ const FreelancersProfilePage = () => {
                     <div style={{ flex: 1, position: "relative" }}>
                       <label
                         style={{
-                          fontSize: "14px",
+                          fontSize: "16px",
                           fontWeight: "600",
                           color: "#1a1a1a",
                           display: "block",
@@ -4691,7 +4691,7 @@ const FreelancersProfilePage = () => {
                             >
                               <div
                                 style={{
-                                  fontSize: "14px",
+                                  fontSize: "16px",
                                   fontWeight: "600",
                                   color: "#1a1a1a",
                                   marginBottom: "4px",
@@ -4763,7 +4763,7 @@ const FreelancersProfilePage = () => {
                   border: "none",
                   background: "none",
                   color: "#007674",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "500",
                   cursor: "pointer",
                   borderRadius: "6px",
@@ -4790,7 +4790,7 @@ const FreelancersProfilePage = () => {
                   border: "none",
                   background: editingLanguages.length > 0 ? "#007476" : "#e5e7eb",
                   color: editingLanguages.length > 0 ? "#fff" : "#9ca3af",
-                  fontSize: "14px",
+                  fontSize: "16px",
                   fontWeight: "500",
                   cursor: editingLanguages.length > 0 ? "pointer" : "not-allowed",
                   borderRadius: "6px",
@@ -4897,17 +4897,17 @@ const FreelancersProfilePage = () => {
             <div style={{ marginBottom: "24px" }}>
               {/* Note */}
               <div style={{ marginBottom: "20px" }}>
-                                <p style={{ 
-                  fontSize: "18px", 
-                  color: "#666", 
+                <p style={{
+                  fontSize: "18px",
+                  color: "#666",
                   margin: "0 0 16px 0",
                   lineHeight: "1.5"
                 }}>
                   Please note that your new hourly rate will only apply to new contracts.
                 </p>
-                                <p style={{ 
-                  fontSize: "20px", 
-                  color: "#1a1a1a", 
+                <p style={{
+                  fontSize: "20px",
+                  color: "#1a1a1a",
                   margin: "0 0 24px 0",
                   fontWeight: "500"
                 }}>
