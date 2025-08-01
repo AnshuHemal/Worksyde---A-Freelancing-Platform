@@ -7,6 +7,7 @@ urlpatterns = [
     path("logout/", views.logout),
     path("verify/", views.verify_view),
     path('current-user/', views.current_user),
+    path('update-user/', views.update_user),
     path('update-online-status/', views.update_online_status),
     path('user-status/<str:user_id>/', views.get_user_online_status),
     path('update-last-seen/', views.update_last_seen),

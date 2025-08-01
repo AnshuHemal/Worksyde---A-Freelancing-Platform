@@ -206,6 +206,58 @@ def current_user(request):
     )
 
 
+@api_view(["PUT"])
+@verify_token
+def update_user(request):
+    """Update user's basic information (name and email)"""
+    try:
+        user = request.user
+        data = request.data
+        
+        name = data.get("name")
+        email = data.get("email")
+        
+        # Validate required fields
+        if not name or not email:
+            return Response(
+                {"success": False, "message": "Name and email are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Check if email is already taken by another user
+        existing_user = User.objects(email=email).first()
+        if existing_user and str(existing_user.id) != str(user.id):
+            return Response(
+                {"success": False, "message": "Email is already taken by another user"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Update user information
+        user.name = name
+        user.email = email
+        user.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "User information updated successfully",
+                "user": {
+                    "_id": str(user.id),
+                    "name": user.name,
+                    "email": user.email,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        print("Error updating user:", e)
+        return Response(
+            {"success": False, "message": "Failed to update user information"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 @api_view(["POST"])
 @verify_token
 def update_online_status(request):
@@ -1095,7 +1147,7 @@ def add_photo_location(request):
     try:
         user_id = request.data.get("userId")
         dob = request.data.get("dob")
-        street = request.data.get("street")
+        street = request.data.get("streetAddress") or request.data.get("street")
         city = request.data.get("city")
         state = request.data.get("state")
         postal_code = request.data.get("postalCode")
@@ -1103,21 +1155,31 @@ def add_photo_location(request):
         phone = request.data.get("phone")
         photo = request.data.get("photo")
 
-        if not user_id or not dob or not street:
-            return Response({"message": "Missing required fields"}, status=400)
+        if not user_id:
+            return Response({"message": "User ID is required"}, status=400)
 
         req_obj = Requests.objects(userId=user_id).first()
         if not req_obj:
             req_obj = Requests(userId=user_id)
 
-        req_obj.dob = dob
-        req_obj.streetAddress = street
-        req_obj.city = city
-        req_obj.state = state
-        req_obj.postalCode = postal_code
-        req_obj.country = country
-        req_obj.phone = phone
-        req_obj.photograph = photo
+        # Only update fields that are provided
+        if dob is not None:
+            req_obj.dob = dob
+        if street is not None:
+            req_obj.streetAddress = street
+        if city is not None:
+            req_obj.city = city
+        if state is not None:
+            req_obj.state = state
+        if postal_code is not None:
+            req_obj.postalCode = postal_code
+        if country is not None:
+            req_obj.country = country
+        if phone is not None:
+            req_obj.phone = phone
+        if photo is not None:
+            req_obj.photograph = photo
+            
         req_obj.save()
 
         return Response(

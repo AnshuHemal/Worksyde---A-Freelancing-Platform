@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   FiEdit2,
@@ -24,6 +24,7 @@ const ACCENT = "#007476";
 
 const FreelancersProfilePage = () => {
   const { freelancerId } = useParams();
+  const navigate = useNavigate();
   const [summary, setSummary] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -148,6 +149,11 @@ const FreelancersProfilePage = () => {
       year: "numeric",
       month: "long",
     });
+  };
+
+  // Handle Profile Settings navigation
+  const handleProfileSettings = () => {
+    navigate("/ws/settings/contact-info");
   };
 
   // Handle image file selection
@@ -748,6 +754,7 @@ const FreelancersProfilePage = () => {
                 See public view
               </motion.button>
               <motion.button
+                onClick={handleProfileSettings}
                 style={{
                   background: "#007674",
                   color: "#fff",
