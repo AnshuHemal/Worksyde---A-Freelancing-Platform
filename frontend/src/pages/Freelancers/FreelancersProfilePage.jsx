@@ -69,7 +69,6 @@ const FreelancersProfilePage = () => {
       const currentBio = safeProfile.bio || safeSummary.bio || "";
       setTitleValue(currentTitle);
       setBioValue(currentBio);
-      console.log("Bio value set:", currentBio); // Debug log
     }
   }, [profile, summary, safeProfile.bio, safeSummary.bio]);
 
@@ -77,7 +76,6 @@ const FreelancersProfilePage = () => {
   useEffect(() => {
     if (showBioModal) {
       const currentBio = safeProfile.bio || safeSummary.bio || "";
-      console.log("Modal opened, setting bio value:", currentBio);
       setBioValue(currentBio);
     }
   }, [showBioModal, safeProfile.bio, safeSummary.bio]);
@@ -85,11 +83,12 @@ const FreelancersProfilePage = () => {
   // Update skills value when modal opens
   useEffect(() => {
     if (showSkillsModal) {
-      const currentSkills = skills || [];
-      console.log("Skills modal opened, setting skills value:", currentSkills);
+      const currentSkills = (safeSummary.skills || safeProfile.skills || [])
+        .map((s) => s.name)
+        .filter(Boolean);
       setSkillsValue([...currentSkills]);
     }
-  }, [showSkillsModal, skills]);
+  }, [showSkillsModal, safeSummary.skills, safeProfile.skills]);
 
   if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
   if (error) return <div style={{ padding: 40, color: "red" }}>{error}</div>;
@@ -116,9 +115,6 @@ const FreelancersProfilePage = () => {
     .filter(Boolean);
   const education = safeProfile.education || [];
   const localTime = "6:01 pm local time";
-
-  // Hardcoded for demo
-  const hoursPerWeek = "Less than 30 hrs/week";
 
   // Add this after your other safeProfile/safeSummary assignments
   const isOnline = safeSummary.isOnline || safeProfile.isOnline || false;
@@ -527,7 +523,6 @@ const FreelancersProfilePage = () => {
                   style={{
                     width: "32px",
                     height: "32px",
-                    borderRadius: "50%",
                     borderRadius: "50%",
                     color: "#007674",
                     border: "2px solid #007674",
