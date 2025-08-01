@@ -22,6 +22,7 @@ from Auth.models import (
     Otp,
     JobAttachment,
     Language,
+    PaymentCard,
 )
 from .serializers import (
     EducationSerializer,
@@ -2099,3 +2100,288 @@ def get_client_profile(request, user_id):
     except Exception as e:
         print("Error in get_client_profile:", e)
         return Response({"message": "Server error", "error": str(e)}, status=500)
+
+
+# Payment Card API Endpoints
+@api_view(["POST"])
+@verify_token
+def add_payment_card(request):
+    """Add a new payment card for the authenticated user"""
+    try:
+        data = request.data
+        user_id = request.user.id
+        
+        # Validate required fields
+        required_fields = ['cardType', 'cardNumber', 'cardholderName', 'expiryMonth', 'expiryYear', 'cvv']
+        for field in required_fields:
+            if not data.get(field):
+                return Response(
+                    {"success": False, "message": f"{field} is required."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        
+        # Validate card number format (basic validation)
+        card_number = data.get('cardNumber', '').replace(' ', '')
+        if not card_number.isdigit() or len(card_number) < 13 or len(card_number) > 19:
+            return Response(
+                {"success": False, "message": "Invalid card number format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Validate expiry date
+        try:
+            expiry_month = int(data.get('expiryMonth'))
+            expiry_year = int(data.get('expiryYear'))
+            if expiry_month < 1 or expiry_month > 12:
+                raise ValueError("Invalid month")
+        except ValueError:
+            return Response(
+                {"success": False, "message": "Invalid expiry date."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Check if this card already exists for the user
+        existing_card = PaymentCard.objects(
+            userId=user_id,
+            cardNumber=card_number,
+            isActive=True
+        ).first()
+        
+        if existing_card:
+            return Response(
+                {"success": False, "message": "This card is already registered."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # If this is the first card, make it default
+        is_default = data.get('isDefault', False)
+        if is_default:
+            # Remove default from other cards
+            PaymentCard.objects(userId=user_id, isDefault=True).update(isDefault=False)
+        
+        # Create the payment card
+        payment_card = PaymentCard(
+            userId=user_id,
+            cardType=data.get('cardType'),
+            cardNumber=card_number,
+            cardholderName=data.get('cardholderName'),
+            expiryMonth=data.get('expiryMonth'),
+            expiryYear=data.get('expiryYear'),
+            cvv=data.get('cvv'),
+            isDefault=is_default,
+            billingAddress=data.get('billingAddress'),
+            billingCity=data.get('billingCity'),
+            billingState=data.get('billingState'),
+            billingPostalCode=data.get('billingPostalCode'),
+            billingCountry=data.get('billingCountry'),
+        )
+        
+        payment_card.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "Payment card added successfully.",
+                "card": {
+                    "id": str(payment_card.id),
+                    "cardType": payment_card.cardType,
+                    "lastFourDigits": payment_card.lastFourDigits,
+                    "cardholderName": payment_card.cardholderName,
+                    "expiryMonth": payment_card.expiryMonth,
+                    "expiryYear": payment_card.expiryYear,
+                    "isDefault": payment_card.isDefault,
+                    "cardBrand": payment_card.cardBrand,
+                }
+            },
+            status=status.HTTP_201_CREATED,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@verify_token
+def get_payment_cards(request):
+    """Get all payment cards for the authenticated user"""
+    try:
+        user_id = request.user.id
+        
+        cards = PaymentCard.objects(userId=user_id, isActive=True).order_by('-isDefault', '-createdAt')
+        
+        cards_data = []
+        for card in cards:
+            cards_data.append({
+                "id": str(card.id),
+                "cardType": card.cardType,
+                "lastFourDigits": card.lastFourDigits,
+                "cardholderName": card.cardholderName,
+                "expiryMonth": card.expiryMonth,
+                "expiryYear": card.expiryYear,
+                "isDefault": card.isDefault,
+                "cardBrand": card.cardBrand,
+                "billingAddress": card.billingAddress,
+                "billingCity": card.billingCity,
+                "billingState": card.billingState,
+                "billingPostalCode": card.billingPostalCode,
+                "billingCountry": card.billingCountry,
+                "createdAt": card.createdAt.isoformat() if card.createdAt else None,
+            })
+        
+        return Response(
+            {
+                "success": True,
+                "cards": cards_data
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["PUT"])
+@verify_token
+def update_payment_card(request, card_id):
+    """Update a payment card"""
+    try:
+        user_id = request.user.id
+        data = request.data
+        
+        # Get the card and verify ownership
+        try:
+            card = PaymentCard.objects.get(id=card_id, userId=user_id, isActive=True)
+        except PaymentCard.DoesNotExist:
+            return Response(
+                {"success": False, "message": "Payment card not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Update fields if provided
+        if 'cardholderName' in data:
+            card.cardholderName = data['cardholderName']
+        if 'expiryMonth' in data:
+            card.expiryMonth = data['expiryMonth']
+        if 'expiryYear' in data:
+            card.expiryYear = data['expiryYear']
+        if 'billingAddress' in data:
+            card.billingAddress = data['billingAddress']
+        if 'billingCity' in data:
+            card.billingCity = data['billingCity']
+        if 'billingState' in data:
+            card.billingState = data['billingState']
+        if 'billingPostalCode' in data:
+            card.billingPostalCode = data['billingPostalCode']
+        if 'billingCountry' in data:
+            card.billingCountry = data['billingCountry']
+        if 'isDefault' in data:
+            is_default = data['isDefault']
+            if is_default:
+                # Remove default from other cards
+                PaymentCard.objects(userId=user_id, isDefault=True).update(isDefault=False)
+            card.isDefault = is_default
+        
+        card.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "Payment card updated successfully.",
+                "card": {
+                    "id": str(card.id),
+                    "cardType": card.cardType,
+                    "lastFourDigits": card.lastFourDigits,
+                    "cardholderName": card.cardholderName,
+                    "expiryMonth": card.expiryMonth,
+                    "expiryYear": card.expiryYear,
+                    "isDefault": card.isDefault,
+                    "cardBrand": card.cardBrand,
+                }
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["DELETE"])
+@verify_token
+def delete_payment_card(request, card_id):
+    """Delete a payment card (soft delete)"""
+    try:
+        user_id = request.user.id
+        
+        # Get the card and verify ownership
+        try:
+            card = PaymentCard.objects.get(id=card_id, userId=user_id, isActive=True)
+        except PaymentCard.DoesNotExist:
+            return Response(
+                {"success": False, "message": "Payment card not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Soft delete the card
+        card.isActive = False
+        card.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "Payment card deleted successfully."
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["PUT"])
+@verify_token
+def set_default_payment_card(request, card_id):
+    """Set a payment card as default"""
+    try:
+        user_id = request.user.id
+        
+        # Get the card and verify ownership
+        try:
+            card = PaymentCard.objects.get(id=card_id, userId=user_id, isActive=True)
+        except PaymentCard.DoesNotExist:
+            return Response(
+                {"success": False, "message": "Payment card not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Remove default from all other cards
+        PaymentCard.objects(userId=user_id, isDefault=True).update(isDefault=False)
+        
+        # Set this card as default
+        card.isDefault = True
+        card.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "Default payment card updated successfully."
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

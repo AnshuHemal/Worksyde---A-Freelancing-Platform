@@ -68,4 +68,11 @@ urlpatterns = [
     path('freelancer/profile/<str:user_id>/', views.get_freelancer_profile),
     path('client/profile/<str:user_id>/', views.get_client_profile),
     
+    # Payment Card 
+    path('payment-cards/', views.get_payment_cards, name='get_payment_cards'),
+    path('payment-cards/add/', views.add_payment_card, name='add_payment_card'),
+    path('payment-cards/<str:card_id>/', views.update_payment_card, name='update_payment_card'),
+    path('payment-cards/<str:card_id>/delete/', views.delete_payment_card, name='delete_payment_card'),
+    path('payment-cards/<str:card_id>/set-default/', views.set_default_payment_card, name='set_default_payment_card'),
+    
 ]

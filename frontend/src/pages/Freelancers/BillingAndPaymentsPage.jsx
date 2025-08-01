@@ -3,8 +3,10 @@ import axios from "axios";
 import FreelancersSettingsSidebar from "./FreelancersSettingsSidebar";
 import { useNavigate } from "react-router-dom";
 import paypal_logo from "../../assets/paypal.svg";
+import payment_illustration from "../../assets/payment.svg";
 
 const SIDEBAR_WIDTH = 290;
+const API_URL = "http://localhost:5000/api/auth";
 
 const BillingAndPaymentsPage = () => {
   const navigate = useNavigate();
@@ -24,6 +26,15 @@ const BillingAndPaymentsPage = () => {
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [userId, setUserId] = useState(null);
+
+  // Payment card states
+  const [paymentCards, setPaymentCards] = useState([]);
+  const [loadingCards, setLoadingCards] = useState(false);
+  const [submittingCard, setSubmittingCard] = useState(false);
+  const [cardError, setCardError] = useState("");
+  const [cardSuccess, setCardSuccess] = useState("");
+  
+
 
   useEffect(() => {
     async function fetchCountries() {
@@ -48,12 +59,153 @@ const BillingAndPaymentsPage = () => {
 
   useEffect(() => {
     axios
-      .get("http://localhost:5000/api/auth/current-user/", {
+      .get(`${API_URL}/current-user/`, {
         withCredentials: true,
       })
-      .then((res) => setUserId(res.data.user._id))
+      .then((res) => {
+        setUserId(res.data.user._id);
+        fetchPaymentCards();
+      })
       .catch(() => setUserId(null));
   }, []);
+
+  // Fetch payment cards
+  const fetchPaymentCards = async () => {
+    if (!userId) return;
+
+    setLoadingCards(true);
+    try {
+      const response = await axios.get(`${API_URL}/payment-cards/`, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setPaymentCards(response.data.cards);
+      }
+    } catch (error) {
+      console.error("Error fetching payment cards:", error);
+    } finally {
+      setLoadingCards(false);
+    }
+  };
+
+  // Add payment card
+  const handleAddPaymentCard = async () => {
+    if (!userId) return;
+
+    setSubmittingCard(true);
+    setCardError("");
+    setCardSuccess("");
+
+    try {
+      // Determine card type based on card number
+      const cardType = getCardType(cardNumber);
+
+      const cardData = {
+        cardType: cardType,
+        cardNumber: cardNumber.replace(/\s/g, ''),
+        cardholderName: `${firstName} ${lastName}`.trim(),
+        expiryMonth: expMonth,
+        expiryYear: expYear,
+        cvv: securityCode,
+        billingAddress: address1,
+        billingCity: city,
+        billingCountry: selectedCountry,
+        billingPostalCode: postalCode,
+        isDefault: paymentCards.length === 0, // Make default if first card
+      };
+
+      const response = await axios.post(`${API_URL}/payment-cards/add/`, cardData, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setCardSuccess("Payment card added successfully!");
+        setShowAddMethod(false);
+        resetCardForm();
+        fetchPaymentCards(); // Refresh the cards list
+      }
+    } catch (error) {
+      setCardError(error.response?.data?.message || "Failed to add payment card");
+    } finally {
+      setSubmittingCard(false);
+    }
+  };
+
+  // Delete payment card
+  const handleDeleteCard = async (cardId) => {
+    if (!confirm("Are you sure you want to delete this payment card?")) return;
+
+    try {
+      const response = await axios.delete(`${API_URL}/payment-cards/${cardId}/delete/`, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        fetchPaymentCards(); // Refresh the cards list
+      }
+    } catch (error) {
+      console.error("Error deleting payment card:", error);
+    }
+  };
+
+  // Set default payment card
+  const handleSetDefaultCard = async (cardId) => {
+    try {
+      const response = await axios.put(`${API_URL}/payment-cards/${cardId}/set-default/`, {}, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        fetchPaymentCards(); // Refresh the cards list
+      }
+    } catch (error) {
+      console.error("Error setting default card:", error);
+    }
+  };
+
+  // Helper function to determine card type
+  const getCardType = (cardNumber) => {
+    const cleanNumber = cardNumber.replace(/\s/g, '');
+    if (cleanNumber.startsWith('4')) return 'visa';
+    if (cleanNumber.startsWith('5')) return 'mastercard';
+    if (cleanNumber.startsWith('6')) return 'rupay';
+    if (cleanNumber.startsWith('3')) return 'amex';
+    return 'visa'; // default
+  };
+
+  // Reset card form
+  const resetCardForm = () => {
+    setCardNumber("");
+    setFirstName("");
+    setLastName("");
+    setExpMonth("");
+    setExpYear("");
+    setSecurityCode("");
+    setAddress1("");
+    setAddress2("");
+    setCity("");
+    setPostalCode("");
+    setSelectedCountry("India");
+    setCardError("");
+    setCardSuccess("");
+  };
+
+  // Format card number with spaces
+  const formatCardNumber = (value) => {
+    const v = value.replace(/\s+/g, '').replace(/[^0-9]/gi, '');
+    const matches = v.match(/\d{4,16}/g);
+    const match = matches && matches[0] || '';
+    const parts = [];
+    for (let i = 0, len = match.length; i < len; i += 4) {
+      parts.push(match.substring(i, i + 4));
+    }
+    if (parts.length) {
+      return parts.join(' ');
+    } else {
+      return v;
+    }
+  };
 
   // Navigation handler for sidebar
   const handleSidebarNavigate = (key) => {
@@ -102,19 +254,144 @@ const BillingAndPaymentsPage = () => {
       >
         <div
           className="section-container"
-          style={{ width: "100%", maxWidth: 900, padding: "28px 0 0 0" }}
+          style={{ width: "100%", padding: "36px 20px 0 20px", minWidth: 320 }}
+
         >
           <div
             style={{
               fontSize: 32,
               fontWeight: 600,
               marginBottom: 32,
+              marginLeft: 20,
+              marginRight: 20,
               color: "#222",
               textAlign: "left",
             }}
           >
             Billing & Payments
           </div>
+
+          {/* Display existing payment cards */}
+          {paymentCards.length > 0 && (
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e6e6e6",
+                borderRadius: 12,
+                padding: 36,
+                // width: "100%",
+                boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
+                minHeight: 200,
+                marginTop: 8,
+                marginBottom: 16,
+                marginLeft: 20,
+                marginRight: 20,
+                display: "flex",
+                flexDirection: "column",
+                gap: 18,
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: 600,
+                  fontSize: 26,
+                  color: "#111",
+                  marginBottom: 12,
+                }}
+              >
+                Your Payment Cards
+              </div>
+
+              {loadingCards ? (
+                <div style={{ textAlign: "center", padding: "20px" }}>
+                  Loading payment cards...
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {paymentCards.map((card) => (
+                    <div
+                      key={card.id}
+                      style={{
+                        border: "1px solid #e6e6e6",
+                        borderRadius: "8px",
+                        padding: "20px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        background: card.isDefault ? "#f8f9fa" : "#fff",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                        <div
+                          style={{
+                            width: "40px",
+                            height: "25px",
+                            borderRadius: "4px",
+                            background: getCardBrandColor(card.cardBrand),
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#fff",
+                            fontSize: "12px",
+                            fontWeight: "600",
+                          }}
+                        >
+                          {card.cardBrand?.toUpperCase() || "CARD"}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: "600", fontSize: "16px" }}>
+                            •••• •••• •••• {card.lastFourDigits}
+                          </div>
+                          <div style={{ color: "#666", fontSize: "14px" }}>
+                            {card.cardholderName} • Expires {card.expiryMonth}/{card.expiryYear}
+                          </div>
+                          {card.isDefault && (
+                            <div style={{ color: "#007476", fontSize: "12px", fontWeight: "600" }}>
+                              Default
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        {!card.isDefault && (
+                          <button
+                            onClick={() => handleSetDefaultCard(card.id)}
+                            style={{
+                              padding: "6px 12px",
+                              border: "1px solid #007476",
+                              background: "transparent",
+                              color: "#007476",
+                              borderRadius: "4px",
+                              fontSize: "12px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Set Default
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteCard(card.id)}
+                          style={{
+                            padding: "6px 12px",
+                            border: "1px solid #dc2626",
+                            background: "transparent",
+                            color: "#dc2626",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Billing methods card */}
           {!showAddMethod ? (
             <div
@@ -123,11 +400,13 @@ const BillingAndPaymentsPage = () => {
                 border: "1px solid #e6e6e6",
                 borderRadius: 12,
                 padding: 36,
-                width: "100%",
+                // width: "100%",
                 boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
                 minHeight: 200,
                 marginTop: 8,
                 marginBottom: 16,
+                marginLeft: 20,
+                marginRight: 20,
                 display: "flex",
                 flexDirection: "column",
                 gap: 18,
@@ -202,11 +481,13 @@ const BillingAndPaymentsPage = () => {
                 border: "1px solid #e6e6e6",
                 borderRadius: 12,
                 padding: 36,
-                width: "100%",
+                // width: "100%",
                 boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
                 minHeight: 200,
                 marginTop: 8,
                 marginBottom: 16,
+                marginLeft: 20,
+                marginRight: 20,
                 display: "flex",
                 flexDirection: "column",
                 gap: 18,
@@ -239,7 +520,10 @@ const BillingAndPaymentsPage = () => {
                   transition: "background 0.2s, color 0.2s, border 0.2s",
                   boxShadow: "0 1px 4px 0 rgba(60,72,100,0.04)",
                 }}
-                onClick={() => setShowAddMethod(false)}
+                onClick={() => {
+                  setShowAddMethod(false);
+                  resetCardForm();
+                }}
                 onMouseOver={(e) => {
                   e.currentTarget.style.background = "#fff";
                   e.currentTarget.style.color = "#007476";
@@ -253,6 +537,33 @@ const BillingAndPaymentsPage = () => {
               >
                 Cancel
               </button>
+              {/* Error/Success Messages */}
+              {cardError && (
+                <div style={{
+                  background: "#fee",
+                  border: "1px solid #fcc",
+                  color: "#c33",
+                  padding: "12px",
+                  borderRadius: "6px",
+                  marginBottom: "16px",
+                }}>
+                  {cardError}
+                </div>
+              )}
+
+              {cardSuccess && (
+                <div style={{
+                  background: "#efe",
+                  border: "1px solid #cfc",
+                  color: "#3c3",
+                  padding: "12px",
+                  borderRadius: "6px",
+                  marginBottom: "16px",
+                }}>
+                  {cardSuccess}
+                </div>
+              )}
+
               <div
                 style={{
                   display: "flex",
@@ -265,7 +576,7 @@ const BillingAndPaymentsPage = () => {
                   style={{
                     display: "flex",
                     alignItems: "center",
-                    fontSize: 18,
+                    fontSize: 20,
                     fontWeight: 500,
                     cursor: "pointer",
                     position: "relative",
@@ -284,11 +595,11 @@ const BillingAndPaymentsPage = () => {
                     style={{
                       color: "#888",
                       fontWeight: 400,
-                      fontSize: 15,
+                      fontSize: 16,
                       marginLeft: 12,
                     }}
                   >
-                    Visa, Mastercard, Rupay
+                    Visa, Mastercard, Rupay.
                   </span>
                   {selectedMethod === "card" && (
                     <button
@@ -325,7 +636,7 @@ const BillingAndPaymentsPage = () => {
                       }}
                       title="Cancel"
                     >
-                      ×
+                      x
                     </button>
                   )}
                 </label>
@@ -370,13 +681,13 @@ const BillingAndPaymentsPage = () => {
                         </svg>
                       </div>
                       <div
-                        style={{ fontSize: 18, fontWeight: 600, color: "#222" }}
+                        style={{ fontSize: 20, fontWeight: 600, color: "#222" }}
                       >
                         Payment card
                       </div>
                       <div
                         style={{
-                          fontSize: 14,
+                          fontSize: 16,
                           color: "#888",
                           marginLeft: "auto",
                         }}
@@ -390,7 +701,7 @@ const BillingAndPaymentsPage = () => {
                       <label
                         style={{
                           display: "block",
-                          fontSize: 14,
+                          fontSize: 18,
                           fontWeight: 500,
                           color: "#222",
                           marginBottom: 8,
@@ -402,7 +713,7 @@ const BillingAndPaymentsPage = () => {
                         <input
                           type="text"
                           value={cardNumber}
-                          onChange={(e) => setCardNumber(e.target.value)}
+                          onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
                           placeholder="1234 5678 9012 3456"
                           style={{
                             width: "100%",
@@ -410,7 +721,7 @@ const BillingAndPaymentsPage = () => {
                             paddingLeft: "48px",
                             border: "1px solid #e6e6e6",
                             borderRadius: 8,
-                            fontSize: 16,
+                            fontSize: 18,
                             outline: "none",
                           }}
                         />
@@ -507,7 +818,7 @@ const BillingAndPaymentsPage = () => {
                                 fill="#666"
                               />
                             </svg>
-                            <span style={{ fontSize: 12, color: "#666" }}>
+                            <span style={{ fontSize: 16, color: "#666" }}>
                               Securely stored
                             </span>
                           </div>
@@ -521,7 +832,7 @@ const BillingAndPaymentsPage = () => {
                         <label
                           style={{
                             display: "block",
-                            fontSize: 14,
+                            fontSize: 18,
                             fontWeight: 500,
                             color: "#222",
                             marginBottom: 8,
@@ -539,7 +850,7 @@ const BillingAndPaymentsPage = () => {
                             padding: "12px 16px",
                             border: "1px solid #e6e6e6",
                             borderRadius: 8,
-                            fontSize: 16,
+                            fontSize: 18,
                             outline: "none",
                           }}
                         />
@@ -548,7 +859,7 @@ const BillingAndPaymentsPage = () => {
                         <label
                           style={{
                             display: "block",
-                            fontSize: 14,
+                            fontSize: 18,
                             fontWeight: 500,
                             color: "#222",
                             marginBottom: 8,
@@ -566,7 +877,7 @@ const BillingAndPaymentsPage = () => {
                             padding: "12px 16px",
                             border: "1px solid #e6e6e6",
                             borderRadius: 8,
-                            fontSize: 16,
+                            fontSize: 18,
                             outline: "none",
                           }}
                         />
@@ -579,7 +890,7 @@ const BillingAndPaymentsPage = () => {
                         <label
                           style={{
                             display: "block",
-                            fontSize: 14,
+                            fontSize: 18,
                             fontWeight: 500,
                             color: "#222",
                             marginBottom: 8,
@@ -597,7 +908,7 @@ const BillingAndPaymentsPage = () => {
                             padding: "12px 16px",
                             border: "1px solid #e6e6e6",
                             borderRadius: 8,
-                            fontSize: 16,
+                            fontSize: 18,
                             outline: "none",
                           }}
                         />
@@ -606,7 +917,7 @@ const BillingAndPaymentsPage = () => {
                         <label
                           style={{
                             display: "block",
-                            fontSize: 14,
+                            fontSize: 18,
                             fontWeight: 500,
                             color: "#222",
                             marginBottom: 8,
@@ -624,7 +935,7 @@ const BillingAndPaymentsPage = () => {
                             padding: "12px 16px",
                             border: "1px solid #e6e6e6",
                             borderRadius: 8,
-                            fontSize: 16,
+                            fontSize: 18,
                             outline: "none",
                           }}
                         />
@@ -640,7 +951,7 @@ const BillingAndPaymentsPage = () => {
                         >
                           <label
                             style={{
-                              fontSize: 14,
+                              fontSize: 18,
                               fontWeight: 500,
                               color: "#222",
                             }}
@@ -649,8 +960,8 @@ const BillingAndPaymentsPage = () => {
                           </label>
                           <div
                             style={{
-                              width: 16,
-                              height: 16,
+                              width: 20,
+                              height: 20,
                               borderRadius: "50%",
                               border: "1px solid #ccc",
                               display: "flex",
@@ -660,7 +971,7 @@ const BillingAndPaymentsPage = () => {
                             }}
                             title="Help"
                           >
-                            <span style={{ fontSize: 10, color: "#666" }}>
+                            <span style={{ fontSize: 16, color: "#666" }}>
                               ?
                             </span>
                           </div>
@@ -675,7 +986,7 @@ const BillingAndPaymentsPage = () => {
                             padding: "12px 16px",
                             border: "1px solid #e6e6e6",
                             borderRadius: 8,
-                            fontSize: 16,
+                            fontSize: 18,
                             outline: "none",
                           }}
                         />
@@ -686,7 +997,7 @@ const BillingAndPaymentsPage = () => {
                     <div>
                       <div
                         style={{
-                          fontSize: 18,
+                          fontSize: 22,
                           fontWeight: 600,
                           color: "#222",
                           marginBottom: 16,
@@ -699,7 +1010,7 @@ const BillingAndPaymentsPage = () => {
                         <label
                           style={{
                             display: "block",
-                            fontSize: 14,
+                            fontSize: 18,
                             fontWeight: 500,
                             color: "#222",
                             marginBottom: 8,
@@ -714,7 +1025,7 @@ const BillingAndPaymentsPage = () => {
                               padding: "12px 16px",
                               border: "1px solid #e6e6e6",
                               borderRadius: 8,
-                              fontSize: 16,
+                              fontSize: 18,
                               background: "#fff",
                               color: "#222",
                               appearance: "none",
@@ -764,7 +1075,7 @@ const BillingAndPaymentsPage = () => {
                         <label
                           style={{
                             display: "block",
-                            fontSize: 14,
+                            fontSize: 18,
                             fontWeight: 500,
                             color: "#222",
                             marginBottom: 8,
@@ -781,7 +1092,7 @@ const BillingAndPaymentsPage = () => {
                             padding: "12px 16px",
                             border: "1px solid #e6e6e6",
                             borderRadius: 8,
-                            fontSize: 16,
+                            fontSize: 18,
                             outline: "none",
                           }}
                         />
@@ -791,7 +1102,7 @@ const BillingAndPaymentsPage = () => {
                         <label
                           style={{
                             display: "block",
-                            fontSize: 14,
+                            fontSize: 18,
                             fontWeight: 500,
                             color: "#222",
                             marginBottom: 8,
@@ -811,7 +1122,7 @@ const BillingAndPaymentsPage = () => {
                             padding: "12px 16px",
                             border: "1px solid #e6e6e6",
                             borderRadius: 8,
-                            fontSize: 16,
+                            fontSize: 18,
                             outline: "none",
                           }}
                         />
@@ -822,7 +1133,7 @@ const BillingAndPaymentsPage = () => {
                           <label
                             style={{
                               display: "block",
-                              fontSize: 14,
+                              fontSize: 18,
                               fontWeight: 500,
                               color: "#222",
                               marginBottom: 8,
@@ -840,7 +1151,7 @@ const BillingAndPaymentsPage = () => {
                               padding: "12px 16px",
                               border: "1px solid #e6e6e6",
                               borderRadius: 8,
-                              fontSize: 16,
+                              fontSize: 18,
                               outline: "none",
                             }}
                           />
@@ -849,7 +1160,7 @@ const BillingAndPaymentsPage = () => {
                           <label
                             style={{
                               display: "block",
-                              fontSize: 14,
+                              fontSize: 18,
                               fontWeight: 500,
                               color: "#222",
                               marginBottom: 8,
@@ -869,7 +1180,7 @@ const BillingAndPaymentsPage = () => {
                               padding: "12px 16px",
                               border: "1px solid #e6e6e6",
                               borderRadius: 8,
-                              fontSize: 16,
+                              fontSize: 18,
                               outline: "none",
                             }}
                           />
@@ -878,27 +1189,33 @@ const BillingAndPaymentsPage = () => {
 
                       <button
                         type="submit"
+                        disabled={submittingCard}
+                        onClick={handleAddPaymentCard}
                         style={{
                           marginTop: 24,
-                          background: "#007476",
+                          background: submittingCard ? "#ccc" : "#007476",
                           color: "#fff",
                           fontWeight: 600,
-                          fontSize: 16,
+                          fontSize: 18,
                           border: "none",
                           borderRadius: 8,
                           padding: "12px 24px",
-                          cursor: "pointer",
+                          cursor: submittingCard ? "not-allowed" : "pointer",
                           alignSelf: "flex-start",
                           transition: "background-color 0.2s ease",
                         }}
                         onMouseEnter={(e) => {
-                          e.target.style.backgroundColor = "#005a58";
+                          if (!submittingCard) {
+                            e.target.style.backgroundColor = "#005a58";
+                          }
                         }}
                         onMouseLeave={(e) => {
-                          e.target.style.backgroundColor = "#007476";
+                          if (!submittingCard) {
+                            e.target.style.backgroundColor = "#007476";
+                          }
                         }}
                       >
-                        Save
+                        {submittingCard ? "Adding..." : "Save"}
                       </button>
                     </div>
                   </div>
@@ -926,7 +1243,7 @@ const BillingAndPaymentsPage = () => {
                     alt="paypal_logo"
                     style={{ width: "90px" }}
                   />
-                  {selectedMethod === "paypal" && (
+                                    {selectedMethod === "paypal" && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -955,6 +1272,101 @@ const BillingAndPaymentsPage = () => {
                     </button>
                   )}
                 </label>
+                
+                {/* PayPal Redirection Layout */}
+                {selectedMethod === "paypal" && (
+                  <div
+                    style={{
+                      marginTop: "14px",
+                      background: "#fff",
+                      borderRadius: "12px",
+                      padding: "20px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      textAlign: "center",
+                    }}
+                  >
+                    {/* Payment Illustration */}
+                    <div
+                      style={{
+                        marginBottom: "32px",
+                        display: "flex",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <img
+                        src={payment_illustration}
+                        alt="Payment redirection"
+                        style={{
+                          width: "145px",
+                          height: "130px",
+                        }}
+                      />
+                    </div>
+                    
+                    {/* Main Heading */}
+                    <h3
+                      style={{
+                        fontSize: "24px",
+                        fontWeight: "600",
+                        color: "#1a1a1a",
+                        margin: "0 0 16px 0",
+                        lineHeight: "1.3",
+                      }}
+                    >
+                      You are about to leave Worksyde.
+                    </h3>
+                    
+                    {/* Description */}
+                    <p
+                      style={{
+                        fontSize: "16px",
+                        color: "#666",
+                        margin: "0 0 32px 0",
+                        lineHeight: "1.5",
+                      }}
+                    >
+                      You will be redirected to PayPal so you can connect your PayPal account to Worksyde.
+                    </p>
+                    
+                    {/* PayPal Button */}
+                    <button
+                      onClick={() => {
+                        // Here you would implement the actual PayPal redirection
+                        console.log("Redirecting to PayPal...");
+                        setSelectedMethod("");
+                      }}
+                      style={{
+                        background: "#0070ba",
+                        color: "#fff",
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "14px 32px",
+                        fontSize: "16px",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "8px",
+                        transition: "background-color 0.2s ease",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.backgroundColor = "#005a8b";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.backgroundColor = "#0070ba";
+                      }}
+                    >
+                      <span>Pay with</span>
+                      <img
+                        src={"data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAxcHgiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAxMDEgMzIiIHByZXNlcnZlQXNwZWN0UmF0aW89InhNaW5ZTWluIG1lZXQiIHhtbG5zPSJodHRwOiYjeDJGOyYjeDJGO3d3dy53My5vcmcmI3gyRjsyMDAwJiN4MkY7c3ZnIj48cGF0aCBmaWxsPSIjZmZmZmZmIiBkPSJNIDEyLjIzNyAyLjggTCA0LjQzNyAyLjggQyAzLjkzNyAyLjggMy40MzcgMy4yIDMuMzM3IDMuNyBMIDAuMjM3IDIzLjcgQyAwLjEzNyAyNC4xIDAuNDM3IDI0LjQgMC44MzcgMjQuNCBMIDQuNTM3IDI0LjQgQyA1LjAzNyAyNC40IDUuNTM3IDI0IDUuNjM3IDIzLjUgTCA2LjQzNyAxOC4xIEMgNi41MzcgMTcuNiA2LjkzNyAxNy4yIDcuNTM3IDE3LjIgTCAxMC4wMzcgMTcuMiBDIDE1LjEzNyAxNy4yIDE4LjEzNyAxNC43IDE4LjkzNyA5LjggQyAxOS4yMzcgNy43IDE4LjkzNyA2IDE3LjkzNyA0LjggQyAxNi44MzcgMy41IDE0LjgzNyAyLjggMTIuMjM3IDIuOCBaIE0gMTMuMTM3IDEwLjEgQyAxMi43MzcgMTIuOSAxMC41MzcgMTIuOSA4LjUzNyAxMi45IEwgNy4zMzcgMTIuOSBMIDguMTM3IDcuNyBDIDguMTM3IDcuNCA4LjQzNyA3LjIgOC43MzcgNy4yIEwgOS4yMzcgNy4yIEMgMTAuNjM3IDcuMiAxMS45MzcgNy4yIDEyLjYzNyA4IEMgMTMuMTM3IDguNCAxMy4zMzcgOS4xIDEzLjEzNyAxMC4xIFoiPjwvcGF0aD48cGF0aCBmaWxsPSIjZmZmZmZmIiBkPSJNIDM1LjQzNyAxMCBMIDMxLjczNyAxMCBDIDMxLjQzNyAxMCAzMS4xMzcgMTAuMiAzMS4xMzcgMTAuNSBMIDMwLjkzNyAxMS41IEwgMzAuNjM3IDExLjEgQyAyOS44MzcgOS45IDI4LjAzNyA5LjUgMjYuMjM3IDkuNSBDIDIyLjEzNyA5LjUgMTguNjM3IDEyLjYgMTcuOTM3IDE3IEMgMTcuNTM3IDE5LjIgMTguMDM3IDIxLjMgMTkuMzM3IDIyLjcgQyAyMC40MzcgMjQgMjIuMTM3IDI0LjYgMjQuMDM3IDI0LjYgQyAyNy4zMzcgMjQuNiAyOS4yMzcgMjIuNSAyOS4yMzcgMjIuNSBMIDI5LjAzNyAyMy41IEMgMjguOTM3IDIzLjkgMjkuMjM3IDI0LjMgMjkuNjM3IDI0LjMgTCAzMy4wMzcgMjQuMyBDIDMzLjUzNyAyNC4zIDM0LjAzNyAyMy45IDM0LjEzNyAyMy40IEwgMzYuMTM3IDEwLjYgQyAzNi4yMzcgMTAuNCAzNS44MzcgMTAgMzUuNDM3IDEwIFogTSAzMC4zMzcgMTcuMiBDIDI5LjkzNyAxOS4zIDI4LjMzNyAyMC44IDI2LjEzNyAyMC44IEMgMjUuMDM3IDIwLjggMjQuMjM3IDIwLjUgMjMuNjM3IDE5LjggQyAyMy4wMzcgMTkuMSAyMi44MzcgMTguMiAyMy4wMzcgMTcuMiBDIDIzLjMzNyAxNS4xIDI1LjEzNyAxMy42IDI3LjIzNyAxMy42IEMgMjguMzM3IDEzLjYgMjkuMTM3IDE0IDI5LjczNyAxNC42IEMgMzAuMjM3IDE1LjMgMzAuNDM3IDE2LjIgMzAuMzM3IDE3LjIgWiI+PC9wYXRoPjxwYXRoIGZpbGw9IiNmZmZmZmYiIGQ9Ik0gNTUuMzM3IDEwIEwgNTEuNjM3IDEwIEMgNTEuMjM3IDEwIDUwLjkzNyAxMC4yIDUwLjczNyAxMC41IEwgNDUuNTM3IDE4LjEgTCA0My4zMzcgMTAuOCBDIDQzLjIzNyAxMC4zIDQyLjczNyAxMCA0Mi4zMzcgMTAgTCAzOC42MzcgMTAgQyAzOC4yMzcgMTAgMzcuODM3IDEwLjQgMzguMDM3IDEwLjkgTCA0Mi4xMzcgMjMgTCAzOC4yMzcgMjguNCBDIDM3LjkzNyAyOC44IDM4LjIzNyAyOS40IDM4LjczNyAyOS40IEwgNDIuNDM3IDI5LjQgQyA0Mi44MzcgMjkuNCA0My4xMzcgMjkuMiA0My4zMzcgMjguOSBMIDU1LjgzNyAxMC45IEMgNTYuMTM3IDEwLjYgNTUuODM3IDEwIDU1LjMzNyAxMCBaIj48L3BhdGg+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTSA2Ny43MzcgMi44IEwgNTkuOTM3IDIuOCBDIDU5LjQzNyAyLjggNTguOTM3IDMuMiA1OC44MzcgMy43IEwgNTUuNzM3IDIzLjYgQyA1NS42MzcgMjQgNTUuOTM3IDI0LjMgNTYuMzM3IDI0LjMgTCA2MC4zMzcgMjQuMyBDIDYwLjczNyAyNC4zIDYxLjAzNyAyNCA2MS4wMzcgMjMuNyBMIDYxLjkzNyAxOCBDIDYyLjAzNyAxNy41IDYyLjQzNyAxNy4xIDYzLjAzNyAxNy4xIEwgNjUuNTM3IDE3LjEgQyA3MC42MzcgMTcuMSA3My42MzcgMTQuNiA3NC40MzcgOS43IEMgNzQuNzM3IDcuNiA3NC40MzcgNS45IDczLjQzNyA0LjcgQyA3Mi4yMzcgMy41IDcwLjMzNyAyLjggNjcuNzM3IDIuOCBaIE0gNjguNjM3IDEwLjEgQyA2OC4yMzcgMTIuOSA2Ni4wMzcgMTIuOSA2NC4wMzcgMTIuOSBMIDYyLjgzNyAxMi45IEwgNjMuNjM3IDcuNyBDIDYzLjYzNyA3LjQgNjMuOTM3IDcuMiA2NC4yMzcgNy4yIEwgNjQuNzM3IDcuMiBDIDY2LjEzNyA3LjIgNjcuNDM3IDcuMiA2OC4xMzcgOCBDIDY4LjYzNyA4LjQgNjguNzM3IDkuMSA2OC42MzcgMTAuMSBaIj48L3BhdGg+PHBhdGggZmlsbD0iI2ZmZmZmZiIgZD0iTSA5MC45MzcgMTAgTCA4Ny4yMzcgMTAgQyA4Ni45MzcgMTAgODYuNjM3IDEwLjIgODYuNjM3IDEwLjUgTCA4Ni40MzcgMTEuNSBMIDg2LjEzNyAxMS4xIEMgODUuMzM3IDkuOSA4My41MzcgOS41IDgxLjczNyA5LjUgQyA3Ny42MzcgOS41IDc0LjEzNyAxMi42IDczLjQzNyAxNyBDIDczLjAzNyAxOS4yIDczLjUzNyAyMS4zIDc0LjgzNyAyMi43IEMgNzUuOTM3IDI0IDc3LjYzNyAyNC42IDc5LjUzNyAyNC42IEMgODIuODM3IDI0LjYgODQuNzM3IDIyLjUgODQuNzM3IDIyLjUgTCA4NC41MzcgMjMuNSBDIDg0LjQzNyAyMy45IDg0LjczNyAyNC4zIDg1LjEzNyAyNC4zIEwgODguNTM3IDI0LjMgQyA4OS4wMzcgMjQuMyA4OS41MzcgMjMuOSA4OS42MzcgMjMuNCBMIDkxLjYzNyAxMC42IEMgOTEuNjM3IDEwLjQgOTEuMzM3IDEwIDkwLjkzNyAxMCBaIE0gODUuNzM3IDE3LjIgQyA4NS4zMzcgMTkuMyA4My43MzcgMjAuOCA4MS41MzcgMjAuOCBDIDgwLjQzNyAyMC44IDc5LjYzNyAyMC41IDc5LjAzNyAxOS44IEMgNzguNDM3IDE5LjEgNzguMjM3IDE4LjIgNzguNDM3IDE3LjIgQyA3OC43MzcgMTUuMSA4MC41MzcgMTMuNiA4Mi42MzcgMTMuNiBDIDgzLjczNyAxMy42IDg0LjUzNyAxNCA4NS4xMzcgMTQuNiBDIDg1LjczNyAxNS4zIDg1LjkzNyAxNi4yIDg1LjczNyAxNy4yIFoiPjwvcGF0aD48cGF0aCBmaWxsPSIjZmZmZmZmIiBkPSJNIDk1LjMzNyAzLjMgTCA5Mi4xMzcgMjMuNiBDIDkyLjAzNyAyNCA5Mi4zMzcgMjQuMyA5Mi43MzcgMjQuMyBMIDk1LjkzNyAyNC4zIEMgOTYuNDM3IDI0LjMgOTYuOTM3IDIzLjkgOTcuMDM3IDIzLjQgTCAxMDAuMjM3IDMuNSBDIDEwMC4zMzcgMy4xIDEwMC4wMzcgMi44IDk5LjYzNyAyLjggTCA5Ni4wMzcgMi44IEMgOTUuNjM3IDIuOCA5NS40MzcgMyA5NS4zMzcgMy4zIFoiPjwvcGF0aD48L3N2Zz4"}
+                        alt="PayPal"
+                        style={{ height: "20px" }}
+                      />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -962,6 +1374,22 @@ const BillingAndPaymentsPage = () => {
       </main>
     </div>
   );
+};
+
+// Helper function to get card brand color
+const getCardBrandColor = (brand) => {
+  switch (brand?.toLowerCase()) {
+    case 'visa':
+      return '#1a1f71';
+    case 'mastercard':
+      return '#eb001b';
+    case 'rupay':
+      return '#007476';
+    case 'amex':
+      return '#006fcf';
+    default:
+      return '#007476';
+  }
 };
 
 export default BillingAndPaymentsPage;

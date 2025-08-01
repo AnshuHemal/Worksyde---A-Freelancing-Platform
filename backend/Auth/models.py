@@ -32,6 +32,59 @@ class User(Document):
     meta = {"collection": "users", "strict": False}
 
 
+class PaymentCard(Document):
+    userId = ReferenceField(User, required=True)
+    cardType = StringField(required=True, choices=["visa", "mastercard", "rupay", "amex"])
+    cardNumber = StringField(required=True, max_length=19)  # Encrypted in practice
+    cardholderName = StringField(required=True)
+    expiryMonth = StringField(required=True, max_length=2)
+    expiryYear = StringField(required=True, max_length=4)
+    cvv = StringField(required=True, max_length=4)  # Encrypted in practice
+    isDefault = BooleanField(default=False)
+    isActive = BooleanField(default=True)
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+    
+    # Billing Address
+    billingAddress = StringField()
+    billingCity = StringField()
+    billingState = StringField()
+    billingPostalCode = StringField()
+    billingCountry = StringField()
+    
+    # Card metadata
+    lastFourDigits = StringField(max_length=4)
+    cardBrand = StringField()
+    
+    meta = {
+        "collection": "paymentcards",
+        "indexes": ["userId", "isDefault", "isActive"],
+        "ordering": ["-createdAt"]
+    }
+    
+    def save(self, *args, **kwargs):
+        if not self.createdAt:
+            self.createdAt = timezone.now()
+        self.updatedAt = timezone.now()
+        
+        # Extract last 4 digits for display
+        if self.cardNumber and len(self.cardNumber) >= 4:
+            self.lastFourDigits = self.cardNumber[-4:]
+        
+        # Set card brand based on card number
+        if self.cardNumber:
+            if self.cardNumber.startswith('4'):
+                self.cardBrand = 'visa'
+            elif self.cardNumber.startswith('5'):
+                self.cardBrand = 'mastercard'
+            elif self.cardNumber.startswith('6'):
+                self.cardBrand = 'rupay'
+            elif self.cardNumber.startswith('3'):
+                self.cardBrand = 'amex'
+        
+        return super().save(*args, **kwargs)
+
+
 class Otp(Document):
     email = EmailField(required=True)
     code = StringField(required=True, max_length=6)
