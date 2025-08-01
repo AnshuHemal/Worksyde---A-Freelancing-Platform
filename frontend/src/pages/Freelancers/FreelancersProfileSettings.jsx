@@ -5,22 +5,54 @@ import { BsQuestionCircle } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 
 const SIDEBAR_WIDTH = 290;
+const API_URL = "http://localhost:5000/api/auth";
 
 const FreelancersProfileSettings = () => {
   const navigate = useNavigate();
-  const [visibility, setVisibility] = useState("Private");
+  const [visibility, setVisibility] = useState("Select visibility");
   const [projectPreference, setProjectPreference] =
     useState("Project preference");
   const [showVisibilityDropdown, setShowVisibilityDropdown] = useState(false);
   const [showProjectPreferenceDropdown, setShowProjectPreferenceDropdown] =
     useState(false);
-  const [experienceLevel, setExperienceLevel] = useState("Intermediate");
+  const [experienceLevel, setExperienceLevel] = useState("");
   const [userId, setUserId] = useState(null);
+  const [userData, setUserData] = useState(null);
+  const [profileData, setProfileData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/auth/current-user/", { withCredentials: true })
-      .then(res => setUserId(res.data.user._id))
-      .catch(() => setUserId(null));
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Fetch current user data
+        const userResponse = await axios.get(`${API_URL}/current-user/`, { 
+          withCredentials: true 
+        });
+        
+        const currentUser = userResponse.data.user;
+        setUserId(currentUser._id);
+        setUserData(currentUser);
+
+        // Fetch detailed profile data
+        const profileResponse = await axios.get(`${API_URL}/profile/${currentUser._id}/`, {
+          withCredentials: true
+        });
+        
+        setProfileData(profileResponse.data);
+
+      } catch (err) {
+        console.error("Error fetching user data:", err);
+        setError("Failed to load user data. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
   }, []);
 
   const visibilityOptions = ["Private", "Public"];
@@ -65,6 +97,84 @@ const FreelancersProfileSettings = () => {
         break;
     }
   };
+
+  if (loading) {
+    return (
+      <div
+        className="section-container"
+        style={{ display: "flex", minHeight: "100vh", background: "#fff" }}
+      >
+        <FreelancersSettingsSidebar
+          activeKey="profile-settings"
+          onNavigate={handleSidebarNavigate}
+          freelancerId={userId}
+        />
+        <main
+          style={{
+            flex: 1,
+            marginLeft: SIDEBAR_WIDTH,
+            background: "#fff",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "Inter, Arial, sans-serif",
+          }}
+        >
+          <div style={{ fontSize: 18, color: "#666", textAlign: "center" }}>Loading...</div>
+        </main>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className="section-container"
+        style={{ display: "flex", minHeight: "100vh", background: "#fff" }}
+      >
+        <FreelancersSettingsSidebar
+          activeKey="profile-settings"
+          onNavigate={handleSidebarNavigate}
+          freelancerId={userId}
+        />
+        <main
+          style={{
+            flex: 1,
+            marginLeft: SIDEBAR_WIDTH,
+            background: "#fff",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "Inter, Arial, sans-serif",
+          }}
+        >
+          <div style={{ fontSize: 18, color: "#e74c3c", textAlign: "center", maxWidth: "100%" }}>
+            {error}
+            <br />
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                marginTop: 16,
+                padding: "8px 16px",
+                background: "#007476",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 14,
+              }}
+            >
+              Try Again
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -450,128 +560,66 @@ const FreelancersProfileSettings = () => {
               Categories
             </div>
 
-            <div style={{ marginBottom: 24 }}>
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: "#222",
-                  marginBottom: 12,
-                }}
-              >
-                Web, Mobile & Software Dev
-              </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <span
+            {profileData?.category ? (
+              <div style={{ marginBottom: 24 }}>
+                <div
                   style={{
-                    background:
-                      "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
-                    color: "#007674",
-                    border: "1px solid rgba(0, 118, 116, 0.2)",
-                    borderRadius: 20,
-                    padding: "6px 12px",
-                    fontSize: "0.85rem",
+                    fontSize: 16,
                     fontWeight: 600,
-                    transition: "all 0.3s ease",
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background =
-                      "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                    e.target.style.color = "white";
-                    e.target.style.transform = "translateY(-1px)";
-                    e.target.style.boxShadow =
-                      "0 4px 12px rgba(0, 118, 116, 0.3)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background =
-                      "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)";
-                    e.target.style.color = "#007674";
-                    e.target.style.transform = "translateY(0)";
-                    e.target.style.boxShadow = "none";
+                    color: "#222",
+                    marginBottom: 12,
                   }}
                 >
-                  Web Development
-                </span>
-                <span
-                  style={{
-                    background:
-                      "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
-                    color: "#007674",
-                    border: "1px solid rgba(0, 118, 116, 0.2)",
-                    borderRadius: 20,
-                    padding: "6px 12px",
-                    fontSize: "0.85rem",
-                    fontWeight: 600,
-                    transition: "all 0.3s ease",
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background =
-                      "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                    e.target.style.color = "white";
-                    e.target.style.transform = "translateY(-1px)";
-                    e.target.style.boxShadow =
-                      "0 4px 12px rgba(0, 118, 116, 0.3)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background =
-                      "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)";
-                    e.target.style.color = "#007674";
-                    e.target.style.transform = "translateY(0)";
-                    e.target.style.boxShadow = "none";
-                  }}
-                >
-                  Ecommerce Development
-                </span>
+                  {profileData.category.name}
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {profileData.specialities && profileData.specialities.map((speciality) => (
+                    <span
+                      key={speciality._id}
+                      style={{
+                        background:
+                          "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
+                        color: "#007674",
+                        border: "1px solid rgba(0, 118, 116, 0.2)",
+                        borderRadius: 20,
+                        padding: "6px 12px",
+                        fontSize: "0.85rem",
+                        fontWeight: 600,
+                        transition: "all 0.3s ease",
+                        cursor: "pointer",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background =
+                          "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                        e.target.style.color = "white";
+                        e.target.style.transform = "translateY(-1px)";
+                        e.target.style.boxShadow =
+                          "0 4px 12px rgba(0, 118, 116, 0.3)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background =
+                          "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)";
+                        e.target.style.color = "#007674";
+                        e.target.style.transform = "translateY(0)";
+                        e.target.style.boxShadow = "none";
+                      }}
+                    >
+                      {speciality.name}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-
-            <div>
-              <div
-                style={{
-                  fontSize: 16,
-                  fontWeight: 600,
-                  color: "#222",
-                  marginBottom: 12,
-                }}
-              >
-                Design & Creative
+            ) : (
+              <div style={{ 
+                fontSize: 16, 
+                color: "#6b6b6b", 
+                fontStyle: "italic",
+                textAlign: "center",
+                padding: "20px"
+              }}>
+                No categories selected yet
               </div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                <span
-                  style={{
-                    background:
-                      "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
-                    color: "#007674",
-                    border: "1px solid rgba(0, 118, 116, 0.2)",
-                    borderRadius: 20,
-                    padding: "6px 12px",
-                    fontSize: "0.85rem",
-                    fontWeight: 600,
-                    transition: "all 0.3s ease",
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background =
-                      "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                    e.target.style.color = "white";
-                    e.target.style.transform = "translateY(-1px)";
-                    e.target.style.boxShadow =
-                      "0 4px 12px rgba(0, 118, 116, 0.3)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background =
-                      "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)";
-                    e.target.style.color = "#007674";
-                    e.target.style.transform = "translateY(0)";
-                    e.target.style.boxShadow = "none";
-                  }}
-                >
-                  Product Design
-                </span>
-              </div>
-            </div>
+            )}
 
             <button
               style={{
