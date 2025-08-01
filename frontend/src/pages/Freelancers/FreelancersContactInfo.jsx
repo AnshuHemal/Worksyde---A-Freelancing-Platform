@@ -167,20 +167,49 @@ const FreelancersContactInfo = () => {
     
     const [localPart, domain] = email.split('@');
     
-    if (localPart.length <= 2) {
+    if (localPart.length <= 4) {
       return email; // Don't mask if too short
     }
     
     const firstChar = localPart[0];
-    const lastChar = localPart[localPart.length - 1];
+    const lastThreeChars = localPart.slice(-3); // Get last 3 characters
     const maskedPart = '*****'; // Always 5 asterisks
     
-    return `${firstChar}${maskedPart}${lastChar}@${domain}`;
+    return `${firstChar}${maskedPart}${lastThreeChars}@${domain}`;
   };
 
   // Helper function to get timezone (you might want to store this in the backend)
   const getTimezone = () => {
     return "UTC+05:30 Mumbai, Kolkata, Chennai, New Delhi"; // This could be fetched from backend
+  };
+
+  // Helper function to encrypt userId to 10-character string
+  const encryptUserId = (userId) => {
+    if (!userId) return "Not available";
+    
+    // Create a simple hash from the userId
+    let hash = 0;
+    for (let i = 0; i < userId.length; i++) {
+      const char = userId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    
+    // Convert to positive number
+    hash = Math.abs(hash);
+    
+    // Create a string with alphanumeric characters
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    
+    // Generate 10 characters using the hash
+    for (let i = 0; i < 10; i++) {
+      // Use different parts of the hash for each character
+      const index = (hash + i * 31) % chars.length;
+      result += chars[index];
+    }
+    
+    return result;
   };
 
   // Handle account form changes
@@ -540,12 +569,12 @@ const FreelancersContactInfo = () => {
             ) : (
               // Display Mode
               <div>
-                <div style={{ marginBottom: 20, color: "#222" }}>
-                  <div style={{ fontSize: 20, fontWeight: 600, color: "#222" }}>
-                    User ID
-                  </div>
-                  <div style={{ fontSize: 18 }}>{userData?._id || "Not available"}</div>
-                </div>
+                                 <div style={{ marginBottom: 20, color: "#222" }}>
+                   <div style={{ fontSize: 20, fontWeight: 600, color: "#222" }}>
+                     User ID
+                   </div>
+                   <div style={{ fontSize: 18 }}>{encryptUserId(userData?._id)}</div>
+                 </div>
                 <div style={{ marginBottom: 20, color: "#222" }}>
                   <div style={{ fontSize: 20, fontWeight: 600, color: "#222" }}>
                     Name
