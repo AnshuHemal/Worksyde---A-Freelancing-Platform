@@ -8,6 +8,7 @@ import {
   FiEdit,
   FiTrash2,
   FiBriefcase,
+  FiFolder,
 } from "react-icons/fi";
 import { GoLocation } from "react-icons/go";
 import { MdEdit } from "react-icons/md";
@@ -28,22 +29,39 @@ const FreelancersProfilePage = () => {
   const [showTitleModal, setShowTitleModal] = useState(false);
   const [showBioModal, setShowBioModal] = useState(false);
   const [showSkillsModal, setShowSkillsModal] = useState(false);
+  const [showOtherExperiencesModal, setShowOtherExperiencesModal] =
+    useState(false);
+  const [showEducationModal, setShowEducationModal] = useState(false);
   const [titleValue, setTitleValue] = useState("");
   const [bioValue, setBioValue] = useState("");
   const [skillsValue, setSkillsValue] = useState([]);
   const [skillSearchValue, setSkillSearchValue] = useState("");
+  const [employmentHistory, setEmploymentHistory] = useState([]);
+  const [otherExperienceSubject, setOtherExperienceSubject] = useState("");
+  const [otherExperienceDescription, setOtherExperienceDescription] =
+    useState("");
+  const [educationInstitution, setEducationInstitution] = useState("");
+  const [educationDegree, setEducationDegree] = useState("");
+  const [educationField, setEducationField] = useState("");
+  const [educationStartYear, setEducationStartYear] = useState("");
+  const [educationEndYear, setEducationEndYear] = useState("");
+  const [educationDescription, setEducationDescription] = useState("");
+  const [educationIsExpected, setEducationIsExpected] = useState(false);
+  const [showProfileImageModal, setShowProfileImageModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const [summaryRes, profileRes] = await Promise.all([
+        const [summaryRes, profileRes, employmentRes] = await Promise.all([
           axios.get(`${API_URL}/freelancer/summary/${freelancerId}/`),
           axios.get(`${API_URL}/profile/${freelancerId}/`),
+          axios.get(`${API_URL}/get-work-experiences/${freelancerId}/`),
         ]);
         setSummary(summaryRes.data);
         setProfile(profileRes.data);
+        setEmploymentHistory(employmentRes.data.workExperience || []);
       } catch (err) {
         setError("Failed to load freelancer profile.");
       } finally {
@@ -60,6 +78,16 @@ const FreelancersProfilePage = () => {
   const bioLimit = 220;
   const isLongBio = safeBio.length > bioLimit;
   const displayedBio = showFullBio ? safeBio : safeBio.slice(0, bioLimit);
+
+  // Helper function to format dates
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+    });
+  };
 
   // Initialize title and bio values when profile loads
   useEffect(() => {
@@ -161,7 +189,6 @@ const FreelancersProfilePage = () => {
             justifyContent: "space-between",
             padding: "40px 50px",
             background: "#fff",
-            borderBottom: "1px solid #f0f0f0",
           }}
         >
           {/* Left: Avatar, Name, Location */}
@@ -234,6 +261,7 @@ const FreelancersProfilePage = () => {
                 }}
                 whileTap={{ scale: 0.95 }}
                 title="Edit Profile Photo"
+                onClick={() => setShowProfileImageModal(true)}
               >
                 <MdEdit size={16} />
               </motion.div>
@@ -354,11 +382,8 @@ const FreelancersProfilePage = () => {
             display: "grid",
             gridTemplateColumns: "320px 1fr",
             gap: "20px",
-            margin: "0px 20px",
-            borderTop: "none",
-            borderLeft: "none",
-            borderRight: "none",
-            borderBottom: "none",
+            margin: "0px 20px 20px 20px",
+            marginBottom: "10px",
             minHeight: 400,
           }}
         >
@@ -648,6 +673,7 @@ const FreelancersProfilePage = () => {
                   }}
                   whileTap={{ scale: 0.95 }}
                   title="Add Education"
+                  onClick={() => setShowEducationModal(true)}
                 >
                   <FiPlus size={16} />
                 </motion.div>
@@ -932,8 +958,8 @@ const FreelancersProfilePage = () => {
                     width: "32px",
                     height: "32px",
                     borderRadius: "50%",
-                    background: "#007674",
-                    color: "#fff",
+                    background: "#fff",
+                    color: "#007476",
                     border: "2px solid #007674",
                     display: "flex",
                     alignItems: "center",
@@ -943,50 +969,11 @@ const FreelancersProfilePage = () => {
                   }}
                   whileHover={{
                     scale: 1.05,
-                    background: "#005a58",
                   }}
                   whileTap={{ scale: 0.95 }}
                   title="Add Portfolio Item"
                 >
                   <FiPlus size={16} />
-                </motion.div>
-              </div>
-
-              {/* Portfolio Tabs */}
-              <div
-                style={{
-                  display: "flex",
-                  gap: 0,
-                  marginBottom: 24,
-                  borderBottom: "1px solid #e6e6e6",
-                }}
-              >
-                <motion.div
-                  style={{
-                    padding: "12px 24px",
-                    fontWeight: 600,
-                    fontSize: 16,
-                    color: "#1a1a1a",
-                    borderBottom: "3px solid #007674",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                  whileHover={{ color: "#007674" }}
-                >
-                  Published
-                </motion.div>
-                <motion.div
-                  style={{
-                    padding: "12px 24px",
-                    fontWeight: 500,
-                    fontSize: 16,
-                    color: "#666",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                  whileHover={{ color: "#007674" }}
-                >
-                  Drafts
                 </motion.div>
               </div>
 
@@ -1062,22 +1049,305 @@ const FreelancersProfilePage = () => {
             >
               <div
                 style={{
-                  fontWeight: 600,
-                  fontSize: 20,
-                  color: "#1a1a1a",
-                  marginBottom: 16,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: 20,
                 }}
               >
-                Work history
+                <div
+                  style={{
+                    fontWeight: 600,
+                    fontSize: 20,
+                    color: "#1a1a1a",
+                  }}
+                >
+                  Work history
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    color: "#007674",
+                    border: "2px solid #007674",
+                    backgroundColor: "transparent",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                >
+                  <FiPlus size={16} />
+                </motion.button>
               </div>
+
+              {/* Work History Entries */}
+              {employmentHistory.length > 0 ? (
+                employmentHistory.map((experience, index) => (
+                  <div
+                    key={experience._id || index}
+                    style={{
+                      backgroundColor: "white",
+                      borderRadius: "8px",
+                      padding: "16px",
+                      border: "1px solid #e6e6e6",
+                      marginBottom: "12px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <div style={{ flex: 1 }}>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 18,
+                            color: "#1a1a1a",
+                            marginBottom: "4px",
+                          }}
+                        >
+                          {experience.title || "No title"}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 17,
+                            color: "#666",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          {experience.company || "No company"} •{" "}
+                          {formatDate(experience.startDate)} -{" "}
+                          {experience.endDate
+                            ? formatDate(experience.endDate)
+                            : "Present"}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 16,
+                            color: "#666",
+                            lineHeight: "1.5",
+                          }}
+                        >
+                          {experience.description || "No description provided."}
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "6px",
+                          marginLeft: "12px",
+                        }}
+                      >
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: "50%",
+                            color: "#007674",
+                            border: "2px solid #007674",
+                            backgroundColor: "transparent",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          <MdEdit size={16} />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: "50%",
+                            color: "#dc2626",
+                            border: "2px solid #dc2626",
+                            backgroundColor: "transparent",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          <FiTrash2 size={16} />
+                        </motion.button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div
+                  style={{
+                    backgroundColor: "white",
+                    borderRadius: "8px",
+                    padding: "16px",
+                    border: "1px solid #e6e6e6",
+                    textAlign: "center",
+                    color: "#666",
+                    fontSize: 16,
+                  }}
+                >
+                  No work history available.
+                </div>
+              )}
+            </motion.div>
+
+            {/* Other Experiences Section */}
+            <motion.div
+              style={{
+                borderTop: "1px solid #e6e6e6",
+                paddingTop: 24,
+                marginTop: 24,
+              }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+            ></motion.div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: 20,
+              }}
+            >
               <div
                 style={{
-                  color: "#666",
-                  fontSize: 16,
-                  padding: "20px 0",
+                  fontSize: 20,
+                  fontWeight: 600,
+                  color: "#1a1a1a",
                 }}
               >
-                No items
+                Other experiences
+              </div>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                style={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: "50%",
+                  color: "#007476",
+                  border: "2px solid #007476",
+                  backgroundColor: "transparent",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+                onClick={() => setShowOtherExperiencesModal(true)}
+              >
+                <FiPlus size={16} />
+              </motion.button>
+            </div>
+            <motion.div
+              style={{
+                backgroundColor: "white",
+                borderRadius: "12px",
+                padding: "24px",
+                border: "1px solid #e6e6e6",
+                marginBottom: "24px",
+              }}
+            >
+              {/* Empty State */}
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "40px 20px",
+                  textAlign: "center",
+                }}
+              >
+                <div
+                  style={{
+                    position: "relative",
+                    marginBottom: "20px",
+                  }}
+                >
+                  <FiFolder
+                    size={48}
+                    style={{
+                      color: "#007476",
+                    }}
+                  />
+                  {/* Three small lines radiating from the top */}
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: "-8px",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      display: "flex",
+                      gap: "2px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "2px",
+                        height: "8px",
+                        backgroundColor: "#3b82f6",
+                        borderRadius: "1px",
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: "2px",
+                        height: "6px",
+                        backgroundColor: "#3b82f6",
+                        borderRadius: "1px",
+                      }}
+                    />
+                    <div
+                      style={{
+                        width: "2px",
+                        height: "8px",
+                        backgroundColor: "#3b82f6",
+                        borderRadius: "1px",
+                      }}
+                    />
+                  </div>
+                </div>
+                <div
+                  style={{
+                    fontSize: 18,
+                    color: "#1a1a1a",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Add any other experiences that help you stand out.
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    fontSize: 16,
+                    color: "#007476",
+                    cursor: "pointer",
+                    fontWeight: 500,
+                    textDecoration: "underline",
+                  }}
+                  onClick={() => setShowOtherExperiencesModal(true)}
+                >
+                  Add an experience
+                </motion.button>
               </div>
             </motion.div>
           </div>
@@ -1794,6 +2064,890 @@ const FreelancersProfilePage = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 Save
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Other Experiences Modal */}
+      {showOtherExperiencesModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={() => setShowOtherExperiencesModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "500px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "22px",
+                  fontWeight: "600",
+                  letterSpacing: "0.4px",
+                  color: "#1a1a1a",
+                }}
+              >
+                Add other experiences
+              </h3>
+              <motion.button
+                onClick={() => setShowOtherExperiencesModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#666",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  color: "#1a1a1a",
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                x
+              </motion.button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ marginBottom: "10px" }}>
+              {/* Subject Field */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  value={otherExperienceSubject}
+                  onChange={(e) => setOtherExperienceSubject(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "16px",
+                    color: "#1a1a1a",
+                    background: "#fff",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                  }}
+                  placeholder="Enter subject"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007476";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                />
+              </div>
+
+              {/* Description Field */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    fontSize: "17px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Description
+                </label>
+                <textarea
+                  value={otherExperienceDescription}
+                  onChange={(e) =>
+                    setOtherExperienceDescription(e.target.value)
+                  }
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "16px",
+                    color: "#1a1a1a",
+                    background: "#fff",
+                    outline: "none",
+                    resize: "vertical",
+                    minHeight: "120px",
+                    fontFamily: "inherit",
+                    transition: "border-color 0.2s ease",
+                  }}
+                  placeholder="Enter description"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007476";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+              }}
+            >
+              <motion.button
+                onClick={() => setShowOtherExperiencesModal(false)}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: "none",
+                  color: "#007674",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  // Here you would typically save the other experience to your backend
+                  console.log("Saving other experience:", {
+                    subject: otherExperienceSubject,
+                    description: otherExperienceDescription,
+                  });
+                  setShowOtherExperiencesModal(false);
+                  setOtherExperienceSubject("");
+                  setOtherExperienceDescription("");
+                  // You can add API call here to save the other experience
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: "#007476",
+                  color: "#fff",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#007476",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Save
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Education Modal */}
+      {showEducationModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={() => setShowEducationModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "800px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "14px",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "22px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
+                }}
+              >
+                Add Education
+              </h3>
+              <motion.button
+                onClick={() => setShowEducationModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#666",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  color: "#1a1a1a",
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ marginBottom: "24px" }}>
+              {/* School Field */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  School
+                </label>
+                <input
+                  type="text"
+                  value={educationInstitution}
+                  onChange={(e) => setEducationInstitution(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "16px",
+                    color: "#1a1a1a",
+                    background: "#fff",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                  }}
+                  placeholder="Ex: Northwestern University"
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007476";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                />
+              </div>
+
+              {/* Dates Attended Field */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Dates Attended (Optional)
+                </label>
+                <div style={{ display: "flex", gap: "12px" }}>
+                  <select
+                    value={educationStartYear}
+                    onChange={(e) => setEducationStartYear(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      color: "#1a1a1a",
+                      background: "#fff",
+                      outline: "none",
+                      cursor: "pointer",
+                      transition: "border-color 0.2s ease",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007476";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                    }}
+                  >
+                    <option value="">From</option>
+                    {Array.from(
+                      { length: new Date().getFullYear() - 1940 + 1 },
+                      (_, i) => new Date().getFullYear() - i
+                    ).map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={educationEndYear}
+                    onChange={(e) => setEducationEndYear(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: "12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      color: "#1a1a1a",
+                      background: "#fff",
+                      outline: "none",
+                      cursor: "pointer",
+                      transition: "border-color 0.2s ease",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007476";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                    }}
+                  >
+                    <option value="">To (or expected graduation year)</option>
+                    {Array.from(
+                      { length: 2032 - 1940 + 1 },
+                      (_, i) => 2032 - i
+                    ).map((year) => (
+                      <option key={year} value={year}>
+                        {year}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Degree and Area of Study Fields in Same Row */}
+              <div
+                style={{ marginBottom: "20px", display: "flex", gap: "12px" }}
+              >
+                {/* Degree Field */}
+                <div style={{ flex: 1 }}>
+                  <label
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Degree (Optional)
+                  </label>
+                  <select
+                    value={educationDegree}
+                    onChange={(e) => setEducationDegree(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      color: "#1a1a1a",
+                      background: "#fff",
+                      outline: "none",
+                      cursor: "pointer",
+                      transition: "border-color 0.2s ease",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007476";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                    }}
+                  >
+                    <option value="">Degree (Optional)</option>
+                    <option value="High School Diploma">
+                      High School Diploma
+                    </option>
+                    <option value="Associate's Degree">
+                      Associate's Degree
+                    </option>
+                    <option value="Bachelor's Degree">Bachelor's Degree</option>
+                    <option value="Master's Degree">Master's Degree</option>
+                    <option value="Doctorate">Doctorate</option>
+                    <option value="Professional Degree">
+                      Professional Degree
+                    </option>
+                    <option value="Certificate">Certificate</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* Area of Study Field */}
+                <div style={{ flex: 1 }}>
+                  <label
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Area of Study (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={educationField}
+                    onChange={(e) => setEducationField(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      color: "#1a1a1a",
+                      background: "#fff",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                    }}
+                    placeholder="Ex: Computer Science"
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007476";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Description Field */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Description (Optional)
+                </label>
+                <textarea
+                  rows={4}
+                  value={educationDescription}
+                  onChange={(e) => setEducationDescription(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "12px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "16px",
+                    color: "#1a1a1a",
+                    background: "#fff",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                    resize: "vertical",
+                    minHeight: "80px",
+                    fontFamily: "inherit",
+                  }}
+                  placeholder="Describe your education experience, achievements, or any relevant details..."
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007476";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+              }}
+            >
+              <motion.button
+                onClick={() => setShowEducationModal(false)}
+                style={{
+                  padding: "8px 16px",
+                  border: "none",
+                  background: "none",
+                  color: "#007674",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  // Here you would typically save the education to your backend
+                  console.log("Saving education:", {
+                    institution: educationInstitution,
+                    degree: educationDegree,
+                    field: educationField,
+                    startYear: educationStartYear,
+                    endYear: educationEndYear,
+                    description: educationDescription,
+                  });
+                  setShowEducationModal(false);
+                  setEducationInstitution("");
+                  setEducationDegree("");
+                  setEducationField("");
+                  setEducationStartYear("");
+                  setEducationEndYear("");
+                  setEducationDescription("");
+                  // You can add API call here to save the education
+                }}
+                style={{
+                  padding: "8px 16px",
+                  border: "none",
+                  background: "#e5e7eb",
+                  color: "#fff",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#e5e7eb",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Save
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Profile Image Modal */}
+      {showProfileImageModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowProfileImageModal(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            style={{
+              background: "#fff",
+              borderRadius: "6px",
+              padding: "16px",
+              width: "90%",
+              maxWidth: "400px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "16px",
+                paddingBottom: "8px",
+                borderBottom: "1px solid #e5e7eb",
+              }}
+            >
+              <h2
+                style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  color: "#111827",
+                  margin: 0,
+                }}
+              >
+                Profile Photo
+              </h2>
+              <motion.button
+                onClick={() => setShowProfileImageModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "18px",
+                  color: "#6b7280",
+                  cursor: "pointer",
+                  padding: "2px",
+                  borderRadius: "3px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "20px",
+                  height: "20px",
+                }}
+                whileHover={{
+                  background: "#f3f4f6",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Current Profile Image */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                marginBottom: "16px",
+                padding: "12px",
+                background: "#f8f9fa",
+                borderRadius: "6px",
+              }}
+            >
+              <div
+                style={{
+                  width: "60px",
+                  height: "60px",
+                  borderRadius: "50%",
+                  background: "#e5e7eb",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: "8px",
+                  overflow: "hidden",
+                  border: "1px solid #d1d5db",
+                }}
+              >
+                <img
+                  src={
+                    safeProfile.profileImage ||
+                    "https://via.placeholder.com/60x60?text=Profile"
+                  }
+                  alt="Profile"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              </div>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "#6b7280",
+                  margin: 0,
+                  textAlign: "center",
+                  fontWeight: "400",
+                }}
+              >
+                Current profile photo
+              </p>
+            </div>
+
+            {/* Upload Section */}
+            <div
+              style={{
+                border: "1px dashed #d1d5db",
+                borderRadius: "4px",
+                padding: "20px 12px",
+                textAlign: "center",
+                marginBottom: "16px",
+                background: "#fafafa",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.borderColor = "#007476";
+                e.target.style.background = "#f0fdfa";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.borderColor = "#d1d5db";
+                e.target.style.background = "#fafafa";
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "24px",
+                  color: "#9ca3af",
+                  marginBottom: "6px",
+                }}
+              >
+                📷
+              </div>
+              <p
+                style={{
+                  fontSize: "13px",
+                  fontWeight: "500",
+                  color: "#374151",
+                  margin: "0 0 4px 0",
+                }}
+              >
+                Upload a new photo
+              </p>
+              <p
+                style={{
+                  fontSize: "11px",
+                  color: "#6b7280",
+                  margin: 0,
+                }}
+              >
+                JPG, PNG or GIF. Max size of 800K
+              </p>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "6px",
+                paddingTop: "8px",
+                borderTop: "1px solid #e5e7eb",
+              }}
+            >
+              <motion.button
+                onClick={() => setShowProfileImageModal(false)}
+                style={{
+                  padding: "6px 12px",
+                  border: "1px solid #d1d5db",
+                  background: "#fff",
+                  color: "#374151",
+                  fontSize: "12px",
+                  fontWeight: "400",
+                  cursor: "pointer",
+                  borderRadius: "3px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f9fafb",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  // Here you would typically handle the image upload
+                  console.log("Uploading profile image...");
+                  setShowProfileImageModal(false);
+                  // You can add API call here to upload the image
+                }}
+                style={{
+                  padding: "6px 12px",
+                  border: "none",
+                  background: "#007476",
+                  color: "#fff",
+                  fontSize: "12px",
+                  fontWeight: "400",
+                  cursor: "pointer",
+                  borderRadius: "3px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#005a5c",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Upload Photo
               </motion.button>
             </div>
           </motion.div>
