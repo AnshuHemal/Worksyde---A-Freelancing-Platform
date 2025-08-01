@@ -165,7 +165,15 @@ const Header2 = () => {
           onlineStatus: newStatus,
           lastSeen: response.data.user.lastSeen,
         }));
-        // toast.success(`Status updated to ${newStatus}`);
+        
+        // Dispatch custom event to notify other components about status change
+        window.dispatchEvent(new CustomEvent('onlineStatusChanged', {
+          detail: { status: newStatus }
+        }));
+        
+        // Also update localStorage for cross-tab communication
+        localStorage.setItem('onlineStatus', newStatus);
+        
       }
     } catch (error) {
       console.error("Error updating status:", error);

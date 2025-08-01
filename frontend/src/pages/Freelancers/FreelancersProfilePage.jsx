@@ -97,6 +97,19 @@ const FreelancersProfilePage = () => {
   const [employmentCurrentlyWorking, setEmploymentCurrentlyWorking] = useState(false);
   const [employmentDescription, setEmploymentDescription] = useState("");
 
+  // Portfolio modal state
+  const [showPortfolioModal, setShowPortfolioModal] = useState(false);
+  const [portfolioTitle, setPortfolioTitle] = useState("");
+  const [portfolioRole, setPortfolioRole] = useState("");
+  const [portfolioDescription, setPortfolioDescription] = useState("");
+  const [portfolioSkills, setPortfolioSkills] = useState([]);
+  const [portfolioSkillInput, setPortfolioSkillInput] = useState("");
+  const [portfolioContent, setPortfolioContent] = useState([]);
+  const [portfolioSelectedImage, setPortfolioSelectedImage] = useState(null);
+  const [imageDescription, setImageDescription] = useState("");
+  const [showImageUpload, setShowImageUpload] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -269,6 +282,112 @@ const FreelancersProfilePage = () => {
     setEmploymentCurrentlyWorking(false);
   };
 
+  // Portfolio modal handlers
+  const handleAddPortfolio = () => {
+    setShowPortfolioModal(true);
+  };
+
+  const handleClosePortfolioModal = () => {
+    setShowPortfolioModal(false);
+    setPortfolioTitle("");
+    setPortfolioRole("");
+    setPortfolioDescription("");
+    setPortfolioSkills([]);
+    setPortfolioSkillInput("");
+    setPortfolioContent([]);
+  };
+
+  const handleAddPortfolioSkill = () => {
+    if (portfolioSkillInput.trim() && portfolioSkills.length < 5) {
+      setPortfolioSkills([...portfolioSkills, portfolioSkillInput.trim()]);
+      setPortfolioSkillInput("");
+    }
+  };
+
+  const handleRemovePortfolioSkill = (index) => {
+    setPortfolioSkills(portfolioSkills.filter((_, i) => i !== index));
+  };
+
+  const handleAddPortfolioContent = (type) => {
+    if (type === "image") {
+      setShowImageUpload(true);
+    } else {
+      setPortfolioContent([...portfolioContent, { type, data: "" }]);
+    }
+  };
+
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPortfolioSelectedImage(e.target.result);
+        setShowImageUpload(false);
+        setPortfolioContent([...portfolioContent, { 
+          type: "image", 
+          data: e.target.result,
+          description: imageDescription 
+        }]);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setPortfolioSelectedImage(null);
+    setImageDescription("");
+    setShowImageUpload(false);
+  };
+
+  // Fetch current user data to sync with Header2 status
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        const response = await fetch("/api/auth/current-user/", {
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (data.success && data.user) {
+          setCurrentUser(data.user);
+        }
+      } catch (error) {
+        console.error("Error fetching current user:", error);
+      }
+    };
+
+    fetchCurrentUser();
+
+    // Set up interval to periodically check for status updates from Header2
+    const interval = setInterval(fetchCurrentUser, 1000); // Check every 1 second for faster sync
+
+    // Listen for storage events (when Header2 updates localStorage)
+    const handleStorageChange = (e) => {
+      if (e.key === 'onlineStatus' || e.key === 'userStatus') {
+        fetchCurrentUser();
+      }
+    };
+
+    // Listen for custom events from Header2
+    const handleStatusChange = () => {
+      fetchCurrentUser();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('onlineStatusChanged', handleStatusChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('onlineStatusChanged', handleStatusChange);
+    };
+  }, []);
+
   // Fetch available languages from LanguageTool API
   const fetchAvailableLanguages = async () => {
     setLoadingLanguages(true);
@@ -394,7 +513,7 @@ const FreelancersProfilePage = () => {
   const localTime = "6:01 pm local time";
 
   // Add this after your other safeProfile/safeSummary assignments
-  const isOnline = safeSummary.isOnline || safeProfile.isOnline || false;
+  const isOnline = currentUser?.onlineStatus === "online" || safeSummary.isOnline || safeProfile.isOnline || false;
 
   return (
     <>
@@ -507,8 +626,8 @@ const FreelancersProfilePage = () => {
                   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
                 }}
               />
-              {/* Green status dot */}
-              <span
+              {/* Online/Offline status dot - Read Only */}
+              <div
                 style={{
                   position: "absolute",
                   left: "4px",
@@ -525,17 +644,17 @@ const FreelancersProfilePage = () => {
                 }}
                 title={isOnline ? "Online" : "Offline"}
               >
-                <span
+                <div
                   style={{
                     width: "12px",
                     height: "12px",
-                    background: isOnline ? "#14a800" : "#bbb",
+                    background: isOnline ? "#28a745" : "#6c757d",
                     borderRadius: "50%",
                     display: "block",
                     transition: "background 0.2s",
                   }}
-                ></span>
-              </span>
+                />
+              </div>
               {/* Edit icon overlay */}
               <motion.div
                 style={{
@@ -567,6 +686,7 @@ const FreelancersProfilePage = () => {
                 <MdEdit size={16} />
               </motion.div>
             </div>
+
             <div>
               <div
                 style={{
@@ -1446,6 +1566,7 @@ const FreelancersProfilePage = () => {
                     scale: 1.05,
                   }}
                   whileTap={{ scale: 0.95 }}
+                  onClick={handleAddPortfolio}
                   title="Add Portfolio Item"
                 >
                   <FiPlus size={16} />
@@ -3197,21 +3318,23 @@ const FreelancersProfilePage = () => {
             position: "fixed",
             top: 0,
             left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.5)",
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1000,
             padding: "20px",
           }}
           onClick={() => setShowProfileImageModal(false)}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
             style={{
               background: "#fff",
               borderRadius: "12px",
@@ -3219,6 +3342,7 @@ const FreelancersProfilePage = () => {
               width: "100%",
               maxWidth: "800px",
               boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
               display: "flex",
               flexDirection: "column",
               maxHeight: "90vh",
@@ -3232,39 +3356,37 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "24px",
-                paddingBottom: "16px",
-                borderBottom: "1px solid #e5e7eb",
+                marginBottom: "16px",
               }}
             >
-              <h2
+              <h3
                 style={{
+                  margin: 0,
                   fontSize: "24px",
                   fontWeight: "600",
-                  color: "#111827",
-                  margin: 0,
+                  color: "#1a1a1a",
                 }}
               >
                 Edit photo
-              </h2>
+              </h3>
               <motion.button
                 onClick={() => setShowProfileImageModal(false)}
                 style={{
                   background: "none",
                   border: "none",
                   fontSize: "24px",
-                  color: "#6b7280",
+                  color: "#666",
                   cursor: "pointer",
                   padding: "4px",
                   borderRadius: "4px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: "32px",
-                  height: "32px",
+                  transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#f3f4f6",
+                  color: "#1a1a1a",
+                  background: "#f8f9fa",
                 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -3664,21 +3786,23 @@ const FreelancersProfilePage = () => {
             position: "fixed",
             top: 0,
             left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.5)",
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1000,
             padding: "20px",
           }}
           onClick={() => setShowVideoModal(false)}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
             style={{
               background: "#fff",
               borderRadius: "12px",
@@ -3686,6 +3810,7 @@ const FreelancersProfilePage = () => {
               width: "100%",
               maxWidth: "800px",
               boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -3695,39 +3820,37 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "24px",
-                paddingBottom: "16px",
-                borderBottom: "1px solid #e5e7eb",
+                marginBottom: "16px",
               }}
             >
-              <h2
+              <h3
                 style={{
+                  margin: 0,
                   fontSize: "24px",
                   fontWeight: "600",
-                  color: "#111827",
-                  margin: 0,
+                  color: "#1a1a1a",
                 }}
               >
                 Add Video Introduction
-              </h2>
+              </h3>
               <motion.button
                 onClick={() => setShowVideoModal(false)}
                 style={{
                   background: "none",
                   border: "none",
                   fontSize: "24px",
-                  color: "#6b7280",
+                  color: "#666",
                   cursor: "pointer",
                   padding: "4px",
                   borderRadius: "4px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: "32px",
-                  height: "32px",
+                  transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#f3f4f6",
+                  color: "#1a1a1a",
+                  background: "#f8f9fa",
                 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -3994,21 +4117,23 @@ const FreelancersProfilePage = () => {
             position: "fixed",
             top: 0,
             left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.5)",
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1000,
             padding: "20px",
           }}
           onClick={() => setShowLanguageModal(false)}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
             style={{
               background: "#fff",
               borderRadius: "12px",
@@ -4016,6 +4141,7 @@ const FreelancersProfilePage = () => {
               width: "100%",
               maxWidth: "700px",
               boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -4025,39 +4151,37 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "24px",
-                paddingBottom: "16px",
-                borderBottom: "1px solid #e5e7eb",
+                marginBottom: "16px",
               }}
             >
-              <h2
+              <h3
                 style={{
+                  margin: 0,
                   fontSize: "24px",
                   fontWeight: "600",
-                  color: "#111827",
-                  margin: 0,
+                  color: "#1a1a1a",
                 }}
               >
                 Add language
-              </h2>
+              </h3>
               <motion.button
                 onClick={() => setShowLanguageModal(false)}
                 style={{
                   background: "none",
                   border: "none",
                   fontSize: "24px",
-                  color: "#6b7280",
+                  color: "#666",
                   cursor: "pointer",
                   padding: "4px",
                   borderRadius: "4px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: "32px",
-                  height: "32px",
+                  transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#f3f4f6",
+                  color: "#1a1a1a",
+                  background: "#f8f9fa",
                 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -4431,28 +4555,33 @@ const FreelancersProfilePage = () => {
             position: "fixed",
             top: 0,
             left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.5)",
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1000,
             padding: "20px",
           }}
           onClick={() => setShowEditLanguageModal(false)}
         >
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
             style={{
               background: "#fff",
               borderRadius: "12px",
-              padding: "24px",
               width: "100%",
               maxWidth: "800px",
+              maxHeight: "90vh",
+              display: "flex",
+              flexDirection: "column",
               boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -4462,39 +4591,39 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "24px",
-                paddingBottom: "16px",
-                borderBottom: "1px solid #e5e7eb",
+                marginBottom: "16px",
+                padding: "24px 24px 0 24px",
+                flexShrink: 0,
               }}
             >
-              <h2
+              <h3
                 style={{
+                  margin: 0,
                   fontSize: "24px",
                   fontWeight: "600",
-                  color: "#111827",
-                  margin: 0,
+                  color: "#1a1a1a",
                 }}
               >
                 Edit languages
-              </h2>
+              </h3>
               <motion.button
                 onClick={() => setShowEditLanguageModal(false)}
                 style={{
                   background: "none",
                   border: "none",
                   fontSize: "24px",
-                  color: "#6b7280",
+                  color: "#666",
                   cursor: "pointer",
                   padding: "4px",
                   borderRadius: "4px",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: "32px",
-                  height: "32px",
+                  transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#f3f4f6",
+                  color: "#1a1a1a",
+                  background: "#f8f9fa",
                 }}
                 whileTap={{ scale: 0.95 }}
               >
@@ -4502,95 +4631,66 @@ const FreelancersProfilePage = () => {
               </motion.button>
             </div>
 
-            {/* All Languages List */}
-            <div style={{ marginBottom: "24px" }}>
-              <label
-                style={{
-                  fontSize: "16px",
-                  fontWeight: "600",
-                  color: "#1a1a1a",
-                  display: "block",
-                  marginBottom: "16px",
-                }}
-              >
-                Edit Your Languages
-              </label>
-
-              {editingLanguages.map((langItem, index) => (
-                <div
-                  key={langItem.id}
+            {/* Modal Body */}
+            <div
+              style={{
+                flex: 1,
+                overflowY: "auto",
+                maxHeight: "calc(90vh - 170px)",
+                padding: "0 24px",
+                marginBottom: "24px",
+              }}
+            >
+              {/* All Languages List */}
+              <div style={{ marginBottom: "24px" }}>
+                <label
                   style={{
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "12px",
-                    padding: "20px",
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    display: "block",
                     marginBottom: "16px",
-                    background: "#fff",
                   }}
                 >
+                  Edit Your Languages
+                </label>
+
+                {editingLanguages.map((langItem, index) => (
                   <div
+                    key={langItem.id}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: "20px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      padding: "20px",
+                      marginBottom: "16px",
+                      background: "#fff",
                     }}
                   >
-                    {/* Language Section */}
-                    <div style={{ flex: 1 }}>
-                      <label
-                        style={{
-                          fontSize: "16px",
-                          fontWeight: "600",
-                          color: "#1a1a1a",
-                          display: "block",
-                          marginBottom: "8px",
-                        }}
-                      >
-                        Language {index + 1}
-                      </label>
-                      <input
-                        type="text"
-                        value={langItem.language}
-                        readOnly
-                        style={{
-                          width: "100%",
-                          padding: "12px 16px",
-                          border: "1px solid #d1d5db",
-                          borderRadius: "8px",
-                          fontSize: "16px",
-                          outline: "none",
-                          transition: "border-color 0.2s ease",
-                          boxSizing: "border-box",
-                          background: "#f8f9fa",
-                          color: "#374151",
-                          cursor: "not-allowed",
-                        }}
-                        placeholder="Language"
-                      />
-                    </div>
-
-                    {/* Proficiency Level Section */}
-                    <div style={{ flex: 1, position: "relative" }}>
-                      <label
-                        style={{
-                          fontSize: "16px",
-                          fontWeight: "600",
-                          color: "#1a1a1a",
-                          display: "block",
-                          marginBottom: "8px",
-                        }}
-                      >
-                        Proficiency level
-                      </label>
-                      <div style={{ position: "relative" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: "20px",
+                      }}
+                    >
+                      {/* Language Section */}
+                      <div style={{ flex: 1 }}>
+                        <label
+                          style={{
+                            fontSize: "16px",
+                            fontWeight: "600",
+                            color: "#1a1a1a",
+                            display: "block",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          Language {index + 1}
+                        </label>
                         <input
                           type="text"
-                          value={langItem.proficiency}
-                          onChange={(e) => {
-                            const updatedLanguages = [...editingLanguages];
-                            updatedLanguages[index].proficiency = e.target.value;
-                            setEditingLanguages(updatedLanguages);
-                          }}
+                          value={langItem.language}
+                          readOnly
                           style={{
                             width: "100%",
                             padding: "12px 16px",
@@ -4600,147 +4700,187 @@ const FreelancersProfilePage = () => {
                             outline: "none",
                             transition: "border-color 0.2s ease",
                             boxSizing: "border-box",
-                            paddingRight: "40px",
+                            background: "#f8f9fa",
+                            color: "#374151",
+                            cursor: "not-allowed",
                           }}
-                          onFocus={(e) => {
-                            e.target.style.borderColor = "#007674";
-                            // Set the current language as active for dropdown
-                            setEditingLanguage(langItem.language);
-                            setEditingProficiency(langItem.proficiency);
-                            setSelectedLanguageIndex(index);
-                            setShowEditProficiencyDropdown(true);
-                          }}
-                          onBlur={(e) => {
-                            e.target.style.borderColor = "#d1d5db";
-                            // Delay hiding dropdown to allow clicking on options
-                            setTimeout(() => setShowEditProficiencyDropdown(false), 200);
-                          }}
-                          placeholder="Search for proficiency level"
+                          placeholder="Language"
                         />
-                        <div
-                          style={{
-                            position: "absolute",
-                            right: "12px",
-                            top: "50%",
-                            transform: "translateY(-50%)",
-                            color: "#6b7280",
-                            pointerEvents: "none",
-                            fontSize: "12px",
-                          }}
-                        >
-                          {showEditProficiencyDropdown && selectedLanguageIndex === index ? "▲" : "▼"}
-                        </div>
                       </div>
 
-                      {/* Proficiency Dropdown */}
-                      {showEditProficiencyDropdown && selectedLanguageIndex === index && (
-                        <motion.div
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
+                      {/* Proficiency Level Section */}
+                      <div style={{ flex: 1, position: "relative" }}>
+                        <label
                           style={{
-                            position: "absolute",
-                            top: "100%",
-                            left: 0,
-                            right: 0,
-                            background: "#fff",
-                            border: "1px solid #d1d5db",
-                            borderRadius: "8px",
-                            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                            zIndex: 10,
-                            marginTop: "4px",
-                            maxHeight: "300px",
-                            overflow: "auto",
+                            fontSize: "16px",
+                            fontWeight: "600",
+                            color: "#1a1a1a",
+                            display: "block",
+                            marginBottom: "8px",
                           }}
                         >
-                          {[
-                            {
-                              level: "Basic",
-                              description: "I am only able to communicate in this language through written communication"
-                            },
-                            {
-                              level: "Conversational",
-                              description: "I know this language well enough to verbally discuss project details with a client"
-                            },
-                            {
-                              level: "Fluent",
-                              description: "I have complete command of this language with perfect grammar"
-                            },
-                            {
-                              level: "Native or Bilingual",
-                              description: "I have complete command of this language, including breadth of vocabulary, idioms, and colloquialisms"
-                            }
-                          ].map((option, optionIndex) => (
-                            <motion.div
-                              key={optionIndex}
-                              onClick={() => {
-                                const updatedLanguages = [...editingLanguages];
-                                updatedLanguages[index].proficiency = option.level;
-                                setEditingLanguages(updatedLanguages);
-                                setShowEditProficiencyDropdown(false);
-                              }}
-                              style={{
-                                padding: "12px 16px",
-                                cursor: "pointer",
-                                borderBottom: optionIndex < 3 ? "1px solid #f3f4f6" : "none",
-                                transition: "background-color 0.2s ease",
-                              }}
-                              whileHover={{
-                                background: "#f8f9fa",
-                              }}
-                              whileTap={{ scale: 0.98 }}
-                            >
-                              <div
-                                style={{
-                                  fontSize: "16px",
-                                  fontWeight: "600",
-                                  color: "#1a1a1a",
-                                  marginBottom: "4px",
-                                }}
-                              >
-                                {option.level}
-                              </div>
-                              <div
-                                style={{
-                                  fontSize: "12px",
-                                  color: "#6b7280",
-                                  lineHeight: "1.4",
-                                }}
-                              >
-                                {option.description}
-                              </div>
-                            </motion.div>
-                          ))}
-                        </motion.div>
-                      )}
-                    </div>
+                          Proficiency level
+                        </label>
+                        <div style={{ position: "relative" }}>
+                          <input
+                            type="text"
+                            value={langItem.proficiency}
+                            onChange={(e) => {
+                              const updatedLanguages = [...editingLanguages];
+                              updatedLanguages[index].proficiency = e.target.value;
+                              setEditingLanguages(updatedLanguages);
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "12px 16px",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "8px",
+                              fontSize: "16px",
+                              outline: "none",
+                              transition: "border-color 0.2s ease",
+                              boxSizing: "border-box",
+                              paddingRight: "40px",
+                            }}
+                            onFocus={(e) => {
+                              e.target.style.borderColor = "#007674";
+                              // Set the current language as active for dropdown
+                              setEditingLanguage(langItem.language);
+                              setEditingProficiency(langItem.proficiency);
+                              setSelectedLanguageIndex(index);
+                              setShowEditProficiencyDropdown(true);
+                            }}
+                            onBlur={(e) => {
+                              e.target.style.borderColor = "#d1d5db";
+                              // Delay hiding dropdown to allow clicking on options
+                              setTimeout(() => setShowEditProficiencyDropdown(false), 200);
+                            }}
+                            placeholder="Search for proficiency level"
+                          />
+                          <div
+                            style={{
+                              position: "absolute",
+                              right: "12px",
+                              top: "50%",
+                              transform: "translateY(-50%)",
+                              color: "#6b7280",
+                              pointerEvents: "none",
+                              fontSize: "12px",
+                            }}
+                          >
+                            {showEditProficiencyDropdown && selectedLanguageIndex === index ? "▲" : "▼"}
+                          </div>
+                        </div>
 
-                    {/* Remove Button */}
-                    <div style={{ display: "flex", alignItems: "center", paddingTop: "32px" }}>
-                      <motion.button
-                        whileHover={{ scale: 1.05, background: "#fef2f2" }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => {
-                          const updatedLanguages = editingLanguages.filter((_, i) => i !== index);
-                          setEditingLanguages(updatedLanguages);
-                        }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#ef4444",
-                          cursor: "pointer",
-                          padding: "8px",
-                          borderRadius: "6px",
-                          transition: "background-color 0.2s ease",
-                        }}
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                        </svg>
-                      </motion.button>
+                        {/* Proficiency Dropdown */}
+                        {showEditProficiencyDropdown && selectedLanguageIndex === index && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            style={{
+                              position: "absolute",
+                              top: "100%",
+                              left: 0,
+                              right: 0,
+                              background: "#fff",
+                              border: "1px solid #d1d5db",
+                              borderRadius: "8px",
+                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                              zIndex: 10,
+                              marginTop: "4px",
+                              maxHeight: "300px",
+                              overflow: "auto",
+                            }}
+                          >
+                            {[
+                              {
+                                level: "Basic",
+                                description: "I am only able to communicate in this language through written communication"
+                              },
+                              {
+                                level: "Conversational",
+                                description: "I know this language well enough to verbally discuss project details with a client"
+                              },
+                              {
+                                level: "Fluent",
+                                description: "I have complete command of this language with perfect grammar"
+                              },
+                              {
+                                level: "Native or Bilingual",
+                                description: "I have complete command of this language, including breadth of vocabulary, idioms, and colloquialisms"
+                              }
+                            ].map((option, optionIndex) => (
+                              <motion.div
+                                key={optionIndex}
+                                onClick={() => {
+                                  const updatedLanguages = [...editingLanguages];
+                                  updatedLanguages[index].proficiency = option.level;
+                                  setEditingLanguages(updatedLanguages);
+                                  setShowEditProficiencyDropdown(false);
+                                }}
+                                style={{
+                                  padding: "12px 16px",
+                                  cursor: "pointer",
+                                  borderBottom: optionIndex < 3 ? "1px solid #f3f4f6" : "none",
+                                  transition: "background-color 0.2s ease",
+                                }}
+                                whileHover={{
+                                  background: "#f8f9fa",
+                                }}
+                                whileTap={{ scale: 0.98 }}
+                              >
+                                <div
+                                  style={{
+                                    fontSize: "16px",
+                                    fontWeight: "600",
+                                    color: "#1a1a1a",
+                                    marginBottom: "4px",
+                                  }}
+                                >
+                                  {option.level}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "12px",
+                                    color: "#6b7280",
+                                    lineHeight: "1.4",
+                                  }}
+                                >
+                                  {option.description}
+                                </div>
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </div>
+
+                      {/* Remove Button */}
+                      <div style={{ display: "flex", alignItems: "center", paddingTop: "32px" }}>
+                        <motion.button
+                          whileHover={{ scale: 1.05, background: "#fef2f2" }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            const updatedLanguages = editingLanguages.filter((_, i) => i !== index);
+                            setEditingLanguages(updatedLanguages);
+                          }}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#ef4444",
+                            cursor: "pointer",
+                            padding: "8px",
+                            borderRadius: "6px",
+                            transition: "background-color 0.2s ease",
+                          }}
+                        >
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                          </svg>
+                        </motion.button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
 
             {/* Modal Footer */}
@@ -4749,8 +4889,11 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: "12px",
-                paddingTop: "20px",
+                padding: "0 24px 24px 24px",
+                flexShrink: 0,
                 borderTop: "1px solid #e5e7eb",
+                paddingTop: "16px",
+                marginTop: "16px",
               }}
             >
               <motion.button
@@ -5195,6 +5338,8 @@ const FreelancersProfilePage = () => {
                 justifyContent: "space-between",
                 alignItems: "center",
                 marginBottom: "24px",
+                padding: "24px 24px 0 24px",
+                flexShrink: 0,
               }}
             >
               <h3
@@ -5233,7 +5378,15 @@ const FreelancersProfilePage = () => {
             </div>
 
             {/* Modal Body */}
-            <div style={{ marginBottom: "24px" }}>
+            <div 
+              style={{ 
+                marginBottom: "24px",
+                padding: "0 24px",
+                flex: 1,
+                overflowY: "auto",
+                maxHeight: "calc(90vh - 200px)",
+              }}
+            >
               {/* Company Field */}
               <div style={{ marginBottom: "20px" }}>
                 <label
@@ -5622,6 +5775,11 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: "12px",
+                padding: "0 24px 24px 24px",
+                flexShrink: 0,
+                borderTop: "1px solid #e6e6e6",
+                paddingTop: "16px",
+                marginTop: "16px",
               }}
             >
               <motion.button
@@ -5667,6 +5825,625 @@ const FreelancersProfilePage = () => {
                 whileTap={{ scale: 0.95 }}
               >
                 {isEditingEmployment ? "Update" : "Save"}
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Portfolio Modal */}
+      {showPortfolioModal && (
+        <motion.div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+        >
+          <motion.div className="section-container"
+            style={{
+              backgroundColor: "white",
+              borderRadius: "0px",
+              padding: "32px",
+              width: "100%",
+              height: "90vh",
+              overflow: "auto",
+              position: "relative",
+            }}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              }}
+            >
+              <div>
+                <h2
+                  style={{
+                    fontSize: "24px",
+                    fontWeight: "700",
+                    color: "#1a1a1a",
+                    margin: 0,
+                    marginBottom: "4px",
+                  }}
+                >
+                  Add a new portfolio project
+                </h2>
+                <p
+                  style={{
+                    fontSize: "16px",
+                    color: "#666",
+                    margin: 0,
+                  }}
+                >
+                  All fields are required unless otherwise indicated.
+                </p>
+              </div>
+              <motion.button
+                onClick={handleClosePortfolioModal}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  cursor: "pointer",
+                  color: "#666",
+                  padding: "4px",
+                }}
+                whileHover={{ color: "#1a1a1a" }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Modal Content */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr 1fr",
+                gap: "32px",
+                marginBottom: "32px",
+              }}
+            >
+              {/* Left Column - Form Fields */}
+              <div>
+                {/* Project Title */}
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Project title
+                  </label>
+                  <input
+                    type="text"
+                    value={portfolioTitle}
+                    onChange={(e) => setPortfolioTitle(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                    }}
+                    placeholder="Enter a brief but descriptive title"
+                    maxLength={70}
+                  />
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#666",
+                      marginTop: "4px",
+                    }}
+                  >
+                    {70 - portfolioTitle.length} characters left
+                  </div>
+                </div>
+
+                {/* Your Role */}
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Your role (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={portfolioRole}
+                    onChange={(e) => setPortfolioRole(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                    }}
+                    placeholder="e.g., Front-end engineer or Marketing analyst"
+                    maxLength={100}
+                  />
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#666",
+                      marginTop: "4px",
+                    }}
+                  >
+                    {100 - portfolioRole.length} characters left
+                  </div>
+                </div>
+
+                {/* Project Description */}
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Project description
+                  </label>
+                  <textarea
+                    value={portfolioDescription}
+                    onChange={(e) => setPortfolioDescription(e.target.value)}
+                    style={{
+                      width: "100%",
+                      minHeight: "120px",
+                      padding: "12px 16px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                      resize: "vertical",
+                      fontFamily: "inherit",
+                    }}
+                    placeholder="Briefly describe the project's goals, your solution and the impact you made here"
+                    maxLength={600}
+                  />
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#666",
+                      marginTop: "4px",
+                    }}
+                  >
+                    {600 - portfolioDescription.length} characters left
+                  </div>
+                </div>
+
+                {/* Skills and Deliverables */}
+                <div style={{ marginBottom: "24px" }}>
+                  <label
+                    style={{
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      display: "block",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    Skills and deliverables
+                  </label>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "8px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    <input
+                      type="text"
+                      value={portfolioSkillInput}
+                      onChange={(e) => setPortfolioSkillInput(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddPortfolioSkill();
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: "12px 16px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        fontSize: "16px",
+                        outline: "none",
+                        transition: "border-color 0.2s ease",
+                        boxSizing: "border-box",
+                      }}
+                      placeholder="Type to add skills relevant to this project"
+                    />
+                    <motion.button
+                      onClick={handleAddPortfolioSkill}
+                      disabled={!portfolioSkillInput.trim() || portfolioSkills.length >= 5}
+                      style={{
+                        padding: "12px 16px",
+                        border: "none",
+                        background: "#007674",
+                        color: "white",
+                        borderRadius: "8px",
+                        fontSize: "16px",
+                        fontWeight: "600",
+                        cursor: "pointer",
+                        opacity: (!portfolioSkillInput.trim() || portfolioSkills.length >= 5) ? 0.5 : 1,
+                      }}
+                      whileHover={{
+                        background: "#005a58",
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      Add
+                    </motion.button>
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      color: "#666",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    {5 - portfolioSkills.length} skills left
+                  </div>
+                  {/* Skills Tags */}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      gap: "8px",
+                    }}
+                  >
+                    {portfolioSkills.map((skill, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          background: "#f0f9ff",
+                          color: "#007674",
+                          padding: "6px 12px",
+                          borderRadius: "20px",
+                          fontSize: "16px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
+                        {skill}
+                        <motion.button
+                          onClick={() => handleRemovePortfolioSkill(index)}
+                          style={{
+                            background: "none",
+                            border: "none",
+                            color: "#007674",
+                            cursor: "pointer",
+                            fontSize: "16px",
+                            padding: 0,
+                          }}
+                          whileHover={{ color: "#005a58" }}
+                          whileTap={{ scale: 0.95 }}
+                        >
+                          ×
+                        </motion.button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Content Addition Area */}
+              <div>
+                {showImageUpload ? (
+                  <div
+                    style={{
+                      border: "2px dashed #10b981",
+                      borderRadius: "12px",
+                      padding: "32px",
+                      minHeight: "400px",
+                      display: "flex",
+                      flexDirection: "column",
+                      background: "#f9fafb",
+                    }}
+                  >
+                    {/* Header with X button */}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "center",
+                        marginBottom: "24px",
+                      }}
+                    >
+                      <motion.button
+                        onClick={handleRemoveImage}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          fontSize: "24px",
+                          cursor: "pointer",
+                          color: "#10b981",
+                          padding: "8px",
+                        }}
+                        whileHover={{ color: "#059669" }}
+                        whileTap={{ scale: 0.95 }}
+                      >
+                        ×
+                      </motion.button>
+                    </div>
+
+                    {/* Content Type Icons */}
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "16px",
+                        marginBottom: "24px",
+                        flexWrap: "wrap",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {[
+                        { type: "image", icon: "🖼️", label: "Image" },
+                        { type: "video", icon: "🎥", label: "Video" },
+                        { type: "text", icon: "T", label: "Text" },
+                        { type: "link", icon: "🔗", label: "Link" },
+                        { type: "document", icon: "📄", label: "Document" },
+                        { type: "audio", icon: "🎵", label: "Audio" },
+                      ].map((contentType) => (
+                        <motion.div
+                          key={contentType.type}
+                          onClick={() => handleAddPortfolioContent(contentType.type)}
+                          style={{
+                            width: "48px",
+                            height: "48px",
+                            borderRadius: "50%",
+                            border: "2px solid #10b981",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            background: contentType.type === "image" ? "#f0fdf4" : "white",
+                            fontSize: "20px",
+                          }}
+                          whileHover={{
+                            scale: 1.1,
+                            background: "#f0fdf4",
+                          }}
+                          whileTap={{ scale: 0.95 }}
+                          title={contentType.label}
+                        >
+                          {contentType.icon}
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    {/* Image Upload Area */}
+                    <div
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "16px",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "100%",
+                          maxWidth: "300px",
+                          padding: "20px",
+                          border: "2px dashed #d1d5db",
+                          borderRadius: "8px",
+                          textAlign: "center",
+                          background: "white",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => document.getElementById("image-upload").click()}
+                      >
+                        <div style={{ fontSize: "48px", marginBottom: "8px" }}>📁</div>
+                        <div style={{ fontSize: "16px", color: "#666", marginBottom: "4px" }}>
+                          Click to upload image
+                        </div>
+                        <div style={{ fontSize: "12px", color: "#999" }}>
+                          PNG, JPG, GIF up to 10MB
+                        </div>
+                      </div>
+
+                      {/* Image Description Input */}
+                      <input
+                        type="text"
+                        value={imageDescription}
+                        onChange={(e) => setImageDescription(e.target.value)}
+                        style={{
+                          width: "100%",
+                          maxWidth: "300px",
+                          padding: "12px 16px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "8px",
+                          fontSize: "16px",
+                          outline: "none",
+                          transition: "border-color 0.2s ease",
+                          boxSizing: "border-box",
+                          background: "#f9f9f9",
+                        }}
+                        placeholder="Type image description here (optional)"
+                      />
+
+                      <input
+                        id="image-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageUpload}
+                        style={{ display: "none" }}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: "600",
+                        color: "#10b981",
+                        textAlign: "center",
+                        marginTop: "16px",
+                      }}
+                    >
+                      Add content
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      border: "2px dashed #10b981",
+                      borderRadius: "12px",
+                      padding: "32px",
+                      height: "400px",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "#f9fafb",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "16px",
+                        marginBottom: "24px",
+                        flexWrap: "wrap",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {/* Content Type Icons */}
+                      {[
+                        { type: "image", icon: "🖼️", label: "Image" },
+                        { type: "video", icon: "🎥", label: "Video" },
+                        { type: "text", icon: "T", label: "Text" },
+                        { type: "link", icon: "🔗", label: "Link" },
+                        { type: "document", icon: "📄", label: "Document" },
+                        { type: "audio", icon: "🎵", label: "Audio" },
+                      ].map((contentType) => (
+                        <motion.div
+                          key={contentType.type}
+                          onClick={() => handleAddPortfolioContent(contentType.type)}
+                          style={{
+                            width: "48px",
+                            height: "48px",
+                            borderRadius: "50%",
+                            border: "2px solid #10b981",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            background: "white",
+                            fontSize: "20px",
+                          }}
+                          whileHover={{
+                            scale: 1.1,
+                            background: "#f0fdf4",
+                          }}
+                          whileTap={{ scale: 0.95 }}
+                          title={contentType.label}
+                        >
+                          {contentType.icon}
+                        </motion.div>
+                      ))}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: "600",
+                        color: "#10b981",
+                      }}
+                    >
+                      Add content
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+              }}
+            >
+              <motion.button
+                onClick={handleClosePortfolioModal}
+                style={{
+                  padding: "12px 24px",
+                  border: "none",
+                  background: "none",
+                  color: "#10b981",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "8px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f0fdf4",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Save as draft
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  // Here you would typically save the portfolio to your backend
+                  handleClosePortfolioModal();
+                  // You can add API call here to save the portfolio
+                }}
+                style={{
+                  padding: "12px 24px",
+                  border: "none",
+                  background: "#10b981",
+                  color: "white",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "8px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#059669",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Next: Preview
               </motion.button>
             </div>
           </motion.div>
