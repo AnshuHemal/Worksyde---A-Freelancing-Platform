@@ -77,7 +77,8 @@ const FreelancersProfilePage = () => {
   const [showEditLanguageModal, setShowEditLanguageModal] = useState(false);
   const [editingLanguage, setEditingLanguage] = useState("");
   const [editingProficiency, setEditingProficiency] = useState("");
-  const [showEditProficiencyDropdown, setShowEditProficiencyDropdown] = useState(false);
+  const [showEditProficiencyDropdown, setShowEditProficiencyDropdown] =
+    useState(false);
   const [selectedLanguageIndex, setSelectedLanguageIndex] = useState(0);
   const [editingLanguages, setEditingLanguages] = useState([]);
   const [showHourlyRateModal, setShowHourlyRateModal] = useState(false);
@@ -95,7 +96,8 @@ const FreelancersProfilePage = () => {
   const [employmentStartYear, setEmploymentStartYear] = useState("");
   const [employmentEndMonth, setEmploymentEndMonth] = useState("");
   const [employmentEndYear, setEmploymentEndYear] = useState("");
-  const [employmentCurrentlyWorking, setEmploymentCurrentlyWorking] = useState(false);
+  const [employmentCurrentlyWorking, setEmploymentCurrentlyWorking] =
+    useState(false);
   const [employmentDescription, setEmploymentDescription] = useState("");
 
   // Portfolio modal state
@@ -110,6 +112,45 @@ const FreelancersProfilePage = () => {
   const [imageDescription, setImageDescription] = useState("");
   const [showImageUpload, setShowImageUpload] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [isSavingTitle, setIsSavingTitle] = useState(false);
+  const [titleSaveError, setTitleSaveError] = useState(null);
+  const [isSavingBio, setIsSavingBio] = useState(false);
+  const [bioSaveError, setBioSaveError] = useState(null);
+  const [isSavingHourlyRate, setIsSavingHourlyRate] = useState(false);
+  const [hourlyRateSaveError, setHourlyRateSaveError] = useState(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [imageUploadError, setImageUploadError] = useState(null);
+  const [isSavingEmployment, setIsSavingEmployment] = useState(false);
+  const [employmentSaveError, setEmploymentSaveError] = useState(null);
+  const [isDeletingEmployment, setIsDeletingEmployment] = useState(false);
+  const [deletingEmploymentId, setDeletingEmploymentId] = useState(null);
+  const [isSavingEducation, setIsSavingEducation] = useState(false);
+  const [educationSaveError, setEducationSaveError] = useState(null);
+  const [isDeletingEducation, setIsDeletingEducation] = useState(false);
+  const [deletingEducationId, setDeletingEducationId] = useState(null);
+  const [isSavingLanguage, setIsSavingLanguage] = useState(false);
+  const [languageSaveError, setLanguageSaveError] = useState(null);
+  const [isDeletingLanguage, setIsDeletingLanguage] = useState(false);
+  const [deletingLanguageId, setDeletingLanguageId] = useState(null);
+  const [isSavingVideo, setIsSavingVideo] = useState(false);
+  const [videoSaveError, setVideoSaveError] = useState(null);
+  const [otherExperiences, setOtherExperiences] = useState([]);
+  const [isSavingOtherExperience, setIsSavingOtherExperience] = useState(false);
+  const [otherExperienceSaveError, setOtherExperienceSaveError] =
+    useState(null);
+  const [isDeletingOtherExperience, setIsDeletingOtherExperience] =
+    useState(false);
+  const [deletingOtherExperienceId, setDeletingOtherExperienceId] =
+    useState(null);
+  const [isEditingOtherExperience, setIsEditingOtherExperience] =
+    useState(false);
+  const [editingOtherExperienceIndex, setEditingOtherExperienceIndex] =
+    useState(null);
+  const [allSkills, setAllSkills] = useState([]);
+  const [skillSuggestions, setSkillSuggestions] = useState([]);
+  const [highlightedSkillIndex, setHighlightedSkillIndex] = useState(-1);
+  const [isSavingSkills, setIsSavingSkills] = useState(false);
+  const [skillsSaveError, setSkillsSaveError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -124,6 +165,20 @@ const FreelancersProfilePage = () => {
         setSummary(summaryRes.data);
         setProfile(profileRes.data);
         setEmploymentHistory(employmentRes.data.workExperience || []);
+
+        // Load video introduction from profile if available
+        if (
+          profileRes.data.videoIntro &&
+          profileRes.data.videoIntro.trim() !== ""
+        ) {
+          const videoInfo = extractYouTubeInfo(profileRes.data.videoIntro);
+          if (videoInfo) {
+            setSavedVideoUrl(profileRes.data.videoIntro);
+            setVideoThumbnail(videoInfo.thumbnailUrl);
+            setVideoId(videoInfo.videoId);
+            setVideoTitle("Meet " + summaryRes.data.name);
+          }
+        }
       } catch (err) {
         setError("Failed to load freelancer profile.");
       } finally {
@@ -171,7 +226,8 @@ const FreelancersProfilePage = () => {
 
   // Extract YouTube video ID and generate thumbnail
   const extractYouTubeInfo = (url) => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const regExp =
+      /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
     const match = url.match(regExp);
     if (match && match[2].length === 11) {
       const videoId = match[2];
@@ -183,52 +239,243 @@ const FreelancersProfilePage = () => {
 
   // Handle editing education
   const handleEditEducation = (index) => {
-    const edu = education[index];
-
-    if (edu) {
-      setEducationInstitution(edu.school || "");
-      setEducationDegree(edu.degree || "");
-      setEducationField(edu.fieldOfStudy || "");
-      setEducationStartYear(edu.startYear || "");
-      setEducationEndYear(edu.endYear || "");
-      setEducationDescription(edu.description || "");
-      setEducationIsExpected(edu.isExpected || false);
-      setEditingEducationIndex(index);
-      setIsEditingEducation(true);
-      setShowEducationModal(true);
-    }
+    const educationItem = education[index];
+    setShowEducationModal(true);
+    setIsEditingEducation(true);
+    setEditingEducationIndex(index);
+    setEducationInstitution(educationItem.school || "");
+    setEducationDegree(educationItem.degree || "");
+    setEducationField(educationItem.fieldOfStudy || "");
+    setEducationStartYear(educationItem.startYear || "");
+    setEducationEndYear(educationItem.endYear || "");
+    setEducationDescription(educationItem.description || "");
+    setEducationSaveError(null);
   };
 
   // Handle adding new education
   const handleAddEducation = () => {
-    // Reset form for adding new education
+    setShowEducationModal(true);
+    setIsEditingEducation(false);
+    setEditingEducationIndex(null);
     setEducationInstitution("");
     setEducationDegree("");
     setEducationField("");
     setEducationStartYear("");
     setEducationEndYear("");
     setEducationDescription("");
-    setEducationIsExpected(false);
-    setEditingEducationIndex(null);
-    setIsEditingEducation(false);
-    setShowEducationModal(true);
+    setEducationSaveError(null);
   };
 
   // Handle closing education modal
   const handleCloseEducationModal = () => {
     setShowEducationModal(false);
-    setEditingEducationIndex(null);
     setIsEditingEducation(false);
-    // Reset form
+    setEditingEducationIndex(null);
     setEducationInstitution("");
     setEducationDegree("");
     setEducationField("");
     setEducationStartYear("");
     setEducationEndYear("");
     setEducationDescription("");
-    setEducationIsExpected(false);
+    setEducationSaveError(null);
   };
 
+  // Handle saving title
+  const handleSaveTitle = async () => {
+    if (!titleValue.trim()) {
+      setTitleSaveError("Title cannot be empty");
+      return;
+    }
+
+    setIsSavingTitle(true);
+    setTitleSaveError(null);
+
+    try {
+      const response = await axios.post(`${API_URL}/save-title/`, {
+        userId: freelancerId,
+        title: titleValue.trim(),
+      });
+
+      if (response.data.message === "Title saved successfully") {
+        // Update local state
+        setProfile((prev) => ({
+          ...prev,
+          title: titleValue.trim(),
+        }));
+        setSummary((prev) => ({
+          ...prev,
+          title: titleValue.trim(),
+        }));
+
+        // Close modal
+        setShowTitleModal(false);
+
+        // Show success message (optional)
+        console.log("Title updated successfully");
+      } else {
+        setTitleSaveError("Failed to save title. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving title:", error);
+      setTitleSaveError(
+        error.response?.data?.message ||
+          "Failed to save title. Please try again."
+      );
+    } finally {
+      setIsSavingTitle(false);
+    }
+  };
+
+  // Handle saving bio
+  const handleSaveBio = async () => {
+    if (!bioValue.trim()) {
+      setBioSaveError("Bio cannot be empty");
+      return;
+    }
+
+    setIsSavingBio(true);
+    setBioSaveError(null);
+
+    try {
+      const response = await axios.post(`${API_URL}/add-biography/`, {
+        userId: freelancerId,
+        bio: bioValue.trim(),
+      });
+
+      if (response.data.message === "Bio saved successfully") {
+        // Update local state
+        setProfile((prev) => ({
+          ...prev,
+          bio: bioValue.trim(),
+        }));
+        setSummary((prev) => ({
+          ...prev,
+          bio: bioValue.trim(),
+        }));
+
+        // Close modal
+        setShowBioModal(false);
+
+        // Show success message (optional)
+        console.log("Bio updated successfully");
+      } else {
+        setBioSaveError("Failed to save bio. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving bio:", error);
+      setBioSaveError(
+        error.response?.data?.message || "Failed to save bio. Please try again."
+      );
+    } finally {
+      setIsSavingBio(false);
+    }
+  };
+
+  // Handle saving hourly rate
+  const handleSaveHourlyRate = async () => {
+    if (!hourlyRateValue || hourlyRateValue <= 0) {
+      setHourlyRateSaveError("Hourly rate must be greater than 0");
+      return;
+    }
+
+    setIsSavingHourlyRate(true);
+    setHourlyRateSaveError(null);
+
+    try {
+      const response = await axios.post(`${API_URL}/add-hourlyrate/`, {
+        userId: freelancerId,
+        hourlyRate: parseFloat(hourlyRateValue),
+      });
+
+      if (response.data.message === "Hourly rate saved successfully") {
+        // Update local state
+        setProfile((prev) => ({
+          ...prev,
+          hourlyRate: parseFloat(hourlyRateValue),
+        }));
+        setSummary((prev) => ({
+          ...prev,
+          hourlyRate: parseFloat(hourlyRateValue),
+        }));
+
+        // Close modal
+        setShowHourlyRateModal(false);
+
+        // Show success message (optional)
+        console.log("Hourly rate updated successfully");
+      } else {
+        setHourlyRateSaveError("Failed to save hourly rate. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving hourly rate:", error);
+      setHourlyRateSaveError(
+        error.response?.data?.message ||
+          "Failed to save hourly rate. Please try again."
+      );
+    } finally {
+      setIsSavingHourlyRate(false);
+    }
+  };
+
+  // Handle uploading profile image
+  const handleUploadProfileImage = async () => {
+    if (!selectedImage) {
+      setImageUploadError("Please select an image to upload");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setImageUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedImage);
+      formData.append("userId", freelancerId);
+
+      const response = await axios.post(`${API_URL}/upload-photo/`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (response.data.photoUrl) {
+        // Update local state with new photo URL
+        setProfile((prev) => ({
+          ...prev,
+          photograph: response.data.photoUrl,
+        }));
+        setSummary((prev) => ({
+          ...prev,
+          photograph: response.data.photoUrl,
+        }));
+
+        // Close modal
+        setShowProfileImageModal(false);
+
+        // Clear selected image
+        setSelectedImage(null);
+        setImagePreview(null);
+
+        // Show success message (optional)
+        console.log("Profile image updated successfully");
+
+        // Refresh the page to update profile image in other components
+        window.location.reload();
+      } else {
+        setImageUploadError("Failed to upload image. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      setImageUploadError(
+        error.response?.data?.message ||
+          "Failed to upload image. Please try again."
+      );
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  // Handle adding new work history
   const handleAddEmployment = () => {
     setShowEmploymentModal(true);
     setIsEditingEmployment(false);
@@ -242,8 +489,11 @@ const FreelancersProfilePage = () => {
     setEmploymentEndMonth("");
     setEmploymentEndYear("");
     setEmploymentCurrentlyWorking(false);
+    setEmploymentDescription("");
+    setEmploymentSaveError(null);
   };
 
+  // Handle editing existing work history
   const handleEditEmployment = (index) => {
     const experience = employmentHistory[index];
     setShowEmploymentModal(true);
@@ -253,7 +503,8 @@ const FreelancersProfilePage = () => {
     setEmploymentCity(experience.city || "");
     setEmploymentCountry(experience.country || "");
     setEmploymentTitle(experience.title || "");
-    setEmploymentDescription(experience.description || "")
+    setEmploymentDescription(experience.description || "");
+    setEmploymentSaveError(null);
 
     // Parse start date
     if (experience.startDate) {
@@ -273,6 +524,7 @@ const FreelancersProfilePage = () => {
     }
   };
 
+  // Handle closing employment modal
   const handleCloseEmploymentModal = () => {
     setShowEmploymentModal(false);
     setIsEditingEmployment(false);
@@ -329,11 +581,14 @@ const FreelancersProfilePage = () => {
       reader.onload = (e) => {
         setPortfolioSelectedImage(e.target.result);
         setShowImageUpload(false);
-        setPortfolioContent([...portfolioContent, { 
-          type: "image", 
-          data: e.target.result,
-          description: imageDescription 
-        }]);
+        setPortfolioContent([
+          ...portfolioContent,
+          {
+            type: "image",
+            data: e.target.result,
+            description: imageDescription,
+          },
+        ]);
       };
       reader.readAsDataURL(file);
     }
@@ -374,7 +629,7 @@ const FreelancersProfilePage = () => {
 
     // Listen for storage events (when Header2 updates localStorage)
     const handleStorageChange = (e) => {
-      if (e.key === 'onlineStatus' || e.key === 'userStatus') {
+      if (e.key === "onlineStatus" || e.key === "userStatus") {
         fetchCurrentUser();
       }
     };
@@ -384,13 +639,13 @@ const FreelancersProfilePage = () => {
       fetchCurrentUser();
     };
 
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('onlineStatusChanged', handleStatusChange);
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("onlineStatusChanged", handleStatusChange);
 
     return () => {
       clearInterval(interval);
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('onlineStatusChanged', handleStatusChange);
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("onlineStatusChanged", handleStatusChange);
     };
   }, []);
 
@@ -398,11 +653,13 @@ const FreelancersProfilePage = () => {
   const fetchAvailableLanguages = async () => {
     setLoadingLanguages(true);
     try {
-      const response = await axios.get('https://api.languagetoolplus.com/v2/languages');
+      const response = await axios.get(
+        "https://api.languagetoolplus.com/v2/languages"
+      );
       if (response.data && Array.isArray(response.data)) {
         // Extract language names and sort them alphabetically
         const languageNames = response.data
-          .map(lang => lang.name)
+          .map((lang) => lang.name)
           .filter((name, index, arr) => arr.indexOf(name) === index) // Remove duplicates
           .sort((a, b) => a.localeCompare(b)); // Sort alphabetically
 
@@ -410,46 +667,183 @@ const FreelancersProfilePage = () => {
       } else {
         // Fallback to static list if API doesn't return expected format
         setAvailableLanguages([
-          "Afrikaans", "Albanian", "Arabic", "Austrian German", "Basque", "Belarusian",
-          "Belgian French", "Bengali", "Bosnian", "Brazilian Portuguese", "Breton",
-          "Bulgarian", "Canadian French", "Catalan", "Chinese (Cantonese)",
-          "Chinese (Mandarin)", "Corsican", "Croatian", "Czech", "Danish", "Dutch",
-          "East Timorese Portuguese", "Emilian", "English", "Estonian",
-          "European Portuguese", "Filipino", "Finnish", "Flemish", "French",
-          "Frisian", "Friulian", "Galician", "German", "Goan Portuguese", "Greek",
-          "Guinea-Bissau Portuguese", "Gujarati", "Hebrew", "Hindi", "Hungarian", "Icelandic",
-          "Indonesian", "Irish", "Italian", "Japanese", "Korean", "Ladin",
-          "Latvian", "Lithuanian", "Lombard", "Low German", "Luxembourgish",
-          "Macedonian", "Macanese Portuguese", "Malay", "Norwegian", "Occitan",
-          "Persian", "Piedmontese", "Polish", "Portuguese", "Romanian", "Romansh",
-          "Romagnol", "Russian", "Sardinian", "Scottish Gaelic", "Serbian",
-          "Sicilian", "Slovak", "Slovenian", "Spanish", "Swedish", "Swiss French",
-          "Swiss German", "Swiss Italian", "São Tomé and Príncipe Portuguese",
-          "Thai", "Turkish", "Ukrainian", "Urdu", "Venetian", "Vietnamese",
-          "Welsh", "Yiddish"
+          "Afrikaans",
+          "Albanian",
+          "Arabic",
+          "Austrian German",
+          "Basque",
+          "Belarusian",
+          "Belgian French",
+          "Bengali",
+          "Bosnian",
+          "Brazilian Portuguese",
+          "Breton",
+          "Bulgarian",
+          "Canadian French",
+          "Catalan",
+          "Chinese (Cantonese)",
+          "Chinese (Mandarin)",
+          "Corsican",
+          "Croatian",
+          "Czech",
+          "Danish",
+          "Dutch",
+          "East Timorese Portuguese",
+          "Emilian",
+          "English",
+          "Estonian",
+          "European Portuguese",
+          "Filipino",
+          "Finnish",
+          "Flemish",
+          "French",
+          "Frisian",
+          "Friulian",
+          "Galician",
+          "German",
+          "Goan Portuguese",
+          "Greek",
+          "Guinea-Bissau Portuguese",
+          "Gujarati",
+          "Hebrew",
+          "Hindi",
+          "Hungarian",
+          "Icelandic",
+          "Indonesian",
+          "Irish",
+          "Italian",
+          "Japanese",
+          "Korean",
+          "Ladin",
+          "Latvian",
+          "Lithuanian",
+          "Lombard",
+          "Low German",
+          "Luxembourgish",
+          "Macedonian",
+          "Macanese Portuguese",
+          "Malay",
+          "Norwegian",
+          "Occitan",
+          "Persian",
+          "Piedmontese",
+          "Polish",
+          "Portuguese",
+          "Romanian",
+          "Romansh",
+          "Romagnol",
+          "Russian",
+          "Sardinian",
+          "Scottish Gaelic",
+          "Serbian",
+          "Sicilian",
+          "Slovak",
+          "Slovenian",
+          "Spanish",
+          "Swedish",
+          "Swiss French",
+          "Swiss German",
+          "Swiss Italian",
+          "São Tomé and Príncipe Portuguese",
+          "Thai",
+          "Turkish",
+          "Ukrainian",
+          "Urdu",
+          "Venetian",
+          "Vietnamese",
+          "Welsh",
+          "Yiddish",
         ]);
       }
     } catch (error) {
       console.error("Error fetching languages from LanguageTool API:", error);
       // Fallback to static list on error
       setAvailableLanguages([
-        "Afrikaans", "Albanian", "Arabic", "Austrian German", "Basque", "Belarusian",
-        "Belgian French", "Bengali", "Bosnian", "Brazilian Portuguese", "Breton",
-        "Bulgarian", "Canadian French", "Catalan", "Chinese (Cantonese)",
-        "Chinese (Mandarin)", "Corsican", "Croatian", "Czech", "Danish", "Dutch",
-        "East Timorese Portuguese", "Emilian", "English", "Estonian",
-        "European Portuguese", "Filipino", "Finnish", "Flemish", "French",
-        "Frisian", "Friulian", "Galician", "German", "Goan Portuguese", "Greek",
-        "Guinea-Bissau Portuguese", "Hebrew", "Hindi", "Hungarian", "Icelandic",
-        "Indonesian", "Irish", "Italian", "Japanese", "Korean", "Ladin",
-        "Latvian", "Lithuanian", "Lombard", "Low German", "Luxembourgish",
-        "Macedonian", "Macanese Portuguese", "Malay", "Norwegian", "Occitan",
-        "Persian", "Piedmontese", "Polish", "Portuguese", "Romanian", "Romansh",
-        "Romagnol", "Russian", "Sardinian", "Scottish Gaelic", "Serbian",
-        "Sicilian", "Slovak", "Slovenian", "Spanish", "Swedish", "Swiss French",
-        "Swiss German", "Swiss Italian", "São Tomé and Príncipe Portuguese",
-        "Thai", "Turkish", "Ukrainian", "Urdu", "Venetian", "Vietnamese",
-        "Welsh", "Yiddish"
+        "Afrikaans",
+        "Albanian",
+        "Arabic",
+        "Austrian German",
+        "Basque",
+        "Belarusian",
+        "Belgian French",
+        "Bengali",
+        "Bosnian",
+        "Brazilian Portuguese",
+        "Breton",
+        "Bulgarian",
+        "Canadian French",
+        "Catalan",
+        "Chinese (Cantonese)",
+        "Chinese (Mandarin)",
+        "Corsican",
+        "Croatian",
+        "Czech",
+        "Danish",
+        "Dutch",
+        "East Timorese Portuguese",
+        "Emilian",
+        "English",
+        "Estonian",
+        "European Portuguese",
+        "Filipino",
+        "Finnish",
+        "Flemish",
+        "French",
+        "Frisian",
+        "Friulian",
+        "Galician",
+        "German",
+        "Goan Portuguese",
+        "Greek",
+        "Guinea-Bissau Portuguese",
+        "Hebrew",
+        "Hindi",
+        "Hungarian",
+        "Icelandic",
+        "Indonesian",
+        "Irish",
+        "Italian",
+        "Japanese",
+        "Korean",
+        "Ladin",
+        "Latvian",
+        "Lithuanian",
+        "Lombard",
+        "Low German",
+        "Luxembourgish",
+        "Macedonian",
+        "Macanese Portuguese",
+        "Malay",
+        "Norwegian",
+        "Occitan",
+        "Persian",
+        "Piedmontese",
+        "Polish",
+        "Portuguese",
+        "Romanian",
+        "Romansh",
+        "Romagnol",
+        "Russian",
+        "Sardinian",
+        "Scottish Gaelic",
+        "Serbian",
+        "Sicilian",
+        "Slovak",
+        "Slovenian",
+        "Spanish",
+        "Swedish",
+        "Swiss French",
+        "Swiss German",
+        "Swiss Italian",
+        "São Tomé and Príncipe Portuguese",
+        "Thai",
+        "Turkish",
+        "Ukrainian",
+        "Urdu",
+        "Venetian",
+        "Vietnamese",
+        "Welsh",
+        "Yiddish",
       ]);
     } finally {
       setLoadingLanguages(false);
@@ -475,13 +869,14 @@ const FreelancersProfilePage = () => {
     }
   }, [showBioModal, safeProfile.bio, safeSummary.bio]);
 
-  // Update skills value when modal opens
+  // Update skills value when modal opens and fetch all skills
   useEffect(() => {
     if (showSkillsModal) {
       const currentSkills = (safeSummary.skills || safeProfile.skills || [])
         .map((s) => s.name)
         .filter(Boolean);
       setSkillsValue([...currentSkills]);
+      fetchAllSkills(); // Fetch all available skills
     }
   }, [showSkillsModal, safeSummary.skills, safeProfile.skills]);
 
@@ -507,8 +902,8 @@ const FreelancersProfilePage = () => {
   const hourlyRate = safeSummary.hourlyRate
     ? `Rs. ${safeSummary.hourlyRate}/hr`
     : safeProfile.hourlyRate
-      ? `Rs. ${safeProfile.hourlyRate}/hr`
-      : "-";
+    ? `Rs. ${safeProfile.hourlyRate}/hr`
+    : "-";
   const skills = (safeSummary.skills || safeProfile.skills || [])
     .map((s) => s.name)
     .filter(Boolean);
@@ -519,7 +914,1051 @@ const FreelancersProfilePage = () => {
   const localTime = "6:01 pm local time";
 
   // Add this after your other safeProfile/safeSummary assignments
-  const isOnline = currentUser?.onlineStatus === "online" || safeSummary.isOnline || safeProfile.isOnline || false;
+  const isOnline =
+    currentUser?.onlineStatus === "online" ||
+    safeSummary.isOnline ||
+    safeProfile.isOnline ||
+    false;
+
+  // Handle saving new work history
+  const handleSaveEmployment = async () => {
+    if (
+      !employmentTitle.trim() ||
+      !employmentCompany.trim() ||
+      !employmentCity.trim() ||
+      !employmentCountry.trim() ||
+      !employmentStartMonth ||
+      !employmentStartYear ||
+      !employmentDescription.trim()
+    ) {
+      setEmploymentSaveError("Please fill in all required fields");
+      return;
+    }
+
+    setIsSavingEmployment(true);
+    setEmploymentSaveError(null);
+
+    try {
+      const startDate = `${employmentStartYear}-${employmentStartMonth.padStart(
+        2,
+        "0"
+      )}-01`;
+      const endDate = employmentCurrentlyWorking
+        ? "Present"
+        : `${employmentEndYear}-${employmentEndMonth.padStart(2, "0")}-01`;
+
+      const response = await axios.post(`${API_URL}/add-experience/`, {
+        userId: freelancerId,
+        title: employmentTitle.trim(),
+        company: employmentCompany.trim(),
+        city: employmentCity.trim(),
+        country: employmentCountry.trim(),
+        startDate: startDate,
+        endDate: endDate,
+        description: employmentDescription.trim(),
+      });
+
+      if (response.data.message === "Work experience added successfully") {
+        // Refresh employment history
+        const employmentRes = await axios.get(
+          `${API_URL}/get-work-experiences/${freelancerId}/`
+        );
+        setEmploymentHistory(employmentRes.data.workExperience || []);
+
+        // Close modal
+        handleCloseEmploymentModal();
+
+        console.log("Work experience added successfully");
+      } else {
+        setEmploymentSaveError(
+          "Failed to save work experience. Please try again."
+        );
+      }
+    } catch (error) {
+      console.error("Error saving work experience:", error);
+      setEmploymentSaveError(
+        error.response?.data?.message ||
+          "Failed to save work experience. Please try again."
+      );
+    } finally {
+      setIsSavingEmployment(false);
+    }
+  };
+
+  // Handle updating existing work history
+  const handleUpdateEmployment = async () => {
+    if (
+      !employmentTitle.trim() ||
+      !employmentCompany.trim() ||
+      !employmentCity.trim() ||
+      !employmentCountry.trim() ||
+      !employmentStartMonth ||
+      !employmentStartYear ||
+      !employmentDescription.trim()
+    ) {
+      setEmploymentSaveError("Please fill in all required fields");
+      return;
+    }
+
+    if (editingEmploymentIndex === null) {
+      setEmploymentSaveError("No employment selected for editing");
+      return;
+    }
+
+    setIsSavingEmployment(true);
+    setEmploymentSaveError(null);
+
+    try {
+      const experience = employmentHistory[editingEmploymentIndex];
+      const startDate = `${employmentStartYear}-${employmentStartMonth.padStart(
+        2,
+        "0"
+      )}-01`;
+      const endDate = employmentCurrentlyWorking
+        ? "Present"
+        : `${employmentEndYear}-${employmentEndMonth.padStart(2, "0")}-01`;
+
+      const response = await axios.put(
+        `${API_URL}/update-experience/${experience._id}/`,
+        {
+          title: employmentTitle.trim(),
+          company: employmentCompany.trim(),
+          city: employmentCity.trim(),
+          country: employmentCountry.trim(),
+          startDate: startDate,
+          endDate: endDate,
+          description: employmentDescription.trim(),
+        }
+      );
+
+      if (response.data.message === "Work experience updated successfully") {
+        // Refresh employment history
+        const employmentRes = await axios.get(
+          `${API_URL}/get-work-experiences/${freelancerId}/`
+        );
+        setEmploymentHistory(employmentRes.data.workExperience || []);
+
+        // Close modal
+        handleCloseEmploymentModal();
+
+        console.log("Work experience updated successfully");
+      } else {
+        setEmploymentSaveError(
+          "Failed to update work experience. Please try again."
+        );
+      }
+    } catch (error) {
+      console.error("Error updating work experience:", error);
+      setEmploymentSaveError(
+        error.response?.data?.message ||
+          "Failed to update work experience. Please try again."
+      );
+    } finally {
+      setIsSavingEmployment(false);
+    }
+  };
+
+  // Handle deleting work history
+  const handleDeleteEmployment = async (experienceId) => {
+    if (!experienceId) {
+      console.error("No experience ID provided for deletion");
+      return;
+    }
+
+    setIsDeletingEmployment(true);
+    setDeletingEmploymentId(experienceId);
+
+    try {
+      const response = await axios.delete(
+        `${API_URL}/delete-experience/${experienceId}/${freelancerId}/`
+      );
+
+      if (response.data.message === "Work experience deleted successfully") {
+        // Refresh employment history
+        const employmentRes = await axios.get(
+          `${API_URL}/get-work-experiences/${freelancerId}/`
+        );
+        setEmploymentHistory(employmentRes.data.workExperience || []);
+
+        console.log("Work experience deleted successfully");
+      } else {
+        console.error("Failed to delete work experience");
+      }
+    } catch (error) {
+      console.error("Error deleting work experience:", error);
+    } finally {
+      setIsDeletingEmployment(false);
+      setDeletingEmploymentId(null);
+    }
+  };
+
+  // Handle saving new education
+  const handleSaveEducation = async () => {
+    if (
+      !educationInstitution.trim() ||
+      !educationDegree.trim() ||
+      !educationField.trim() ||
+      !educationStartYear ||
+      !educationEndYear ||
+      !educationDescription.trim()
+    ) {
+      setEducationSaveError("Please fill in all required fields");
+      return;
+    }
+
+    setIsSavingEducation(true);
+    setEducationSaveError(null);
+
+    try {
+      const response = await axios.post(`${API_URL}/add-education/`, {
+        userId: freelancerId,
+        school: educationInstitution.trim(),
+        degree: educationDegree.trim(),
+        fieldOfStudy: educationField.trim(),
+        startYear: educationStartYear,
+        endYear: educationEndYear,
+        description: educationDescription.trim(),
+      });
+
+      if (response.data.message === "Education added") {
+        try {
+          // Refresh profile data to get updated education
+          const profileRes = await axios.get(
+            `${API_URL}/profile/${freelancerId}/`
+          );
+          setProfile(profileRes.data);
+
+          // Close modal
+          handleCloseEducationModal();
+
+          console.log("Education added successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing profile data:", refreshError);
+          // Fallback: Update local state directly
+          const newEducation = {
+            _id: response.data.educationId,
+            school: educationInstitution.trim(),
+            degree: educationDegree.trim(),
+            fieldOfStudy: educationField.trim(),
+            startYear: educationStartYear,
+            endYear: educationEndYear,
+            description: educationDescription.trim(),
+          };
+          setProfile((prev) => ({
+            ...prev,
+            education: [...(prev.education || []), newEducation],
+          }));
+
+          // Close modal
+          handleCloseEducationModal();
+          console.log("Education added successfully (using fallback)");
+        }
+      } else {
+        setEducationSaveError("Failed to save education. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving education:", error);
+      setEducationSaveError(
+        error.response?.data?.message ||
+          "Failed to save education. Please try again."
+      );
+    } finally {
+      setIsSavingEducation(false);
+    }
+  };
+
+  // Handle updating existing education
+  const handleUpdateEducation = async () => {
+    if (
+      !educationInstitution.trim() ||
+      !educationDegree.trim() ||
+      !educationField.trim() ||
+      !educationStartYear ||
+      !educationEndYear ||
+      !educationDescription.trim()
+    ) {
+      setEducationSaveError("Please fill in all required fields");
+      return;
+    }
+
+    if (editingEducationIndex === null) {
+      setEducationSaveError("No education selected for editing");
+      return;
+    }
+
+    setIsSavingEducation(true);
+    setEducationSaveError(null);
+
+    try {
+      const educationItem = education[editingEducationIndex];
+
+      const response = await axios.put(
+        `${API_URL}/update-education/${educationItem._id}/`,
+        {
+          school: educationInstitution.trim(),
+          degree: educationDegree.trim(),
+          fieldOfStudy: educationField.trim(),
+          startYear: educationStartYear,
+          endYear: educationEndYear,
+          description: educationDescription.trim(),
+        }
+      );
+
+      if (response.data.message === "Education updated") {
+        try {
+          // Refresh profile data to get updated education
+          const profileRes = await axios.get(
+            `${API_URL}/profile/${freelancerId}/`
+          );
+          setProfile(profileRes.data);
+
+          // Close modal
+          handleCloseEducationModal();
+
+          console.log("Education updated successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing profile data:", refreshError);
+          // Fallback: Update local state directly
+          const updatedEducation = {
+            _id: educationItem._id,
+            school: educationInstitution.trim(),
+            degree: educationDegree.trim(),
+            fieldOfStudy: educationField.trim(),
+            startYear: educationStartYear,
+            endYear: educationEndYear,
+            description: educationDescription.trim(),
+          };
+          setProfile((prev) => ({
+            ...prev,
+            education: (prev.education || []).map((edu, index) =>
+              index === editingEducationIndex ? updatedEducation : edu
+            ),
+          }));
+
+          // Close modal
+          handleCloseEducationModal();
+          console.log("Education updated successfully (using fallback)");
+        }
+      } else {
+        setEducationSaveError("Failed to update education. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error updating education:", error);
+      setEducationSaveError(
+        error.response?.data?.message ||
+          "Failed to update education. Please try again."
+      );
+    } finally {
+      setIsSavingEducation(false);
+    }
+  };
+
+  // Handle deleting education
+  const handleDeleteEducation = async (educationId) => {
+    if (!educationId) {
+      console.error("No education ID provided for deletion");
+      return;
+    }
+
+    setIsDeletingEducation(true);
+    setDeletingEducationId(educationId);
+
+    try {
+      const response = await axios.delete(
+        `${API_URL}/delete-education/${educationId}/${freelancerId}/`
+      );
+
+      if (response.data.message === "Education deleted successfully") {
+        try {
+          // Refresh profile data to get updated education
+          const profileRes = await axios.get(
+            `${API_URL}/profile/${freelancerId}/`
+          );
+          setProfile(profileRes.data);
+
+          console.log("Education deleted successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing profile data:", refreshError);
+          // Fallback: Update local state directly
+          setProfile((prev) => ({
+            ...prev,
+            education: (prev.education || []).filter(
+              (edu) => edu._id !== educationId
+            ),
+          }));
+          console.log("Education deleted successfully (using fallback)");
+        }
+      } else {
+        console.error("Failed to delete education");
+      }
+    } catch (error) {
+      console.error("Error deleting education:", error);
+    } finally {
+      setIsDeletingEducation(false);
+      setDeletingEducationId(null);
+    }
+  };
+
+  // Handle saving languages (add/update)
+  const handleSaveLanguage = async () => {
+    if (!editingLanguages || editingLanguages.length === 0) {
+      setLanguageSaveError("Please add at least one language");
+      return;
+    }
+
+    // Validate all languages have name and proficiency
+    const invalidLanguages = editingLanguages.filter(
+      (lang) => !lang.language.trim() || !lang.proficiency
+    );
+    if (invalidLanguages.length > 0) {
+      setLanguageSaveError(
+        "Please fill in both language name and proficiency for all languages"
+      );
+      return;
+    }
+
+    setIsSavingLanguage(true);
+    setLanguageSaveError(null);
+
+    try {
+      const languagesData = editingLanguages.map((lang) => ({
+        name: lang.language.trim(),
+        proficiency: lang.proficiency,
+      }));
+
+      const response = await axios.post(`${API_URL}/add-language/`, {
+        userId: freelancerId,
+        languages: languagesData,
+      });
+
+      if (response.data.message === "Languages saved successfully") {
+        try {
+          // Refresh profile data to get updated languages
+          const profileRes = await axios.get(
+            `${API_URL}/profile/${freelancerId}/`
+          );
+          setProfile(profileRes.data);
+
+          // Close modal
+          setShowLanguageModal(false);
+          setShowEditLanguageModal(false);
+
+          console.log("Languages saved successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing profile data:", refreshError);
+          // Fallback: Update local state directly
+          setProfile((prev) => ({
+            ...prev,
+            languages: languagesData,
+          }));
+
+          // Close modal
+          setShowLanguageModal(false);
+          setShowEditLanguageModal(false);
+          console.log("Languages saved successfully (using fallback)");
+        }
+      } else {
+        setLanguageSaveError("Failed to save languages. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving languages:", error);
+      setLanguageSaveError(
+        error.response?.data?.message ||
+          "Failed to save languages. Please try again."
+      );
+    } finally {
+      setIsSavingLanguage(false);
+    }
+  };
+
+  // Handle saving edited languages (for edit modal)
+  const handleSaveEditedLanguages = async () => {
+    if (!editingLanguages || editingLanguages.length === 0) {
+      setLanguageSaveError("Please add at least one language");
+      return;
+    }
+
+    // Validate all languages have name and proficiency
+    const invalidLanguages = editingLanguages.filter(
+      (lang) => !lang.language.trim() || !lang.proficiency
+    );
+    if (invalidLanguages.length > 0) {
+      setLanguageSaveError(
+        "Please fill in both language name and proficiency for all languages"
+      );
+      return;
+    }
+
+    setIsSavingLanguage(true);
+    setLanguageSaveError(null);
+
+    try {
+      const languagesData = editingLanguages.map((lang) => ({
+        name: lang.language.trim(),
+        proficiency: lang.proficiency,
+      }));
+
+      const response = await axios.post(`${API_URL}/add-language/`, {
+        userId: freelancerId,
+        languages: languagesData,
+      });
+
+      if (response.data.message === "Languages saved successfully") {
+        try {
+          // Refresh profile data to get updated languages
+          const profileRes = await axios.get(
+            `${API_URL}/profile/${freelancerId}/`
+          );
+          setProfile(profileRes.data);
+
+          // Close modal
+          setShowEditLanguageModal(false);
+
+          console.log("Languages saved successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing profile data:", refreshError);
+          // Fallback: Update local state directly
+          setProfile((prev) => ({
+            ...prev,
+            languages: languagesData,
+          }));
+
+          // Close modal
+          setShowEditLanguageModal(false);
+          console.log("Languages saved successfully (using fallback)");
+        }
+      } else {
+        setLanguageSaveError("Failed to save languages. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving languages:", error);
+      setLanguageSaveError(
+        error.response?.data?.message ||
+          "Failed to save languages. Please try again."
+      );
+    } finally {
+      setIsSavingLanguage(false);
+    }
+  };
+
+  // Handle deleting a specific language (only removes from local list)
+  const handleDeleteLanguage = async (languageIndex) => {
+    if (languageIndex < 0 || languageIndex >= editingLanguages.length) {
+      console.error("Invalid language index for deletion");
+      return;
+    }
+
+    setIsDeletingLanguage(true);
+    setDeletingLanguageId(languageIndex);
+
+    try {
+      // Remove the language from the editing array (local only)
+      const updatedLanguages = editingLanguages.filter(
+        (_, index) => index !== languageIndex
+      );
+      setEditingLanguages(updatedLanguages);
+
+      // If no languages left, close the modal
+      if (updatedLanguages.length === 0) {
+        setShowLanguageModal(false);
+        setShowEditLanguageModal(false);
+        console.log("All languages removed from list");
+      }
+      // Note: Don't save immediately - let user click Save button
+    } catch (error) {
+      console.error("Error removing language from list:", error);
+    } finally {
+      setIsDeletingLanguage(false);
+      setDeletingLanguageId(null);
+    }
+  };
+
+  // Handle adding a single language
+  const handleAddLanguage = async () => {
+    if (!selectedLanguage.trim() || !selectedProficiency.trim()) {
+      setLanguageSaveError("Please select both language and proficiency");
+      return;
+    }
+
+    setIsSavingLanguage(true);
+    setLanguageSaveError(null);
+
+    try {
+      // Get existing languages from profile
+      const existingLanguages = safeProfile.languages || [];
+
+      // Check if language already exists
+      const languageExists = existingLanguages.some(
+        (lang) =>
+          lang.name?.toLowerCase() === selectedLanguage.trim().toLowerCase()
+      );
+
+      if (languageExists) {
+        setLanguageSaveError("This language is already added");
+        return;
+      }
+
+      // Combine existing languages with new language
+      const languagesData = [
+        ...existingLanguages,
+        {
+          name: selectedLanguage.trim(),
+          proficiency: selectedProficiency.trim(),
+        },
+      ];
+
+      const response = await axios.post(`${API_URL}/add-language/`, {
+        userId: freelancerId,
+        languages: languagesData,
+      });
+
+      if (response.data.message === "Languages saved successfully") {
+        try {
+          // Refresh profile data to get updated languages
+          const profileRes = await axios.get(
+            `${API_URL}/profile/${freelancerId}/`
+          );
+          setProfile(profileRes.data);
+
+          // Close modal
+          setShowLanguageModal(false);
+          setSelectedLanguage("");
+          setSelectedProficiency("");
+
+          console.log("Language added successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing profile data:", refreshError);
+          // Fallback: Update local state directly
+          setProfile((prev) => ({
+            ...prev,
+            languages: languagesData,
+          }));
+
+          // Close modal
+          setShowLanguageModal(false);
+          setSelectedLanguage("");
+          setSelectedProficiency("");
+          console.log("Language added successfully (using fallback)");
+        }
+      } else {
+        setLanguageSaveError("Failed to save language. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving language:", error);
+      setLanguageSaveError(
+        error.response?.data?.message ||
+          "Failed to save language. Please try again."
+      );
+    } finally {
+      setIsSavingLanguage(false);
+    }
+  };
+
+  // Handle saving video introduction
+  const handleSaveVideoIntroduction = async () => {
+    if (!videoUrl.trim()) {
+      setVideoSaveError("Please enter a valid YouTube URL");
+      return;
+    }
+
+    setIsSavingVideo(true);
+    setVideoSaveError(null);
+
+    try {
+      const response = await axios.post(`${API_URL}/add-video-introduction/`, {
+        userId: freelancerId,
+        videoUrl: videoUrl.trim(),
+      });
+
+      if (response.data.message === "Video introduction saved successfully") {
+        // Extract YouTube video info for display
+        const videoInfo = extractYouTubeInfo(videoUrl);
+        if (videoInfo) {
+          setSavedVideoUrl(videoUrl);
+          setVideoThumbnail(videoInfo.thumbnailUrl);
+          setVideoId(videoInfo.videoId);
+          setVideoTitle("Meet " + name); // Using the freelancer's name
+        }
+
+        // Close modal
+        setShowVideoModal(false);
+        setVideoUrl("");
+
+        console.log("Video introduction saved successfully");
+      } else {
+        setVideoSaveError(
+          "Failed to save video introduction. Please try again."
+        );
+      }
+    } catch (error) {
+      console.error("Error saving video introduction:", error);
+      setVideoSaveError(
+        error.response?.data?.message ||
+          "Failed to save video introduction. Please try again."
+      );
+    } finally {
+      setIsSavingVideo(false);
+    }
+  };
+
+  // Handle saving other experience
+  const handleSaveOtherExperience = async () => {
+    if (!otherExperienceSubject.trim() || !otherExperienceDescription.trim()) {
+      setOtherExperienceSaveError("Please fill in all required fields");
+      return;
+    }
+
+    setIsSavingOtherExperience(true);
+    setOtherExperienceSaveError(null);
+
+    try {
+      const response = await axios.post(`${API_URL}/add-other-experience/`, {
+        userId: freelancerId,
+        subject: otherExperienceSubject.trim(),
+        description: otherExperienceDescription.trim(),
+      });
+
+      if (response.data.message === "Other experience added successfully") {
+        // Refresh profile data to get updated other experiences
+        try {
+          const profileRes = await axios.get(
+            `${API_URL}/profile/${freelancerId}/`
+          );
+          setProfile(profileRes.data);
+
+          // Close modal
+          setShowOtherExperiencesModal(false);
+          setOtherExperienceSubject("");
+          setOtherExperienceDescription("");
+
+          console.log("Other experience added successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing profile data:", refreshError);
+          // Fallback: Update local state directly
+          setProfile((prev) => ({
+            ...prev,
+            otherExperiences: [
+              ...(prev.otherExperiences || []),
+              response.data.otherExperience,
+            ],
+          }));
+
+          // Close modal
+          setShowOtherExperiencesModal(false);
+          setOtherExperienceSubject("");
+          setOtherExperienceDescription("");
+          console.log("Other experience added successfully (using fallback)");
+        }
+      } else {
+        setOtherExperienceSaveError(
+          "Failed to save other experience. Please try again."
+        );
+      }
+    } catch (error) {
+      console.error("Error saving other experience:", error);
+      setOtherExperienceSaveError(
+        error.response?.data?.message ||
+          "Failed to save other experience. Please try again."
+      );
+    } finally {
+      setIsSavingOtherExperience(false);
+    }
+  };
+
+  // Handle updating other experience
+  const handleUpdateOtherExperience = async () => {
+    if (!otherExperienceSubject.trim() || !otherExperienceDescription.trim()) {
+      setOtherExperienceSaveError("Please fill in all required fields");
+      return;
+    }
+
+    setIsSavingOtherExperience(true);
+    setOtherExperienceSaveError(null);
+
+    try {
+      const otherExperience =
+        safeProfile.otherExperiences[editingOtherExperienceIndex];
+      const response = await axios.put(
+        `${API_URL}/update-other-experience/${otherExperience._id}/`,
+        {
+          subject: otherExperienceSubject.trim(),
+          description: otherExperienceDescription.trim(),
+        }
+      );
+
+      if (response.data.message === "Other experience updated successfully") {
+        // Refresh profile data to get updated other experiences
+        try {
+          const profileRes = await axios.get(
+            `${API_URL}/profile/${freelancerId}/`
+          );
+          setProfile(profileRes.data);
+
+          // Close modal
+          setShowOtherExperiencesModal(false);
+          setOtherExperienceSubject("");
+          setOtherExperienceDescription("");
+          setIsEditingOtherExperience(false);
+          setEditingOtherExperienceIndex(null);
+
+          console.log("Other experience updated successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing profile data:", refreshError);
+          // Fallback: Update local state directly
+          setProfile((prev) => ({
+            ...prev,
+            otherExperiences: prev.otherExperiences.map((exp, index) =>
+              index === editingOtherExperienceIndex
+                ? response.data.otherExperience
+                : exp
+            ),
+          }));
+
+          // Close modal
+          setShowOtherExperiencesModal(false);
+          setOtherExperienceSubject("");
+          setOtherExperienceDescription("");
+          setIsEditingOtherExperience(false);
+          setEditingOtherExperienceIndex(null);
+          console.log("Other experience updated successfully (using fallback)");
+        }
+      } else {
+        setOtherExperienceSaveError(
+          "Failed to update other experience. Please try again."
+        );
+      }
+    } catch (error) {
+      console.error("Error updating other experience:", error);
+      setOtherExperienceSaveError(
+        error.response?.data?.message ||
+          "Failed to update other experience. Please try again."
+      );
+    } finally {
+      setIsSavingOtherExperience(false);
+    }
+  };
+
+  // Handle deleting other experience
+  const handleDeleteOtherExperience = async (otherExperienceId) => {
+    setIsDeletingOtherExperience(true);
+    setDeletingOtherExperienceId(otherExperienceId);
+
+    try {
+      const response = await axios.delete(
+        `${API_URL}/delete-other-experience/${otherExperienceId}/${freelancerId}/`
+      );
+
+      if (response.data.message === "Other experience deleted successfully") {
+        // Refresh profile data to get updated other experiences
+        try {
+          const profileRes = await axios.get(
+            `${API_URL}/profile/${freelancerId}/`
+          );
+          setProfile(profileRes.data);
+
+          console.log("Other experience deleted successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing profile data:", refreshError);
+          // Fallback: Update local state directly
+          setProfile((prev) => ({
+            ...prev,
+            otherExperiences: prev.otherExperiences.filter(
+              (exp) => exp._id !== otherExperienceId
+            ),
+          }));
+
+          console.log("Other experience deleted successfully (using fallback)");
+        }
+      } else {
+        console.error("Failed to delete other experience:", response.data);
+      }
+    } catch (error) {
+      console.error("Error deleting other experience:", error);
+    } finally {
+      setIsDeletingOtherExperience(false);
+      setDeletingOtherExperienceId(null);
+    }
+  };
+
+  // Handle editing other experience
+  const handleEditOtherExperience = (index) => {
+    const otherExperience = safeProfile.otherExperiences[index];
+    setShowOtherExperiencesModal(true);
+    setIsEditingOtherExperience(true);
+    setEditingOtherExperienceIndex(index);
+    setOtherExperienceSubject(otherExperience.subject || "");
+    setOtherExperienceDescription(otherExperience.description || "");
+    setOtherExperienceSaveError(null);
+  };
+
+  // Handle adding new other experience
+  const handleAddOtherExperience = () => {
+    setShowOtherExperiencesModal(true);
+    setIsEditingOtherExperience(false);
+    setEditingOtherExperienceIndex(null);
+    setOtherExperienceSubject("");
+    setOtherExperienceDescription("");
+    setOtherExperienceSaveError(null);
+  };
+
+  // Handle closing other experience modal
+  const handleCloseOtherExperienceModal = () => {
+    setShowOtherExperiencesModal(false);
+    setOtherExperienceSubject("");
+    setOtherExperienceDescription("");
+    setIsEditingOtherExperience(false);
+    setEditingOtherExperienceIndex(null);
+    setOtherExperienceSaveError(null);
+  };
+
+  // Fetch all available skills
+  const fetchAllSkills = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/get-skills/`);
+      const skillNames = response.data.skills.map((skill) => skill.name);
+      setAllSkills(skillNames);
+    } catch (error) {
+      console.error("Error fetching skills:", error);
+    }
+  };
+
+  // Handle skills input change
+  const handleSkillsInputChange = (e) => {
+    const value = e.target.value;
+    setSkillSearchValue(value);
+    setHighlightedSkillIndex(-1);
+
+    if (value.length > 0) {
+      const filtered = allSkills.filter(
+        (skill) =>
+          skill.toLowerCase().includes(value.toLowerCase()) &&
+          !skillsValue.includes(skill)
+      );
+      setSkillSuggestions(filtered.slice(0, 8)); // Limit to 8 suggestions
+    } else {
+      setSkillSuggestions([]);
+    }
+  };
+
+  // Handle skills keyboard navigation
+  const handleSkillsKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlightedSkillIndex((prevIndex) =>
+        prevIndex < skillSuggestions.length - 1 ? prevIndex + 1 : 0
+      );
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlightedSkillIndex((prevIndex) =>
+        prevIndex > 0 ? prevIndex - 1 : skillSuggestions.length - 1
+      );
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (
+        highlightedSkillIndex >= 0 &&
+        skillSuggestions[highlightedSkillIndex]
+      ) {
+        addSkill(skillSuggestions[highlightedSkillIndex]);
+      }
+    }
+  };
+
+  // Add skill to the list
+  const addSkill = (skill) => {
+    if (skillsValue.length >= 15) {
+      setSkillsSaveError("You can select up to 15 skills only.");
+      return;
+    }
+
+    if (!skillsValue.includes(skill)) {
+      setSkillsValue([...skillsValue, skill]);
+      setSkillSearchValue("");
+      setSkillSuggestions([]);
+      setHighlightedSkillIndex(-1);
+      setSkillsSaveError(null);
+    }
+  };
+
+  // Remove skill from the list
+  const removeSkill = (skill) => {
+    const updated = skillsValue.filter((s) => s !== skill);
+    setSkillsValue(updated);
+    setSkillsSaveError(null);
+  };
+
+  // Handle saving skills
+  const handleSaveSkills = async () => {
+    if (skillsValue.length < 5) {
+      setSkillsSaveError("Please select at least 5 skills.");
+      return;
+    }
+
+    if (skillsValue.length > 15) {
+      setSkillsSaveError("You can select up to 15 skills only.");
+      return;
+    }
+
+    setIsSavingSkills(true);
+    setSkillsSaveError(null);
+
+    try {
+      const response = await axios.post(`${API_URL}/add-skills/`, {
+        userId: freelancerId,
+        skills: skillsValue,
+      });
+
+      if (response.data.message === "Skills saved successfully") {
+        // Refresh profile data to get updated skills
+        try {
+          const profileRes = await axios.get(
+            `${API_URL}/profile/${freelancerId}/`
+          );
+          setProfile(profileRes.data);
+
+          // Close modal
+          setShowSkillsModal(false);
+          setSkillSearchValue("");
+          setSkillSuggestions([]);
+          setHighlightedSkillIndex(-1);
+
+          console.log("Skills saved successfully");
+        } catch (refreshError) {
+          console.error("Error refreshing profile data:", refreshError);
+          // Fallback: Update local state directly
+          setProfile((prev) => ({
+            ...prev,
+            skills: skillsValue,
+          }));
+
+          // Close modal
+          setShowSkillsModal(false);
+          setSkillSearchValue("");
+          setSkillSuggestions([]);
+          setHighlightedSkillIndex(-1);
+          console.log("Skills saved successfully (using fallback)");
+        }
+      } else {
+        setSkillsSaveError("Failed to save skills. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error saving skills:", error);
+      setSkillsSaveError(
+        error.response?.data?.message ||
+          "Failed to save skills. Please try again."
+      );
+    } finally {
+      setIsSavingSkills(false);
+    }
+  };
+
+  // Handle closing skills modal
+  const handleCloseSkillsModal = () => {
+    setShowSkillsModal(false);
+    setSkillSearchValue("");
+    setSkillSuggestions([]);
+    setHighlightedSkillIndex(-1);
+    setSkillsSaveError(null);
+  };
 
   return (
     <>
@@ -687,7 +2126,10 @@ const FreelancersProfilePage = () => {
                 }}
                 whileTap={{ scale: 0.95 }}
                 title="Edit Profile Photo"
-                onClick={() => setShowProfileImageModal(true)}
+                onClick={() => {
+                  setShowProfileImageModal(true);
+                  setImageUploadError(null);
+                }}
               >
                 <MdEdit size={16} />
               </motion.div>
@@ -926,9 +2368,43 @@ const FreelancersProfilePage = () => {
                     }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
-                      setSavedVideoUrl("");
-                      setVideoThumbnail("");
-                      setVideoTitle("");
+                      console.log("Removing video for user:", freelancerId);
+                      // Clear video from database by setting empty string
+                      axios
+                        .post(`${API_URL}/add-video-introduction/`, {
+                          userId: freelancerId,
+                          videoUrl: "",
+                        })
+                        .then((response) => {
+                          if (
+                            response.data.message ===
+                            "Video introduction removed successfully"
+                          ) {
+                            setSavedVideoUrl("");
+                            setVideoThumbnail("");
+                            setVideoTitle("");
+                            setVideoId("");
+                            console.log("Video removed successfully");
+                          } else {
+                            console.error(
+                              "Unexpected response when removing video:",
+                              response.data
+                            );
+                            // Still clear local state
+                            setSavedVideoUrl("");
+                            setVideoThumbnail("");
+                            setVideoTitle("");
+                            setVideoId("");
+                          }
+                        })
+                        .catch((error) => {
+                          console.error("Error removing video:", error);
+                          // Still clear local state even if API call fails
+                          setSavedVideoUrl("");
+                          setVideoThumbnail("");
+                          setVideoTitle("");
+                          setVideoId("");
+                        });
                     }}
                     title="Remove video"
                   >
@@ -961,7 +2437,8 @@ const FreelancersProfilePage = () => {
                       display: "block",
                     }}
                     onError={(e) => {
-                      e.target.src = "https://via.placeholder.com/300x160?text=Video+Thumbnail";
+                      e.target.src =
+                        "https://via.placeholder.com/300x160?text=Video+Thumbnail";
                     }}
                   />
 
@@ -993,40 +2470,9 @@ const FreelancersProfilePage = () => {
                       }}
                     />
                   </div>
-
-
                 </motion.div>
               </div>
             )}
-
-            {/* Hours per week
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              justifyContent: "space-between",
-              marginBottom: 28,
-            }}
-          >
-            <div>
-              <div style={{ fontWeight: 500, fontSize: 18, marginBottom: 2 }}>
-                Hours per week
-              </div>
-              <div style={{ color: "#444", fontSize: 17 }}>{hoursPerWeek}</div>
-              <div style={{ color: "#888", fontSize: 16, marginTop: 2 }}>
-                No contract-to-hire preference set
-              </div>
-            </div>
-            <FiEdit2
-              style={{
-                color: "#007476",
-                fontSize: 26,
-                border: "2px solid #007476",
-                borderRadius: "50%",
-                padding: 2,
-              }}
-            />
-          </div> */}
 
             {/* Languages */}
             <div
@@ -1106,7 +2552,7 @@ const FreelancersProfilePage = () => {
                           id: index,
                           language: languageParts[0] || "",
                           proficiency: languageParts[1] || "Basic",
-                          original: lang
+                          original: lang,
                         };
                       });
 
@@ -1138,13 +2584,16 @@ const FreelancersProfilePage = () => {
                 </div>
                 {education.length > 0 ? (
                   education.map((edu, idx) => (
-                    <div key={idx} style={{
-                      marginTop: "12px",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "flex-start",
-                      gap: "12px"
-                    }}>
+                    <div
+                      key={idx}
+                      style={{
+                        marginTop: "12px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                        gap: "12px",
+                      }}
+                    >
                       <div style={{ flex: 1 }}>
                         <div
                           style={{
@@ -1200,22 +2649,50 @@ const FreelancersProfilePage = () => {
                           <MdEdit size={16} />
                         </motion.div>
                         <motion.div
+                          onClick={() => handleDeleteEducation(edu._id)}
+                          disabled={
+                            isDeletingEducation &&
+                            deletingEducationId === edu._id
+                          }
                           style={{
                             width: "32px",
                             height: "32px",
                             borderRadius: "50%",
-                            color: "#007674",
-                            border: "2px solid #007674",
+                            color:
+                              isDeletingEducation &&
+                              deletingEducationId === edu._id
+                                ? "#ccc"
+                                : "#dc2626",
+                            border: `2px solid ${
+                              isDeletingEducation &&
+                              deletingEducationId === edu._id
+                                ? "#ccc"
+                                : "#dc2626"
+                            }`,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            cursor: "pointer",
+                            cursor:
+                              isDeletingEducation &&
+                              deletingEducationId === edu._id
+                                ? "not-allowed"
+                                : "pointer",
                             transition: "all 0.2s ease",
                           }}
                           whileHover={{
-                            scale: 1.05,
+                            scale:
+                              isDeletingEducation &&
+                              deletingEducationId === edu._id
+                                ? 1
+                                : 1.05,
                           }}
-                          whileTap={{ scale: 0.95 }}
+                          whileTap={{
+                            scale:
+                              isDeletingEducation &&
+                              deletingEducationId === edu._id
+                                ? 1
+                                : 0.95,
+                          }}
                           title="Delete Education"
                         >
                           <FiTrash2 size={16} />
@@ -1286,7 +2763,6 @@ const FreelancersProfilePage = () => {
                 >
                   <FiPlus size={16} />
                 </motion.div>
-
               </div>
             </div>
           </div>
@@ -1308,11 +2784,13 @@ const FreelancersProfilePage = () => {
                 marginBottom: "16px",
               }}
             >
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12
-              }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
                 <div style={{ fontSize: 26, fontWeight: 600 }}>{title}</div>
                 <motion.div
                   style={{
@@ -1332,19 +2810,24 @@ const FreelancersProfilePage = () => {
                   }}
                   whileTap={{ scale: 0.95 }}
                   title="Edit Title"
-                  onClick={() => setShowTitleModal(true)}
+                  onClick={() => {
+                    setShowTitleModal(true);
+                    setTitleSaveError(null);
+                  }}
                 >
                   <MdEdit size={16} />
                 </motion.div>
               </div>
-              <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                fontSize: 22,
-                fontWeight: 600,
-                color: "#007476"
-              }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  fontSize: 22,
+                  fontWeight: 600,
+                  color: "#007476",
+                }}
+              >
                 <div>{hourlyRate}</div>
                 <motion.div
                   style={{
@@ -1369,6 +2852,7 @@ const FreelancersProfilePage = () => {
                     const numericValue = hourlyRate.replace(/[^0-9]/g, "");
                     setHourlyRateValue(numericValue || "1000");
                     setShowHourlyRateModal(true);
+                    setHourlyRateSaveError(null);
                   }}
                 >
                   <MdEdit size={16} />
@@ -1450,6 +2934,7 @@ const FreelancersProfilePage = () => {
                 title="Edit Bio"
                 onClick={() => {
                   setShowBioModal(true);
+                  setBioSaveError(null);
                 }}
               >
                 <MdEdit size={16} />
@@ -1773,17 +3258,35 @@ const FreelancersProfilePage = () => {
                         <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
+                          onClick={() => handleDeleteEmployment(experience._id)}
+                          disabled={
+                            isDeletingEmployment &&
+                            deletingEmploymentId === experience._id
+                          }
                           style={{
                             width: 32,
                             height: 32,
                             borderRadius: "50%",
-                            color: "#dc2626",
-                            border: "2px solid #dc2626",
+                            color:
+                              isDeletingEmployment &&
+                              deletingEmploymentId === experience._id
+                                ? "#ccc"
+                                : "#dc2626",
+                            border: `2px solid ${
+                              isDeletingEmployment &&
+                              deletingEmploymentId === experience._id
+                                ? "#ccc"
+                                : "#dc2626"
+                            }`,
                             backgroundColor: "transparent",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            cursor: "pointer",
+                            cursor:
+                              isDeletingEmployment &&
+                              deletingEmploymentId === experience._id
+                                ? "not-allowed"
+                                : "pointer",
                             transition: "all 0.2s ease",
                           }}
                         >
@@ -1820,140 +3323,259 @@ const FreelancersProfilePage = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6 }}
-            ></motion.div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 20,
-              }}
             >
               <div
                 style={{
-                  fontSize: 20,
-                  fontWeight: 600,
-                  color: "#1a1a1a",
-                }}
-              >
-                Other experiences
-              </div>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                style={{
-                  width: 32,
-                  height: 32,
-                  borderRadius: "50%",
-                  color: "#007476",
-                  border: "2px solid #007476",
-                  backgroundColor: "transparent",
                   display: "flex",
+                  justifyContent: "space-between",
                   alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease",
-                }}
-                onClick={() => setShowOtherExperiencesModal(true)}
-              >
-                <FiPlus size={16} />
-              </motion.button>
-            </div>
-            <motion.div
-              style={{
-                backgroundColor: "white",
-                borderRadius: "12px",
-                padding: "24px",
-                border: "1px solid #e6e6e6",
-                marginBottom: "24px",
-              }}
-            >
-              {/* Empty State */}
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  padding: "40px 20px",
-                  textAlign: "center",
+                  marginBottom: 20,
                 }}
               >
                 <div
                   style={{
-                    position: "relative",
-                    marginBottom: "20px",
+                    fontSize: 20,
+                    fontWeight: 600,
+                    color: "#1a1a1a",
                   }}
                 >
-                  <FiFolder
-                    size={48}
-                    style={{
-                      color: "#007476",
-                    }}
-                  />
-                  {/* Three small lines radiating from the top */}
+                  Other experiences
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: "50%",
+                    color: "#007476",
+                    border: "2px solid #007476",
+                    backgroundColor: "transparent",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    cursor: "pointer",
+                    transition: "all 0.2s ease",
+                  }}
+                  onClick={handleAddOtherExperience}
+                >
+                  <FiPlus size={16} />
+                </motion.button>
+              </div>
+
+              {/* Other Experiences List */}
+              {safeProfile.otherExperiences &&
+              safeProfile.otherExperiences.length > 0 ? (
+                <div style={{ marginBottom: "24px" }}>
+                  {safeProfile.otherExperiences.map((experience, index) => (
+                    <motion.div
+                      key={experience._id}
+                      style={{
+                        backgroundColor: "white",
+                        borderRadius: "12px",
+                        padding: "24px",
+                        border: "1px solid #e6e6e6",
+                        marginBottom: "16px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                      }}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                    >
+                      {/* Content */}
+                      <div style={{ flex: 1 }}>
+                        <div
+                          style={{
+                            fontSize: 18,
+                            fontWeight: 600,
+                            color: "#1a1a1a",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          {experience.subject}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 16,
+                            color: "#666",
+                            lineHeight: 1.5,
+                          }}
+                        >
+                          {experience.description}
+                        </div>
+                      </div>
+
+                      {/* Action Icons */}
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "6px",
+                          marginLeft: "12px",
+                        }}
+                      >
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleEditOtherExperience(index)}
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: "50%",
+                            color: "#007674",
+                            border: "2px solid #007674",
+                            backgroundColor: "transparent",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          <MdEdit size={16} />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() =>
+                            handleDeleteOtherExperience(experience._id)
+                          }
+                          disabled={
+                            isDeletingOtherExperience &&
+                            deletingOtherExperienceId === experience._id
+                          }
+                          style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: "50%",
+                            color:
+                              isDeletingOtherExperience &&
+                              deletingOtherExperienceId === experience._id
+                                ? "#ccc"
+                                : "#dc2626",
+                            border: `2px solid ${
+                              isDeletingOtherExperience &&
+                              deletingOtherExperienceId === experience._id
+                                ? "#ccc"
+                                : "#dc2626"
+                            }`,
+                            backgroundColor: "transparent",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            cursor:
+                              isDeletingOtherExperience &&
+                              deletingOtherExperienceId === experience._id
+                                ? "not-allowed"
+                                : "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                        >
+                          <FiTrash2 size={16} />
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              ) : (
+                /* Empty State */
+                <motion.div
+                  style={{
+                    backgroundColor: "white",
+                    borderRadius: "12px",
+                    padding: "24px",
+                    border: "1px solid #e6e6e6",
+                    marginBottom: "24px",
+                  }}
+                >
                   <div
                     style={{
-                      position: "absolute",
-                      top: "-8px",
-                      left: "50%",
-                      transform: "translateX(-50%)",
                       display: "flex",
-                      gap: "2px",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "40px 20px",
+                      textAlign: "center",
                     }}
                   >
                     <div
                       style={{
-                        width: "2px",
-                        height: "8px",
-                        backgroundColor: "#3b82f6",
-                        borderRadius: "1px",
+                        position: "relative",
+                        marginBottom: "20px",
                       }}
-                    />
+                    >
+                      <FiFolder
+                        size={48}
+                        style={{
+                          color: "#007476",
+                        }}
+                      />
+                      {/* Three small lines radiating from the top */}
+                      <div
+                        style={{
+                          position: "absolute",
+                          top: "-8px",
+                          left: "50%",
+                          transform: "translateX(-50%)",
+                          display: "flex",
+                          gap: "2px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "2px",
+                            height: "8px",
+                            backgroundColor: "#3b82f6",
+                            borderRadius: "1px",
+                          }}
+                        />
+                        <div
+                          style={{
+                            width: "2px",
+                            height: "6px",
+                            backgroundColor: "#3b82f6",
+                            borderRadius: "1px",
+                          }}
+                        />
+                        <div
+                          style={{
+                            width: "2px",
+                            height: "8px",
+                            backgroundColor: "#3b82f6",
+                            borderRadius: "1px",
+                          }}
+                        />
+                      </div>
+                    </div>
                     <div
                       style={{
-                        width: "2px",
-                        height: "6px",
-                        backgroundColor: "#3b82f6",
-                        borderRadius: "1px",
+                        fontSize: 18,
+                        color: "#1a1a1a",
+                        marginBottom: "8px",
                       }}
-                    />
-                    <div
+                    >
+                      Add any other experiences that help you stand out.
+                    </div>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       style={{
-                        width: "2px",
-                        height: "8px",
-                        backgroundColor: "#3b82f6",
-                        borderRadius: "1px",
+                        background: "none",
+                        border: "none",
+                        fontSize: 16,
+                        color: "#007476",
+                        cursor: "pointer",
+                        fontWeight: 500,
+                        textDecoration: "underline",
                       }}
-                    />
+                      onClick={handleAddOtherExperience}
+                    >
+                      Add an experience
+                    </motion.button>
                   </div>
-                </div>
-                <div
-                  style={{
-                    fontSize: 18,
-                    color: "#1a1a1a",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Add any other experiences that help you stand out.
-                </div>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    fontSize: 16,
-                    color: "#007476",
-                    cursor: "pointer",
-                    fontWeight: 500,
-                    textDecoration: "underline",
-                  }}
-                  onClick={() => setShowOtherExperiencesModal(true)}
-                >
-                  Add an experience
-                </motion.button>
-              </div>
+                </motion.div>
+              )}
             </motion.div>
           </div>
         </div>
@@ -2071,11 +3693,18 @@ const FreelancersProfilePage = () => {
                 <input
                   type="text"
                   value={titleValue}
-                  onChange={(e) => setTitleValue(e.target.value)}
+                  onChange={(e) => {
+                    setTitleValue(e.target.value);
+                    if (titleSaveError) {
+                      setTitleSaveError(null);
+                    }
+                  }}
                   style={{
                     width: "100%",
                     padding: "12px 16px",
-                    border: "1px solid #d1d5db",
+                    border: titleSaveError
+                      ? "1px solid #dc2626"
+                      : "1px solid #d1d5db",
                     borderRadius: "8px",
                     fontSize: "18px",
                     outline: "none",
@@ -2086,11 +3715,25 @@ const FreelancersProfilePage = () => {
                     e.target.style.borderColor = "#007674";
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = "#d1d5db";
+                    e.target.style.borderColor = titleSaveError
+                      ? "#dc2626"
+                      : "#d1d5db";
                   }}
                   placeholder="Enter your professional title"
                   autoFocus
                 />
+                {titleSaveError && (
+                  <div
+                    style={{
+                      color: "#dc2626",
+                      fontSize: "14px",
+                      marginTop: "4px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    {titleSaveError}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2103,7 +3746,10 @@ const FreelancersProfilePage = () => {
               }}
             >
               <motion.button
-                onClick={() => setShowTitleModal(false)}
+                onClick={() => {
+                  setShowTitleModal(false);
+                  setTitleSaveError(null);
+                }}
                 style={{
                   padding: "10px 20px",
                   border: "none",
@@ -2123,29 +3769,25 @@ const FreelancersProfilePage = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  // Here you would typically save the title to your backend
-
-                  setShowTitleModal(false);
-                  // You can add API call here to save the title
-                }}
+                onClick={handleSaveTitle}
+                disabled={isSavingTitle}
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: "#007674",
+                  background: isSavingTitle ? "#ccc" : "#007674",
                   color: "#fff",
                   fontSize: "16px",
                   fontWeight: "600",
-                  cursor: "pointer",
+                  cursor: isSavingTitle ? "not-allowed" : "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#005a58",
+                  background: isSavingTitle ? "#ccc" : "#005a58",
                 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: isSavingTitle ? 1 : 0.95 }}
               >
-                Save
+                {isSavingTitle ? "Saving..." : "Save"}
               </motion.button>
             </div>
           </motion.div>
@@ -2310,14 +3952,18 @@ const FreelancersProfilePage = () => {
                   <textarea
                     value={bioValue || ""}
                     onChange={(e) => {
-
                       setBioValue(e.target.value);
+                      if (bioSaveError) {
+                        setBioSaveError(null);
+                      }
                     }}
                     style={{
                       width: "100%",
                       minHeight: "300px",
                       padding: "16px",
-                      border: "1px solid #d1d5db",
+                      border: bioSaveError
+                        ? "1px solid #dc2626"
+                        : "1px solid #d1d5db",
                       borderRadius: "8px",
                       fontSize: "18px",
                       outline: "none",
@@ -2331,11 +3977,25 @@ const FreelancersProfilePage = () => {
                       e.target.style.borderColor = "#007674";
                     }}
                     onBlur={(e) => {
-                      e.target.style.borderColor = "#d1d5db";
+                      e.target.style.borderColor = bioSaveError
+                        ? "#dc2626"
+                        : "#d1d5db";
                     }}
                     placeholder="Tell clients about your experience, skills, and what makes you the perfect fit for their project..."
                     autoFocus
                   />
+                  {bioSaveError && (
+                    <div
+                      style={{
+                        color: "#dc2626",
+                        fontSize: "14px",
+                        marginTop: "4px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      {bioSaveError}
+                    </div>
+                  )}
                   <div
                     style={{
                       position: "absolute",
@@ -2366,7 +4026,10 @@ const FreelancersProfilePage = () => {
               }}
             >
               <motion.button
-                onClick={() => setShowBioModal(false)}
+                onClick={() => {
+                  setShowBioModal(false);
+                  setBioSaveError(null);
+                }}
                 style={{
                   padding: "10px 20px",
                   border: "none",
@@ -2386,29 +4049,25 @@ const FreelancersProfilePage = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  // Here you would typically save the bio to your backend
-
-                  setShowBioModal(false);
-                  // You can add API call here to save the bio
-                }}
+                onClick={handleSaveBio}
+                disabled={isSavingBio}
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: "#007674",
+                  background: isSavingBio ? "#ccc" : "#007674",
                   color: "#fff",
                   fontSize: "16px",
                   fontWeight: "600",
-                  cursor: "pointer",
+                  cursor: isSavingBio ? "not-allowed" : "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#005a58",
+                  background: isSavingBio ? "#ccc" : "#005a58",
                 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: isSavingBio ? 1 : 0.95 }}
               >
-                Save
+                {isSavingBio ? "Saving..." : "Save"}
               </motion.button>
             </div>
           </motion.div>
@@ -2435,7 +4094,7 @@ const FreelancersProfilePage = () => {
             justifyContent: "center",
             padding: "20px",
           }}
-          onClick={() => setShowSkillsModal(false)}
+          onClick={handleCloseSkillsModal}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -2447,7 +4106,7 @@ const FreelancersProfilePage = () => {
               borderRadius: "12px",
               padding: "24px",
               width: "100%",
-              maxWidth: "600px",
+              maxWidth: "800px",
               boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
               border: "1px solid #e6e6e6",
             }}
@@ -2459,7 +4118,7 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
-                marginBottom: "20px",
+                marginBottom: "24px",
               }}
             >
               <h3
@@ -2470,10 +4129,10 @@ const FreelancersProfilePage = () => {
                   color: "#1a1a1a",
                 }}
               >
-                Edit skills
+                Edit Skills
               </h3>
               <motion.button
-                onClick={() => setShowSkillsModal(false)}
+                onClick={handleCloseSkillsModal}
                 style={{
                   background: "none",
                   border: "none",
@@ -2497,125 +4156,275 @@ const FreelancersProfilePage = () => {
               </motion.button>
             </div>
 
-            {/* Modal Body */}
-            <div style={{ marginBottom: "24px" }}>
-              <div style={{ marginBottom: "8px" }}>
-                <label
+            {/* Skills Counter */}
+            <div style={{ marginBottom: "20px" }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "8px",
+                }}
+              >
+                <span
                   style={{
-                    fontSize: "18px",
-                    fontWeight: "600",
-                    color: "#1a1a1a",
-                    display: "block",
-                    marginBottom: "8px",
-                  }}
-                >
-                  Skills
-                </label>
-                <div
-                  style={{
-                    border: "1px solid #d1d5db",
-                    borderRadius: "8px",
-                    padding: "12px",
-                    minHeight: "120px",
-                    background: "#fff",
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "8px",
-                    alignItems: "flex-start",
-                  }}
-                >
-                  {skillsValue.map((skill, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      style={{
-                        background: "#f8f9fa",
-                        border: "1px solid #e6e6e6",
-                        borderRadius: "20px",
-                        padding: "6px 12px",
-                        fontSize: "16px",
-                        color: "#1a1a1a",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        maxWidth: "100%",
-                      }}
-                    >
-                      <span style={{ wordBreak: "break-word" }}>{skill}</span>
-                      <motion.button
-                        onClick={() => {
-                          const newSkills = skillsValue.filter(
-                            (_, i) => i !== index
-                          );
-                          setSkillsValue(newSkills);
-                        }}
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "#666",
-                          cursor: "pointer",
-                          fontSize: "16px",
-                          padding: "0",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          width: "16px",
-                          height: "16px",
-                          borderRadius: "50%",
-                          transition: "all 0.2s ease",
-                        }}
-                        whileHover={{
-                          color: "#dc3545",
-                          background: "#f8f9fa",
-                        }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        ×
-                      </motion.button>
-                    </motion.div>
-                  ))}
-                  <input
-                    type="text"
-                    value={skillSearchValue}
-                    onChange={(e) => setSkillSearchValue(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter" && skillSearchValue.trim()) {
-                        if (
-                          skillsValue.length < 15 &&
-                          !skillsValue.includes(skillSearchValue.trim())
-                        ) {
-                          setSkillsValue([
-                            ...skillsValue,
-                            skillSearchValue.trim(),
-                          ]);
-                          setSkillSearchValue("");
-                        }
-                      }
-                    }}
-                    style={{
-                      border: "none",
-                      outline: "none",
-                      fontSize: "16px",
-                      color: "#1a1a1a",
-                      background: "transparent",
-                      minWidth: "120px",
-                      flex: 1,
-                    }}
-                    placeholder="Search skills"
-                  />
-                </div>
-                <div
-                  style={{
-                    fontSize: "12px",
+                    fontSize: "14px",
                     color: "#666",
-                    marginTop: "8px",
+                    fontWeight: "500",
                   }}
                 >
-                  Maximum 15 skills.
+                  Selected Skills ({skillsValue.length}/15)
+                </span>
+                <div
+                  style={{
+                    width: "60%",
+                    height: "8px",
+                    borderRadius: "10px",
+                    backgroundColor: "#e9ecef",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${(skillsValue.length / 15) * 100}%`,
+                      backgroundColor: "#007674",
+                      borderRadius: "10px",
+                      transition: "width 0.3s ease",
+                      height: "100%",
+                    }}
+                  ></div>
                 </div>
               </div>
             </div>
+
+            {/* Skills Input */}
+            <div style={{ marginBottom: "24px" }}>
+              <label
+                style={{
+                  fontSize: "18px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
+                  display: "block",
+                  marginBottom: "8px",
+                }}
+              >
+                Search and Add Skills
+              </label>
+              <div style={{ position: "relative" }}>
+                <input
+                  type="text"
+                  value={skillSearchValue}
+                  onChange={handleSkillsInputChange}
+                  onKeyDown={handleSkillsKeyDown}
+                  disabled={skillsValue.length >= 15}
+                  style={{
+                    width: "100%",
+                    padding: "15px 20px",
+                    border: "2px solid #e3e3e3",
+                    borderRadius: "12px",
+                    fontSize: "16px",
+                    fontFamily: "inherit",
+                    fontWeight: "500",
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    background:
+                      "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)",
+                    boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+                    outline: "none",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007674";
+                    e.target.style.boxShadow =
+                      "0 6px 20px rgba(0, 118, 116, 0.15), 0 3px 8px rgba(0, 0, 0, 0.08)";
+                    e.target.style.background = "#ffffff";
+                    e.target.style.transform = "translateY(-2px)";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#e3e3e3";
+                    e.target.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.05)";
+                    e.target.style.background =
+                      "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)";
+                    e.target.style.transform = "translateY(0)";
+                  }}
+                  placeholder="Start typing to search for skills..."
+                />
+                {skillSuggestions.length > 0 && (
+                  <ul
+                    style={{
+                      position: "absolute",
+                      top: "100%",
+                      left: 0,
+                      right: 0,
+                      background: "white",
+                      border: "2px solid #007674",
+                      borderTop: "none",
+                      borderRadius: "0 0 12px 12px",
+                      maxHeight: "200px",
+                      overflowY: "auto",
+                      zIndex: 1000,
+                      boxShadow: "0 6px 20px rgba(0, 118, 116, 0.15)",
+                      margin: 0,
+                      padding: 0,
+                      listStyle: "none",
+                    }}
+                  >
+                    {skillSuggestions.map((skill, index) => (
+                      <li
+                        key={index}
+                        onClick={() => addSkill(skill)}
+                        style={{
+                          padding: "12px 20px",
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                          borderBottom: "1px solid #f0f0f0",
+                          backgroundColor:
+                            index === highlightedSkillIndex
+                              ? "#e8f4f4"
+                              : "transparent",
+                          color:
+                            index === highlightedSkillIndex
+                              ? "#007674"
+                              : "#1a1a1a",
+                        }}
+                        onMouseEnter={() => setHighlightedSkillIndex(index)}
+                        onMouseLeave={() => setHighlightedSkillIndex(-1)}
+                      >
+                        {skill}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <small
+                style={{
+                  color: "#666",
+                  marginTop: "8px",
+                  display: "block",
+                  fontSize: "14px",
+                }}
+              >
+                {skillsValue.length >= 15
+                  ? "Maximum 15 skills reached"
+                  : `${15 - skillsValue.length} skills remaining`}
+              </small>
+            </div>
+
+            {/* Selected Skills */}
+            <div
+              style={{
+                maxHeight: "300px",
+                overflowY: "auto",
+                marginBottom: "24px",
+              }}
+            >
+              {skillsValue.length > 0 ? (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "8px",
+                  }}
+                >
+                  {skillsValue.map((skill, index) => (
+                    <motion.span
+                      key={index}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{
+                        delay: index * 0.1,
+                        duration: 0.3,
+                      }}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        background:
+                          "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                        color: "white",
+                        padding: "8px 16px",
+                        borderRadius: "25px",
+                        fontSize: "14px",
+                        fontWeight: "500",
+                        transition: "all 0.3s ease",
+                        boxShadow: "0 2px 8px rgba(0, 118, 116, 0.2)",
+                      }}
+                    >
+                      {skill}
+                      <button
+                        onClick={() => removeSkill(skill)}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "white",
+                          marginLeft: "8px",
+                          cursor: "pointer",
+                          fontSize: "16px",
+                          fontWeight: "bold",
+                          padding: 0,
+                          width: "20px",
+                          height: "20px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          borderRadius: "50%",
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.background =
+                            "rgba(255, 255, 255, 0.2)";
+                          e.target.style.transform = "scale(1.1)";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.background = "none";
+                          e.target.style.transform = "scale(1)";
+                        }}
+                      >
+                        ×
+                      </button>
+                    </motion.span>
+                  ))}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    textAlign: "center",
+                    padding: "40px 20px",
+                    color: "#666",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "16px",
+                      marginBottom: "8px",
+                    }}
+                  >
+                    No skills added yet
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "14px",
+                    }}
+                  >
+                    Start by searching and adding your skills above
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Error Display */}
+            {skillsSaveError && (
+              <div
+                style={{
+                  color: "#dc2626",
+                  fontSize: "14px",
+                  marginBottom: "16px",
+                  fontWeight: "500",
+                  padding: "8px 12px",
+                  backgroundColor: "#fef2f2",
+                  borderRadius: "6px",
+                  border: "1px solid #fecaca",
+                }}
+              >
+                {skillsSaveError}
+              </div>
+            )}
 
             {/* Modal Footer */}
             <div
@@ -2626,7 +4435,7 @@ const FreelancersProfilePage = () => {
               }}
             >
               <motion.button
-                onClick={() => setShowSkillsModal(false)}
+                onClick={handleCloseSkillsModal}
                 style={{
                   padding: "10px 20px",
                   border: "none",
@@ -2646,29 +4455,23 @@ const FreelancersProfilePage = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  // Here you would typically save the skills to your backend
-
-                  setShowSkillsModal(false);
-                  // You can add API call here to save the skills
-                }}
+                onClick={handleSaveSkills}
+                disabled={isSavingSkills}
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: "#007674",
+                  background: isSavingSkills ? "#ccc" : "#007674",
                   color: "#fff",
                   fontSize: "16px",
                   fontWeight: "600",
-                  cursor: "pointer",
+                  cursor: isSavingSkills ? "not-allowed" : "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
-                whileHover={{
-                  background: "#005a58",
-                }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={!isSavingSkills ? { background: "#005a58" } : {}}
+                whileTap={!isSavingSkills ? { scale: 0.95 } : {}}
               >
-                Save
+                {isSavingSkills ? "Saving..." : "Save Skills"}
               </motion.button>
             </div>
           </motion.div>
@@ -2731,7 +4534,9 @@ const FreelancersProfilePage = () => {
                   color: "#1a1a1a",
                 }}
               >
-                Add other experiences
+                {isEditingOtherExperience
+                  ? "Edit other experience"
+                  : "Add other experience"}
               </h3>
               <motion.button
                 onClick={() => setShowOtherExperiencesModal(false)}
@@ -2838,6 +4643,18 @@ const FreelancersProfilePage = () => {
                     e.target.style.borderColor = "#d1d5db";
                   }}
                 />
+                {otherExperienceSaveError && (
+                  <div
+                    style={{
+                      color: "#dc2626",
+                      fontSize: "14px",
+                      marginTop: "8px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    {otherExperienceSaveError}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2850,7 +4667,7 @@ const FreelancersProfilePage = () => {
               }}
             >
               <motion.button
-                onClick={() => setShowOtherExperiencesModal(false)}
+                onClick={handleCloseOtherExperienceModal}
                 style={{
                   padding: "10px 20px",
                   border: "none",
@@ -2870,31 +4687,33 @@ const FreelancersProfilePage = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  // Here you would typically save the other experience to your backend
-
-                  setShowOtherExperiencesModal(false);
-                  setOtherExperienceSubject("");
-                  setOtherExperienceDescription("");
-                  // You can add API call here to save the other experience
-                }}
+                onClick={
+                  isEditingOtherExperience
+                    ? handleUpdateOtherExperience
+                    : handleSaveOtherExperience
+                }
+                disabled={isSavingOtherExperience}
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: "#007476",
+                  background: isSavingOtherExperience ? "#ccc" : "#007476",
                   color: "#fff",
                   fontSize: "16px",
                   fontWeight: "600",
-                  cursor: "pointer",
+                  cursor: isSavingOtherExperience ? "not-allowed" : "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
-                whileHover={{
-                  background: "#007476",
-                }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={
+                  !isSavingOtherExperience ? { background: "#005a58" } : {}
+                }
+                whileTap={!isSavingOtherExperience ? { scale: 0.95 } : {}}
               >
-                Save
+                {isSavingOtherExperience
+                  ? "Saving..."
+                  : isEditingOtherExperience
+                  ? "Update"
+                  : "Save"}
               </motion.button>
             </div>
           </motion.div>
@@ -3248,10 +5067,30 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: "12px",
+                marginTop: "24px",
+                paddingTop: "20px",
+                borderTop: "1px solid #e5e7eb",
               }}
             >
+              {educationSaveError && (
+                <div
+                  style={{
+                    color: "#dc2626",
+                    fontSize: "14px",
+                    marginBottom: "8px",
+                    fontWeight: "500",
+                    textAlign: "center",
+                    width: "100%",
+                  }}
+                >
+                  {educationSaveError}
+                </div>
+              )}
               <motion.button
-                onClick={handleCloseEducationModal}
+                onClick={() => {
+                  handleCloseEducationModal();
+                  setEducationSaveError(null);
+                }}
                 style={{
                   padding: "10px 20px",
                   border: "none",
@@ -3271,44 +5110,33 @@ const FreelancersProfilePage = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  const educationData = {
-                    institution: educationInstitution,
-                    degree: educationDegree,
-                    field: educationField,
-                    startYear: educationStartYear,
-                    endYear: educationEndYear,
-                    description: educationDescription,
-                    isExpected: educationIsExpected,
-                  };
-
-                  if (isEditingEducation) {
-                    // Here you would typically update the education in your backend
-                    // You can add API call here to update the education
-                  } else {
-                    // Here you would typically save the education to your backend
-                    // You can add API call here to save the education
-                  }
-
-                  handleCloseEducationModal();
-                }}
+                onClick={
+                  isEditingEducation
+                    ? handleUpdateEducation
+                    : handleSaveEducation
+                }
+                disabled={isSavingEducation}
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: "#007674",
+                  background: isSavingEducation ? "#ccc" : "#007674",
                   color: "#fff",
                   fontSize: "16px",
                   fontWeight: "600",
-                  cursor: "pointer",
+                  cursor: isSavingEducation ? "not-allowed" : "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#005a58",
+                  background: isSavingEducation ? "#ccc" : "#005a58",
                 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: isSavingEducation ? 1 : 0.95 }}
               >
-                {isEditingEducation ? "Update" : "Save"}
+                {isSavingEducation
+                  ? "Saving..."
+                  : isEditingEducation
+                  ? "Update"
+                  : "Save"}
               </motion.button>
             </div>
           </motion.div>
@@ -3450,7 +5278,9 @@ const FreelancersProfilePage = () => {
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
-                        transform: `scale(${1 + zoomLevel / 100}) rotate(${rotationAngle}deg)`,
+                        transform: `scale(${
+                          1 + zoomLevel / 100
+                        }) rotate(${rotationAngle}deg)`,
                         transition: "transform 0.3s ease",
                       }}
                     />
@@ -3493,9 +5323,17 @@ const FreelancersProfilePage = () => {
                   }}
                 >
                   {/* Zoom Control */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
                     <FiZoomIn size={16} style={{ color: "#666" }} />
-                    <span style={{ fontSize: "16px", fontWeight: "500" }}>Zoom</span>
+                    <span style={{ fontSize: "16px", fontWeight: "500" }}>
+                      Zoom
+                    </span>
                     <input
                       type="range"
                       min="-50"
@@ -3511,21 +5349,37 @@ const FreelancersProfilePage = () => {
                         cursor: "pointer",
                       }}
                     />
-                    <span style={{ fontSize: "12px", color: "#666", minWidth: "20px" }}>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "#666",
+                        minWidth: "20px",
+                      }}
+                    >
                       {zoomLevel}
                     </span>
                   </div>
 
                   {/* Rotate Control */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
                     <FiRotateCw size={16} style={{ color: "#666" }} />
-                    <span style={{ fontSize: "16px", fontWeight: "500" }}>Rotate</span>
+                    <span style={{ fontSize: "16px", fontWeight: "500" }}>
+                      Rotate
+                    </span>
                     <input
                       type="range"
                       min="-180"
                       max="180"
                       value={rotationAngle}
-                      onChange={(e) => setRotationAngle(parseInt(e.target.value))}
+                      onChange={(e) =>
+                        setRotationAngle(parseInt(e.target.value))
+                      }
                       style={{
                         width: "100px",
                         height: "4px",
@@ -3535,7 +5389,13 @@ const FreelancersProfilePage = () => {
                         cursor: "pointer",
                       }}
                     />
-                    <span style={{ fontSize: "12px", color: "#666", minWidth: "20px" }}>
+                    <span
+                      style={{
+                        fontSize: "12px",
+                        color: "#666",
+                        minWidth: "20px",
+                      }}
+                    >
                       {rotationAngle}°
                     </span>
                   </div>
@@ -3592,7 +5452,9 @@ const FreelancersProfilePage = () => {
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
-                        transform: `scale(${1 + zoomLevel / 100}) rotate(${rotationAngle}deg)`,
+                        transform: `scale(${
+                          1 + zoomLevel / 100
+                        }) rotate(${rotationAngle}deg)`,
                       }}
                     />
                   </div>
@@ -3617,7 +5479,9 @@ const FreelancersProfilePage = () => {
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
-                        transform: `scale(${1 + zoomLevel / 100}) rotate(${rotationAngle}deg)`,
+                        transform: `scale(${
+                          1 + zoomLevel / 100
+                        }) rotate(${rotationAngle}deg)`,
                       }}
                     />
                   </div>
@@ -3642,7 +5506,9 @@ const FreelancersProfilePage = () => {
                         width: "100%",
                         height: "100%",
                         objectFit: "cover",
-                        transform: `scale(${1 + zoomLevel / 100}) rotate(${rotationAngle}deg)`,
+                        transform: `scale(${
+                          1 + zoomLevel / 100
+                        }) rotate(${rotationAngle}deg)`,
                       }}
                     />
                   </div>
@@ -3660,7 +5526,8 @@ const FreelancersProfilePage = () => {
                     border: "1px solid #e5e7eb",
                   }}
                 >
-                  Must be an actual photo of you. Logos, clip-art, group photos, and digitally-altered images are not allowed.
+                  Must be an actual photo of you. Logos, clip-art, group photos,
+                  and digitally-altered images are not allowed.
                 </div>
 
                 {/* Learn More Link */}
@@ -3699,11 +5566,23 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: "12px",
-                marginTop: "24px",
-                paddingTop: "20px",
-                borderTop: "1px solid #e5e7eb",
+                marginTop: "16px",
               }}
             >
+              {imageUploadError && (
+                <div
+                  style={{
+                    color: "#dc2626",
+                    fontSize: "14px",
+                    marginBottom: "8px",
+                    fontWeight: "500",
+                    textAlign: "center",
+                    width: "100%",
+                  }}
+                >
+                  {imageUploadError}
+                </div>
+              )}
               <motion.button
                 onClick={() => {
                   // Trigger file input
@@ -3735,6 +5614,7 @@ const FreelancersProfilePage = () => {
                   setSelectedImage(null);
                   setImagePreview(null);
                   setShowProfileImageModal(false);
+                  setImageUploadError(null);
                 }}
                 style={{
                   padding: "10px 20px",
@@ -3755,28 +5635,25 @@ const FreelancersProfilePage = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  // Here you would typically save the edited image
-                  setShowProfileImageModal(false);
-                  // You can add API call here to save the edited image
-                }}
+                onClick={handleUploadProfileImage}
+                disabled={isUploadingImage}
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: "#007476",
+                  background: isUploadingImage ? "#ccc" : "#007476",
                   color: "#fff",
                   fontSize: "16px",
                   fontWeight: "500",
-                  cursor: "pointer",
+                  cursor: isUploadingImage ? "not-allowed" : "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#005a58",
+                  background: isUploadingImage ? "#ccc" : "#005a58",
                 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: isUploadingImage ? 1 : 0.95 }}
               >
-                Save photo
+                {isUploadingImage ? "Uploading..." : "Save photo"}
               </motion.button>
             </div>
           </motion.div>
@@ -3902,6 +5779,18 @@ const FreelancersProfilePage = () => {
                   placeholder="Ex: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
                   autoFocus
                 />
+                {videoSaveError && (
+                  <div
+                    style={{
+                      color: "#dc2626",
+                      fontSize: "14px",
+                      marginTop: "8px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    {videoSaveError}
+                  </div>
+                )}
               </div>
 
               {/* Guidelines Link */}
@@ -3934,6 +5823,7 @@ const FreelancersProfilePage = () => {
               <motion.button
                 onClick={() => {
                   setVideoUrl("");
+                  setVideoSaveError(null);
                   setShowVideoModal(false);
                 }}
                 style={{
@@ -3955,42 +5845,41 @@ const FreelancersProfilePage = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  // Extract YouTube video info
-                  const videoInfo = extractYouTubeInfo(videoUrl);
-                  if (videoInfo) {
-                    setSavedVideoUrl(videoUrl);
-                    setVideoThumbnail(videoInfo.thumbnailUrl);
-                    setVideoId(videoInfo.videoId);
-                    setVideoTitle("Meet " + name); // Using the freelancer's name
-
-                  } else {
-                    alert("Please enter a valid YouTube URL");
-                    return;
-                  }
-                  setShowVideoModal(false);
-                  // You can add API call here to save the video URL
-                }}
+                onClick={handleSaveVideoIntroduction}
+                disabled={isSavingVideo || !videoUrl.trim()}
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: videoUrl.trim() ? "#007476" : "#e5e7eb",
-                  color: videoUrl.trim() ? "#fff" : "#9ca3af",
+                  background: isSavingVideo
+                    ? "#ccc"
+                    : videoUrl.trim()
+                    ? "#007476"
+                    : "#e5e7eb",
+                  color: isSavingVideo
+                    ? "#fff"
+                    : videoUrl.trim()
+                    ? "#fff"
+                    : "#9ca3af",
                   fontSize: "16px",
                   fontWeight: "500",
-                  cursor: videoUrl.trim() ? "pointer" : "not-allowed",
+                  cursor: isSavingVideo
+                    ? "not-allowed"
+                    : videoUrl.trim()
+                    ? "pointer"
+                    : "not-allowed",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={
-                  videoUrl.trim()
+                  !isSavingVideo && videoUrl.trim()
                     ? { background: "#005a58" }
                     : {}
                 }
-                whileTap={videoUrl.trim() ? { scale: 0.95 } : {}}
-                disabled={!videoUrl.trim()}
+                whileTap={
+                  !isSavingVideo && videoUrl.trim() ? { scale: 0.95 } : {}
+                }
               >
-                Save
+                {isSavingVideo ? "Saving..." : "Save"}
               </motion.button>
             </div>
           </motion.div>
@@ -4105,11 +5994,7 @@ const FreelancersProfilePage = () => {
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
               />
-
-
             </div>
-
-
           </motion.div>
         </motion.div>
       )}
@@ -4281,13 +6166,21 @@ const FreelancersProfilePage = () => {
                     }}
                   >
                     {loadingLanguages ? (
-                      <div style={{ padding: "20px", textAlign: "center", color: "#666" }}>
+                      <div
+                        style={{
+                          padding: "20px",
+                          textAlign: "center",
+                          color: "#666",
+                        }}
+                      >
                         Loading languages...
                       </div>
                     ) : (
                       availableLanguages
-                        .filter(language =>
-                          language.toLowerCase().includes(selectedLanguage.toLowerCase())
+                        .filter((language) =>
+                          language
+                            .toLowerCase()
+                            .includes(selectedLanguage.toLowerCase())
                         )
                         .map((language, index) => (
                           <motion.div
@@ -4299,7 +6192,10 @@ const FreelancersProfilePage = () => {
                             style={{
                               padding: "12px 16px",
                               cursor: "pointer",
-                              borderBottom: index < availableLanguages.length - 1 ? "1px solid #f3f4f6" : "none",
+                              borderBottom:
+                                index < availableLanguages.length - 1
+                                  ? "1px solid #f3f4f6"
+                                  : "none",
                               transition: "background-color 0.2s ease",
                             }}
                             whileHover={{
@@ -4401,20 +6297,24 @@ const FreelancersProfilePage = () => {
                     {[
                       {
                         level: "Basic",
-                        description: "I am only able to communicate in this language through written communication"
+                        description:
+                          "I am only able to communicate in this language through written communication",
                       },
                       {
                         level: "Conversational",
-                        description: "I know this language well enough to verbally discuss project details with a client"
+                        description:
+                          "I know this language well enough to verbally discuss project details with a client",
                       },
                       {
                         level: "Fluent",
-                        description: "I have complete command of this language with perfect grammar"
+                        description:
+                          "I have complete command of this language with perfect grammar",
                       },
                       {
                         level: "Native or Bilingual",
-                        description: "I have complete command of this language, including breadth of vocabulary, idioms, and colloquialisms"
-                      }
+                        description:
+                          "I have complete command of this language, including breadth of vocabulary, idioms, and colloquialisms",
+                      },
                     ].map((option, index) => (
                       <motion.div
                         key={index}
@@ -4425,7 +6325,8 @@ const FreelancersProfilePage = () => {
                         style={{
                           padding: "12px 16px",
                           cursor: "pointer",
-                          borderBottom: index < 3 ? "1px solid #f3f4f6" : "none",
+                          borderBottom:
+                            index < 3 ? "1px solid #f3f4f6" : "none",
                           transition: "background-color 0.2s ease",
                         }}
                         whileHover={{
@@ -4469,40 +6370,27 @@ const FreelancersProfilePage = () => {
                 borderTop: "1px solid #e5e7eb",
               }}
             >
-              <motion.button
-                onClick={() => {
-                  // Here you would typically add the language to your backend
-
-                  setShowLanguageModal(false);
-                  setSelectedLanguage("");
-                  setSelectedProficiency("");
-                  // You can add API call here to save the language
-                }}
-                style={{
-                  padding: "10px 20px",
-                  border: "none",
-                  background: "#374151",
-                  color: "#fff",
-                  fontSize: "16px",
-                  fontWeight: "500",
-                  cursor: "pointer",
-                  borderRadius: "6px",
-                  transition: "all 0.2s ease",
-                }}
-                whileHover={{
-                  background: "#1f2937",
-                }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Add language
-              </motion.button>
-
+              {languageSaveError && (
+                <div
+                  style={{
+                    color: "#dc2626",
+                    fontSize: "14px",
+                    marginBottom: "8px",
+                    fontWeight: "500",
+                    textAlign: "center",
+                    width: "100%",
+                  }}
+                >
+                  {languageSaveError}
+                </div>
+              )}
               <div style={{ display: "flex", gap: "12px" }}>
                 <motion.button
                   onClick={() => {
                     setSelectedLanguage("");
                     setSelectedProficiency("");
                     setShowLanguageModal(false);
+                    setLanguageSaveError(null);
                   }}
                   style={{
                     padding: "10px 20px",
@@ -4523,28 +6411,45 @@ const FreelancersProfilePage = () => {
                   Cancel
                 </motion.button>
                 <motion.button
-                  onClick={() => {
-                    // Here you would typically save the language to your backend
-
-                    setShowLanguageModal(false);
-                    setSelectedLanguage("");
-                    setSelectedProficiency("");
-                    // You can add API call here to save the language
-                  }}
+                  onClick={handleAddLanguage}
+                  disabled={
+                    isSavingLanguage ||
+                    !selectedLanguage.trim() ||
+                    !selectedProficiency.trim()
+                  }
                   style={{
                     padding: "10px 20px",
                     border: "none",
-                    background: "#e5e7eb",
-                    color: "#9ca3af",
+                    background: isSavingLanguage
+                      ? "#ccc"
+                      : !selectedLanguage.trim() || !selectedProficiency.trim()
+                      ? "#e5e7eb"
+                      : "#007674",
+                    color: isSavingLanguage
+                      ? "#fff"
+                      : !selectedLanguage.trim() || !selectedProficiency.trim()
+                      ? "#9ca3af"
+                      : "#fff",
                     fontSize: "16px",
                     fontWeight: "500",
-                    cursor: "not-allowed",
+                    cursor: isSavingLanguage
+                      ? "not-allowed"
+                      : !selectedLanguage.trim() || !selectedProficiency.trim()
+                      ? "not-allowed"
+                      : "pointer",
                     borderRadius: "6px",
                     transition: "all 0.2s ease",
                   }}
-                  disabled={true}
+                  whileHover={{
+                    background: isSavingLanguage
+                      ? "#ccc"
+                      : !selectedLanguage.trim() || !selectedProficiency.trim()
+                      ? "#e5e7eb"
+                      : "#005a58",
+                  }}
+                  whileTap={{ scale: isSavingLanguage ? 1 : 0.95 }}
                 >
-                  Save
+                  {isSavingLanguage ? "Saving..." : "Save"}
                 </motion.button>
               </div>
             </div>
@@ -4734,7 +6639,8 @@ const FreelancersProfilePage = () => {
                             value={langItem.proficiency}
                             onChange={(e) => {
                               const updatedLanguages = [...editingLanguages];
-                              updatedLanguages[index].proficiency = e.target.value;
+                              updatedLanguages[index].proficiency =
+                                e.target.value;
                               setEditingLanguages(updatedLanguages);
                             }}
                             style={{
@@ -4759,7 +6665,10 @@ const FreelancersProfilePage = () => {
                             onBlur={(e) => {
                               e.target.style.borderColor = "#d1d5db";
                               // Delay hiding dropdown to allow clicking on options
-                              setTimeout(() => setShowEditProficiencyDropdown(false), 200);
+                              setTimeout(
+                                () => setShowEditProficiencyDropdown(false),
+                                200
+                              );
                             }}
                             placeholder="Search for proficiency level"
                           />
@@ -4774,112 +6683,160 @@ const FreelancersProfilePage = () => {
                               fontSize: "12px",
                             }}
                           >
-                            {showEditProficiencyDropdown && selectedLanguageIndex === index ? "▲" : "▼"}
+                            {showEditProficiencyDropdown &&
+                            selectedLanguageIndex === index
+                              ? "▲"
+                              : "▼"}
                           </div>
                         </div>
 
                         {/* Proficiency Dropdown */}
-                        {showEditProficiencyDropdown && selectedLanguageIndex === index && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            style={{
-                              position: "absolute",
-                              top: "100%",
-                              left: 0,
-                              right: 0,
-                              background: "#fff",
-                              border: "1px solid #d1d5db",
-                              borderRadius: "8px",
-                              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                              zIndex: 10,
-                              marginTop: "4px",
-                              maxHeight: "300px",
-                              overflow: "auto",
-                            }}
-                          >
-                            {[
-                              {
-                                level: "Basic",
-                                description: "I am only able to communicate in this language through written communication"
-                              },
-                              {
-                                level: "Conversational",
-                                description: "I know this language well enough to verbally discuss project details with a client"
-                              },
-                              {
-                                level: "Fluent",
-                                description: "I have complete command of this language with perfect grammar"
-                              },
-                              {
-                                level: "Native or Bilingual",
-                                description: "I have complete command of this language, including breadth of vocabulary, idioms, and colloquialisms"
-                              }
-                            ].map((option, optionIndex) => (
-                              <motion.div
-                                key={optionIndex}
-                                onClick={() => {
-                                  const updatedLanguages = [...editingLanguages];
-                                  updatedLanguages[index].proficiency = option.level;
-                                  setEditingLanguages(updatedLanguages);
-                                  setShowEditProficiencyDropdown(false);
-                                }}
-                                style={{
-                                  padding: "12px 16px",
-                                  cursor: "pointer",
-                                  borderBottom: optionIndex < 3 ? "1px solid #f3f4f6" : "none",
-                                  transition: "background-color 0.2s ease",
-                                }}
-                                whileHover={{
-                                  background: "#f8f9fa",
-                                }}
-                                whileTap={{ scale: 0.98 }}
-                              >
-                                <div
-                                  style={{
-                                    fontSize: "16px",
-                                    fontWeight: "600",
-                                    color: "#1a1a1a",
-                                    marginBottom: "4px",
+                        {showEditProficiencyDropdown &&
+                          selectedLanguageIndex === index && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              style={{
+                                position: "absolute",
+                                top: "100%",
+                                left: 0,
+                                right: 0,
+                                background: "#fff",
+                                border: "1px solid #d1d5db",
+                                borderRadius: "8px",
+                                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                                zIndex: 10,
+                                marginTop: "4px",
+                                maxHeight: "300px",
+                                overflow: "auto",
+                              }}
+                            >
+                              {[
+                                {
+                                  level: "Basic",
+                                  description:
+                                    "I am only able to communicate in this language through written communication",
+                                },
+                                {
+                                  level: "Conversational",
+                                  description:
+                                    "I know this language well enough to verbally discuss project details with a client",
+                                },
+                                {
+                                  level: "Fluent",
+                                  description:
+                                    "I have complete command of this language with perfect grammar",
+                                },
+                                {
+                                  level: "Native or Bilingual",
+                                  description:
+                                    "I have complete command of this language, including breadth of vocabulary, idioms, and colloquialisms",
+                                },
+                              ].map((option, optionIndex) => (
+                                <motion.div
+                                  key={optionIndex}
+                                  onClick={() => {
+                                    const updatedLanguages = [
+                                      ...editingLanguages,
+                                    ];
+                                    updatedLanguages[index].proficiency =
+                                      option.level;
+                                    setEditingLanguages(updatedLanguages);
+                                    setShowEditProficiencyDropdown(false);
                                   }}
-                                >
-                                  {option.level}
-                                </div>
-                                <div
                                   style={{
-                                    fontSize: "12px",
-                                    color: "#6b7280",
-                                    lineHeight: "1.4",
+                                    padding: "12px 16px",
+                                    cursor: "pointer",
+                                    borderBottom:
+                                      optionIndex < 3
+                                        ? "1px solid #f3f4f6"
+                                        : "none",
+                                    transition: "background-color 0.2s ease",
                                   }}
+                                  whileHover={{
+                                    background: "#f8f9fa",
+                                  }}
+                                  whileTap={{ scale: 0.98 }}
                                 >
-                                  {option.description}
-                                </div>
-                              </motion.div>
-                            ))}
-                          </motion.div>
-                        )}
+                                  <div
+                                    style={{
+                                      fontSize: "16px",
+                                      fontWeight: "600",
+                                      color: "#1a1a1a",
+                                      marginBottom: "4px",
+                                    }}
+                                  >
+                                    {option.level}
+                                  </div>
+                                  <div
+                                    style={{
+                                      fontSize: "12px",
+                                      color: "#6b7280",
+                                      lineHeight: "1.4",
+                                    }}
+                                  >
+                                    {option.description}
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </motion.div>
+                          )}
                       </div>
 
                       {/* Remove Button */}
-                      <div style={{ display: "flex", alignItems: "center", paddingTop: "32px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          paddingTop: "32px",
+                        }}
+                      >
                         <motion.button
-                          whileHover={{ scale: 1.05, background: "#fef2f2" }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                            const updatedLanguages = editingLanguages.filter((_, i) => i !== index);
-                            setEditingLanguages(updatedLanguages);
+                          whileHover={{
+                            scale:
+                              isDeletingLanguage && deletingLanguageId === index
+                                ? 1
+                                : 1.05,
+                            background:
+                              isDeletingLanguage && deletingLanguageId === index
+                                ? "#f3f4f6"
+                                : "#fef2f2",
                           }}
+                          whileTap={{
+                            scale:
+                              isDeletingLanguage && deletingLanguageId === index
+                                ? 1
+                                : 0.95,
+                          }}
+                          onClick={() => handleDeleteLanguage(index)}
+                          disabled={
+                            isDeletingLanguage && deletingLanguageId === index
+                          }
                           style={{
                             background: "none",
                             border: "none",
-                            color: "#ef4444",
-                            cursor: "pointer",
+                            color:
+                              isDeletingLanguage && deletingLanguageId === index
+                                ? "#9ca3af"
+                                : "#ef4444",
+                            cursor:
+                              isDeletingLanguage && deletingLanguageId === index
+                                ? "not-allowed"
+                                : "pointer",
                             padding: "8px",
                             borderRadius: "6px",
                             transition: "background-color 0.2s ease",
                           }}
+                          title="Remove from list (click Save to apply changes)"
                         >
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
                             <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
                           </svg>
                         </motion.button>
@@ -4903,10 +6860,25 @@ const FreelancersProfilePage = () => {
                 marginTop: "16px",
               }}
             >
+              {languageSaveError && (
+                <div
+                  style={{
+                    color: "#dc2626",
+                    fontSize: "14px",
+                    marginBottom: "8px",
+                    fontWeight: "500",
+                    textAlign: "center",
+                    width: "100%",
+                  }}
+                >
+                  {languageSaveError}
+                </div>
+              )}
               <motion.button
                 onClick={() => {
                   setEditingLanguages([]);
                   setShowEditLanguageModal(false);
+                  setLanguageSaveError(null);
                 }}
                 style={{
                   padding: "10px 20px",
@@ -4927,34 +6899,43 @@ const FreelancersProfilePage = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  // Format all languages as "Language: Proficiency"
-                  const formattedLanguages = editingLanguages.map(lang => `${lang.language}: ${lang.proficiency}`);
-
-                  setShowEditLanguageModal(false);
-                  setEditingLanguages([]);
-                  // You can add API call here to save the edited languages
-                }}
+                onClick={handleSaveEditedLanguages}
+                disabled={isSavingLanguage || editingLanguages.length === 0}
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: editingLanguages.length > 0 ? "#007476" : "#e5e7eb",
-                  color: editingLanguages.length > 0 ? "#fff" : "#9ca3af",
+                  background: isSavingLanguage
+                    ? "#ccc"
+                    : editingLanguages.length > 0
+                    ? "#007476"
+                    : "#e5e7eb",
+                  color: isSavingLanguage
+                    ? "#fff"
+                    : editingLanguages.length > 0
+                    ? "#fff"
+                    : "#9ca3af",
                   fontSize: "16px",
                   fontWeight: "500",
-                  cursor: editingLanguages.length > 0 ? "pointer" : "not-allowed",
+                  cursor: isSavingLanguage
+                    ? "not-allowed"
+                    : editingLanguages.length > 0
+                    ? "pointer"
+                    : "not-allowed",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={
-                  editingLanguages.length > 0
+                  !isSavingLanguage && editingLanguages.length > 0
                     ? { background: "#005a58" }
                     : {}
                 }
-                whileTap={editingLanguages.length > 0 ? { scale: 0.95 } : {}}
-                disabled={editingLanguages.length === 0}
+                whileTap={
+                  !isSavingLanguage && editingLanguages.length > 0
+                    ? { scale: 0.95 }
+                    : {}
+                }
               >
-                Save
+                {isSavingLanguage ? "Saving..." : "Save"}
               </motion.button>
             </div>
           </motion.div>
@@ -5047,20 +7028,25 @@ const FreelancersProfilePage = () => {
             <div style={{ marginBottom: "24px" }}>
               {/* Note */}
               <div style={{ marginBottom: "20px" }}>
-                <p style={{
-                  fontSize: "18px",
-                  color: "#666",
-                  margin: "0 0 16px 0",
-                  lineHeight: "1.5"
-                }}>
-                  Please note that your new hourly rate will only apply to new contracts.
+                <p
+                  style={{
+                    fontSize: "18px",
+                    color: "#666",
+                    margin: "0 0 16px 0",
+                    lineHeight: "1.5",
+                  }}
+                >
+                  Please note that your new hourly rate will only apply to new
+                  contracts.
                 </p>
-                <p style={{
-                  fontSize: "20px",
-                  color: "#1a1a1a",
-                  margin: "0 0 24px 0",
-                  fontWeight: "500"
-                }}>
+                <p
+                  style={{
+                    fontSize: "20px",
+                    color: "#1a1a1a",
+                    margin: "0 0 24px 0",
+                    fontWeight: "500",
+                  }}
+                >
                   Your profile rate: ₹{hourlyRateValue}/hr
                 </p>
               </div>
@@ -5070,43 +7056,56 @@ const FreelancersProfilePage = () => {
                 {/* Hourly Rate */}
                 <div style={{ marginBottom: "16px" }}>
                   <div style={{ marginBottom: "8px" }}>
-                    <label style={{
-                      fontSize: "18px",
-                      fontWeight: "600",
-                      color: "#1a1a1a",
-                      display: "block",
-                      marginBottom: "4px"
-                    }}>
+                    <label
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: "600",
+                        color: "#1a1a1a",
+                        display: "block",
+                        marginBottom: "4px",
+                      }}
+                    >
                       Hourly Rate
                     </label>
-                    <div style={{
-                      fontSize: "16px",
-                      color: "#666",
-                      marginBottom: "8px"
-                    }}>
+                    <div
+                      style={{
+                        fontSize: "16px",
+                        color: "#666",
+                        marginBottom: "8px",
+                      }}
+                    >
                       Total amount the client will see
                     </div>
                   </div>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "8px",
-                    padding: "12px 16px",
-                    background: "#fff",
-                    position: "relative"
-                  }}>
-                    <span style={{
-                      color: "#666",
-                      fontSize: "18px",
-                      marginRight: "8px"
-                    }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      padding: "12px 16px",
+                      background: "#fff",
+                      position: "relative",
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: "#666",
+                        fontSize: "18px",
+                        marginRight: "8px",
+                      }}
+                    >
                       ₹
                     </span>
                     <input
                       type="number"
                       value={hourlyRateValue}
-                      onChange={(e) => setHourlyRateValue(e.target.value)}
+                      onChange={(e) => {
+                        setHourlyRateValue(e.target.value);
+                        if (hourlyRateSaveError) {
+                          setHourlyRateSaveError(null);
+                        }
+                      }}
                       style={{
                         border: "none",
                         outline: "none",
@@ -5114,67 +7113,93 @@ const FreelancersProfilePage = () => {
                         color: "#1a1a1a",
                         background: "transparent",
                         width: "100%",
-                        flex: 1
+                        flex: 1,
                       }}
                       placeholder="0.00"
                       min="0"
                       step="0.01"
                     />
-                    <span style={{
-                      color: "#666",
-                      fontSize: "18px",
-                      marginLeft: "8px"
-                    }}>
+                    <span
+                      style={{
+                        color: "#666",
+                        fontSize: "18px",
+                        marginLeft: "8px",
+                      }}
+                    >
                       /hr
                     </span>
                   </div>
+                  {hourlyRateSaveError && (
+                    <div
+                      style={{
+                        color: "#dc2626",
+                        fontSize: "14px",
+                        marginTop: "4px",
+                        fontWeight: "500",
+                      }}
+                    >
+                      {hourlyRateSaveError}
+                    </div>
+                  )}
                 </div>
 
                 {/* Worksyde Service Fee */}
                 <div style={{ marginBottom: "16px" }}>
                   <div style={{ marginBottom: "8px" }}>
-                    <label style={{
-                      fontSize: "18px",
-                      fontWeight: "600",
-                      color: "#1a1a1a",
-                      display: "block",
-                      marginBottom: "4px"
-                    }}>
+                    <label
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: "600",
+                        color: "#1a1a1a",
+                        display: "block",
+                        marginBottom: "4px",
+                      }}
+                    >
                       Worksyde Service Fee
                     </label>
-                    <div style={{
-                      fontSize: "16px",
-                      color: "#666",
-                      marginBottom: "8px"
-                    }}>
+                    <div
+                      style={{
+                        fontSize: "16px",
+                        color: "#666",
+                        marginBottom: "8px",
+                      }}
+                    >
                       Fees vary and are shown before contract acceptance
                     </div>
                   </div>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "8px",
-                    padding: "12px 16px",
-                    background: "#f8f9fa",
-                    color: "#666"
-                  }}>
-                    <span style={{
-                      fontSize: "18px",
-                      marginRight: "8px"
-                    }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      padding: "12px 16px",
+                      background: "#f8f9fa",
+                      color: "#666",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "18px",
+                        marginRight: "8px",
+                      }}
+                    >
                       -₹
                     </span>
-                    <span style={{
-                      fontSize: "18px",
-                      flex: 1
-                    }}>
+                    <span
+                      style={{
+                        fontSize: "18px",
+                        flex: 1,
+                      }}
+                    >
                       {(parseFloat(hourlyRateValue || 0) * 0.1).toFixed(2)}
                     </span>
-                    <span style={{
-                      fontSize: "18px",
-                      marginLeft: "8px"
-                    }}>
+                    <span
+                      style={{
+                        fontSize: "18px",
+                        marginLeft: "8px",
+                      }}
+                    >
                       /hr
                     </span>
                   </div>
@@ -5183,59 +7208,73 @@ const FreelancersProfilePage = () => {
                 {/* You'll Receive */}
                 <div style={{ marginBottom: "16px" }}>
                   <div style={{ marginBottom: "8px" }}>
-                    <label style={{
-                      fontSize: "18px",
-                      fontWeight: "600",
-                      color: "#1a1a1a",
-                      display: "block",
-                      marginBottom: "4px"
-                    }}>
+                    <label
+                      style={{
+                        fontSize: "18px",
+                        fontWeight: "600",
+                        color: "#1a1a1a",
+                        display: "block",
+                        marginBottom: "4px",
+                      }}
+                    >
                       You'll Receive
                     </label>
-                    <div style={{
-                      fontSize: "16px",
-                      color: "#666",
-                      marginBottom: "8px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px"
-                    }}>
+                    <div
+                      style={{
+                        fontSize: "16px",
+                        color: "#666",
+                        marginBottom: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
                       The estimated amount you'll receive after service fees
-                      <span style={{
-                        color: "#007674",
-                        cursor: "pointer",
-                        fontSize: "16px"
-                      }}>
+                      <span
+                        style={{
+                          color: "#007674",
+                          cursor: "pointer",
+                          fontSize: "16px",
+                        }}
+                      >
                         ?
                       </span>
                     </div>
                   </div>
-                  <div style={{
-                    display: "flex",
-                    alignItems: "center",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "8px",
-                    padding: "12px 16px",
-                    background: "#f8f9fa",
-                    color: "#1a1a1a"
-                  }}>
-                    <span style={{
-                      fontSize: "18px",
-                      marginRight: "8px"
-                    }}>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      padding: "12px 16px",
+                      background: "#f8f9fa",
+                      color: "#1a1a1a",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: "18px",
+                        marginRight: "8px",
+                      }}
+                    >
                       ₹
                     </span>
-                    <span style={{
-                      fontSize: "18px",
-                      flex: 1,
-                      fontWeight: "600"
-                    }}>
+                    <span
+                      style={{
+                        fontSize: "18px",
+                        flex: 1,
+                        fontWeight: "600",
+                      }}
+                    >
                       {(parseFloat(hourlyRateValue || 0) * 0.9).toFixed(2)}
                     </span>
-                    <span style={{
-                      fontSize: "18px",
-                      marginLeft: "8px"
-                    }}>
+                    <span
+                      style={{
+                        fontSize: "18px",
+                        marginLeft: "8px",
+                      }}
+                    >
                       /hr
                     </span>
                   </div>
@@ -5252,7 +7291,10 @@ const FreelancersProfilePage = () => {
               }}
             >
               <motion.button
-                onClick={() => setShowHourlyRateModal(false)}
+                onClick={() => {
+                  setShowHourlyRateModal(false);
+                  setHourlyRateSaveError(null);
+                }}
                 style={{
                   padding: "10px 20px",
                   border: "none",
@@ -5272,28 +7314,25 @@ const FreelancersProfilePage = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  // Here you would typically save the hourly rate to your backend
-                  setShowHourlyRateModal(false);
-                  // You can add API call here to save the hourly rate
-                }}
+                onClick={handleSaveHourlyRate}
+                disabled={isSavingHourlyRate}
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: "#007674",
+                  background: isSavingHourlyRate ? "#ccc" : "#007674",
                   color: "#fff",
                   fontSize: "16px",
                   fontWeight: "600",
-                  cursor: "pointer",
+                  cursor: isSavingHourlyRate ? "not-allowed" : "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#005a58",
+                  background: isSavingHourlyRate ? "#ccc" : "#005a58",
                 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: isSavingHourlyRate ? 1 : 0.95 }}
               >
-                Save
+                {isSavingHourlyRate ? "Saving..." : "Save"}
               </motion.button>
             </div>
           </motion.div>
@@ -5385,8 +7424,8 @@ const FreelancersProfilePage = () => {
             </div>
 
             {/* Modal Body */}
-            <div 
-              style={{ 
+            <div
+              style={{
                 marginBottom: "24px",
                 padding: "0 24px",
                 flex: 1,
@@ -5433,7 +7472,9 @@ const FreelancersProfilePage = () => {
               </div>
 
               {/* City & Country Fields */}
-              <div style={{ display: "flex", gap: "12px", marginBottom: "20px" }}>
+              <div
+                style={{ display: "flex", gap: "12px", marginBottom: "20px" }}
+              >
                 <div style={{ flex: 1 }}>
                   <label
                     style={{
@@ -5545,7 +7586,9 @@ const FreelancersProfilePage = () => {
 
               {/* Date Fields */}
               <div style={{ marginBottom: "20px" }}>
-                <div style={{ display: "flex", gap: "12px", marginBottom: "12px" }}>
+                <div
+                  style={{ display: "flex", gap: "12px", marginBottom: "12px" }}
+                >
                   <div style={{ flex: 1 }}>
                     <label
                       style={{
@@ -5628,15 +7671,22 @@ const FreelancersProfilePage = () => {
                       }}
                     >
                       <option value="">From, year</option>
-                      {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                        <option key={year} value={year}>{year}</option>
+                      {Array.from(
+                        { length: 50 },
+                        (_, i) => new Date().getFullYear() - i
+                      ).map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
                       ))}
                     </select>
                   </div>
                 </div>
 
                 <div style={{ textAlign: "center", marginBottom: "12px" }}>
-                  <span style={{ fontSize: "16px", color: "#666" }}>through</span>
+                  <span style={{ fontSize: "16px", color: "#666" }}>
+                    through
+                  </span>
                 </div>
 
                 <div style={{ display: "flex", gap: "12px" }}>
@@ -5654,8 +7704,12 @@ const FreelancersProfilePage = () => {
                         outline: "none",
                         transition: "border-color 0.2s ease",
                         boxSizing: "border-box",
-                        background: employmentCurrentlyWorking ? "#f8f9fa" : "#fff",
-                        color: employmentCurrentlyWorking ? "#9ca3af" : "#1a1a1a",
+                        background: employmentCurrentlyWorking
+                          ? "#f8f9fa"
+                          : "#fff",
+                        color: employmentCurrentlyWorking
+                          ? "#9ca3af"
+                          : "#1a1a1a",
                       }}
                       onFocus={(e) => {
                         if (!employmentCurrentlyWorking) {
@@ -5695,8 +7749,12 @@ const FreelancersProfilePage = () => {
                         outline: "none",
                         transition: "border-color 0.2s ease",
                         boxSizing: "border-box",
-                        background: employmentCurrentlyWorking ? "#f8f9fa" : "#fff",
-                        color: employmentCurrentlyWorking ? "#9ca3af" : "#1a1a1a",
+                        background: employmentCurrentlyWorking
+                          ? "#f8f9fa"
+                          : "#fff",
+                        color: employmentCurrentlyWorking
+                          ? "#9ca3af"
+                          : "#1a1a1a",
                       }}
                       onFocus={(e) => {
                         if (!employmentCurrentlyWorking) {
@@ -5708,8 +7766,13 @@ const FreelancersProfilePage = () => {
                       }}
                     >
                       <option value="">Through, year</option>
-                      {Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map(year => (
-                        <option key={year} value={year}>{year}</option>
+                      {Array.from(
+                        { length: 50 },
+                        (_, i) => new Date().getFullYear() - i
+                      ).map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -5730,7 +7793,9 @@ const FreelancersProfilePage = () => {
                   <input
                     type="checkbox"
                     checked={employmentCurrentlyWorking}
-                    onChange={(e) => setEmploymentCurrentlyWorking(e.target.checked)}
+                    onChange={(e) =>
+                      setEmploymentCurrentlyWorking(e.target.checked)
+                    }
                     style={{
                       marginRight: "12px",
                       width: "18px",
@@ -5757,7 +7822,7 @@ const FreelancersProfilePage = () => {
                 </label>
                 <textarea
                   value={employmentDescription}
-                  onChange={e => setEmploymentDescription(e.target.value)}
+                  onChange={(e) => setEmploymentDescription(e.target.value)}
                   style={{
                     width: "100%",
                     minHeight: "120px",
@@ -5782,15 +7847,30 @@ const FreelancersProfilePage = () => {
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: "12px",
-                padding: "0 24px 24px 24px",
-                flexShrink: 0,
-                borderTop: "1px solid #e6e6e6",
-                paddingTop: "16px",
-                marginTop: "16px",
+                marginTop: "24px",
+                paddingTop: "20px",
+                borderTop: "1px solid #e5e7eb",
               }}
             >
+              {employmentSaveError && (
+                <div
+                  style={{
+                    color: "#dc2626",
+                    fontSize: "14px",
+                    marginBottom: "8px",
+                    fontWeight: "500",
+                    textAlign: "center",
+                    width: "100%",
+                  }}
+                >
+                  {employmentSaveError}
+                </div>
+              )}
               <motion.button
-                onClick={handleCloseEmploymentModal}
+                onClick={() => {
+                  handleCloseEmploymentModal();
+                  setEmploymentSaveError(null);
+                }}
                 style={{
                   padding: "10px 20px",
                   border: "none",
@@ -5810,28 +7890,33 @@ const FreelancersProfilePage = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  // Here you would typically save the employment to your backend
-                  handleCloseEmploymentModal();
-                  // You can add API call here to save the employment
-                }}
+                onClick={
+                  isEditingEmployment
+                    ? handleUpdateEmployment
+                    : handleSaveEmployment
+                }
+                disabled={isSavingEmployment}
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: "#007674",
+                  background: isSavingEmployment ? "#ccc" : "#007674",
                   color: "#fff",
                   fontSize: "16px",
                   fontWeight: "600",
-                  cursor: "pointer",
+                  cursor: isSavingEmployment ? "not-allowed" : "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#005a58",
+                  background: isSavingEmployment ? "#ccc" : "#005a58",
                 }}
-                whileTap={{ scale: 0.95 }}
+                whileTap={{ scale: isSavingEmployment ? 1 : 0.95 }}
               >
-                {isEditingEmployment ? "Update" : "Save"}
+                {isSavingEmployment
+                  ? "Saving..."
+                  : isEditingEmployment
+                  ? "Update"
+                  : "Save"}
               </motion.button>
             </div>
           </motion.div>
@@ -5857,7 +7942,8 @@ const FreelancersProfilePage = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         >
-          <motion.div className="section-container"
+          <motion.div
+            className="section-container"
             style={{
               backgroundColor: "white",
               borderRadius: "0px",
@@ -6099,7 +8185,10 @@ const FreelancersProfilePage = () => {
                     />
                     <motion.button
                       onClick={handleAddPortfolioSkill}
-                      disabled={!portfolioSkillInput.trim() || portfolioSkills.length >= 5}
+                      disabled={
+                        !portfolioSkillInput.trim() ||
+                        portfolioSkills.length >= 5
+                      }
                       style={{
                         padding: "12px 16px",
                         border: "none",
@@ -6109,7 +8198,11 @@ const FreelancersProfilePage = () => {
                         fontSize: "16px",
                         fontWeight: "600",
                         cursor: "pointer",
-                        opacity: (!portfolioSkillInput.trim() || portfolioSkills.length >= 5) ? 0.5 : 1,
+                        opacity:
+                          !portfolioSkillInput.trim() ||
+                          portfolioSkills.length >= 5
+                            ? 0.5
+                            : 1,
                       }}
                       whileHover={{
                         background: "#005a58",
@@ -6231,7 +8324,9 @@ const FreelancersProfilePage = () => {
                       ].map((contentType) => (
                         <motion.div
                           key={contentType.type}
-                          onClick={() => handleAddPortfolioContent(contentType.type)}
+                          onClick={() =>
+                            handleAddPortfolioContent(contentType.type)
+                          }
                           style={{
                             width: "48px",
                             height: "48px",
@@ -6241,7 +8336,10 @@ const FreelancersProfilePage = () => {
                             alignItems: "center",
                             justifyContent: "center",
                             cursor: "pointer",
-                            background: contentType.type === "image" ? "#f0fdf4" : "white",
+                            background:
+                              contentType.type === "image"
+                                ? "#f0fdf4"
+                                : "white",
                             fontSize: "20px",
                           }}
                           whileHover={{
@@ -6276,10 +8374,20 @@ const FreelancersProfilePage = () => {
                           background: "white",
                           cursor: "pointer",
                         }}
-                        onClick={() => document.getElementById("image-upload").click()}
+                        onClick={() =>
+                          document.getElementById("image-upload").click()
+                        }
                       >
-                        <div style={{ fontSize: "48px", marginBottom: "8px" }}>📁</div>
-                        <div style={{ fontSize: "16px", color: "#666", marginBottom: "4px" }}>
+                        <div style={{ fontSize: "48px", marginBottom: "8px" }}>
+                          📁
+                        </div>
+                        <div
+                          style={{
+                            fontSize: "16px",
+                            color: "#666",
+                            marginBottom: "4px",
+                          }}
+                        >
                           Click to upload image
                         </div>
                         <div style={{ fontSize: "12px", color: "#999" }}>
@@ -6362,7 +8470,9 @@ const FreelancersProfilePage = () => {
                       ].map((contentType) => (
                         <motion.div
                           key={contentType.type}
-                          onClick={() => handleAddPortfolioContent(contentType.type)}
+                          onClick={() =>
+                            handleAddPortfolioContent(contentType.type)
+                          }
                           style={{
                             width: "48px",
                             height: "48px",

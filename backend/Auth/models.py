@@ -158,6 +158,16 @@ class Education(Document):
     meta = {"collection": "educations"}
 
 
+class OtherExperience(Document):
+    userId = ReferenceField("User")
+    subject = StringField()
+    description = StringField()
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+
+    meta = {"collection": "otherexperiences"}
+
+
 class Language(EmbeddedDocument):
     name = StringField()
     proficiency = StringField()
@@ -169,6 +179,7 @@ class Requests(Document):
     resume = StringField()
     workExperience = ListField(ReferenceField(WorkExperience))
     education = ListField(ReferenceField(Education))
+    otherExperiences = ListField(ReferenceField(OtherExperience))
     languages = ListField(EmbeddedDocumentField(Language))
     skills = ListField(ReferenceField(Skill))
     categoryId = ReferenceField(Category)
@@ -183,6 +194,7 @@ class Requests(Document):
     postalCode = StringField()
     country = StringField()
     photograph = StringField()
+    videoIntro = StringField()  # New field for video introduction
     status = StringField(
         choices=["draft", "under_review", "approved", "rejected"], default="draft"
     )

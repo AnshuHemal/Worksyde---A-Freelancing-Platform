@@ -16,6 +16,7 @@ from Auth.models import (
     Requests,
     WorkExperience,
     Education,
+    OtherExperience,
     JobPosts,
     JobProposals,
     ProposalAttachment,
@@ -1204,9 +1205,95 @@ def add_photograph(request):
     if not file.content_type.startswith("image/"):
         return Response({"message": "Only image files are allowed"}, status=400)
 
-    filename = default_storage.save(f"uploads/{file.name}", ContentFile(file.read()))
-    photo_url = f"{settings.MEDIA_URL}{filename}"
-    return Response({"photoUrl": request.build_absolute_uri(photo_url)}, status=200)
+    # Get user ID from request data
+    user_id = request.data.get("userId")
+    if not user_id:
+        return Response({"message": "User ID is required"}, status=400)
+
+    try:
+        # Upload the file
+        filename = default_storage.save(f"uploads/{file.name}", ContentFile(file.read()))
+        photo_url = f"{settings.MEDIA_URL}{filename}"
+        full_photo_url = request.build_absolute_uri(photo_url)
+
+        # Save the photo URL to the user's profile
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        req_obj = Requests.objects(userId=user).first()
+        if not req_obj:
+            req_obj = Requests(userId=user)
+
+        req_obj.photograph = full_photo_url
+        req_obj.save()
+
+        return Response({"photoUrl": full_photo_url}, status=200)
+
+    except Exception as e:
+        print("Error uploading photograph:", e)
+        return Response({"message": "Error uploading photograph", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+def add_video_introduction(request):
+    """
+    Save video introduction URL to user's profile
+    """
+    try:
+        data = request.data
+        user_id = data.get("userId")
+        video_url = data.get("videoUrl")
+
+        if not user_id:
+            return Response({"message": "User ID is required"}, status=400)
+
+        # Handle deletion (empty string means delete)
+        if video_url == "":
+            print(f"Deleting video introduction for user: {user_id}")
+            # Find user profile
+            user = User.objects(id=user_id).first()
+            if not user:
+                return Response({"message": "User not found"}, status=404)
+
+            req_obj = Requests.objects(userId=user).first()
+            if req_obj:
+                # Remove video introduction by setting to None
+                req_obj.videoIntro = None
+                req_obj.save()
+                print(f"Video introduction removed for user: {user_id}")
+
+            return Response({
+                "message": "Video introduction removed successfully",
+                "videoUrl": ""
+            }, status=200)
+
+        # Validate YouTube URL format for non-empty URLs
+        if not video_url.startswith("https://www.youtube.com/") and not video_url.startswith("https://youtu.be/"):
+            return Response({"message": "Please provide a valid YouTube URL"}, status=400)
+
+        # Find or create user profile
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        req_obj = Requests.objects(userId=user).first()
+        if not req_obj:
+            req_obj = Requests(userId=user)
+
+        # Save video introduction URL
+        req_obj.videoIntro = video_url
+        req_obj.save()
+        print(f"Video introduction saved for user: {user_id}, URL: {video_url}")
+
+        return Response({
+            "message": "Video introduction saved successfully",
+            "videoUrl": video_url
+        }, status=200)
+
+    except Exception as e:
+        print("Error saving video introduction:", e)
+        return Response({"message": "Error saving video introduction", "error": str(e)}, status=500)
 
 
 @api_view(["GET"])
@@ -1229,6 +1316,7 @@ def get_profile_details(request, user_id):
             "postalCode": user_profile.postalCode,
             "streetAddress": user_profile.streetAddress,
             "photograph": user_profile.photograph,
+            "videoIntro": user_profile.videoIntro,
             "hourlyRate": float(user_profile.hourlyRate or 0),
             "status": user_profile.status,
             "category": (
@@ -1271,6 +1359,16 @@ def get_profile_details(request, user_id):
                     "description": e.description,
                 }
                 for e in user_profile.education
+            ],
+            "otherExperiences": [
+                {
+                    "_id": str(exp.id),
+                    "subject": exp.subject,
+                    "description": exp.description,
+                    "createdAt": exp.createdAt,
+                    "updatedAt": exp.updatedAt,
+                }
+                for exp in user_profile.otherExperiences
             ],
         }
 
@@ -1389,23 +1487,25 @@ def delete_education(request, education_id, user_id):
 @api_view(["GET"])
 def get_education_by_id(request, education_id):
     try:
-        education = Education.objects.get(id=education_id)
-        data = {
-            "id": str(education.id),
+        education = Education.objects(id=education_id).first()
+        if not education:
+            return Response({"message": "Education not found"}, status=404)
+
+        education_data = {
+            "_id": str(education.id),
             "school": education.school,
             "degree": education.degree,
             "fieldOfStudy": education.fieldOfStudy,
-            "startDate": education.startDate,
-            "endDate": education.endDate,
+            "startYear": education.startYear,
+            "endYear": education.endYear,
             "description": education.description,
         }
-        return Response({"education": data})
-    except Education.DoesNotExist:
-        return Response({"message": "Education not found"}, status=404)
+
+        return Response(education_data)
+
     except Exception as e:
-        return Response(
-            {"message": "Error fetching education", "error": str(e)}, status=500
-        )
+        print("Error:", e)
+        return Response({"message": "Server error", "error": str(e)}, status=500)
 
 
 @api_view(["POST"])
@@ -2896,3 +2996,165 @@ def update_profile_settings(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(["GET"])
+def get_other_experiences(request, user_id):
+    """
+    Get all other experiences for a user
+    """
+    try:
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        other_experiences = OtherExperience.objects(userId=user).order_by("-createdAt")
+        
+        other_experiences_data = [
+            {
+                "_id": str(exp.id),
+                "subject": exp.subject,
+                "description": exp.description,
+                "createdAt": exp.createdAt,
+                "updatedAt": exp.updatedAt
+            }
+            for exp in other_experiences
+        ]
+
+        return Response({
+            "otherExperiences": other_experiences_data
+        }, status=200)
+
+    except Exception as e:
+        print("Error getting other experiences:", e)
+        return Response({"message": "Error getting other experiences", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+def add_other_experience(request):
+    """
+    Add a new other experience
+    """
+    try:
+        data = request.data
+        user_id = data.get("userId")
+        subject = data.get("subject")
+        description = data.get("description")
+
+        if not user_id:
+            return Response({"message": "User ID is required"}, status=400)
+
+        if not subject or not description:
+            return Response({"message": "Subject and description are required"}, status=400)
+
+        # Find or create user profile
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        # Create new other experience
+        other_experience = OtherExperience(
+            userId=user,
+            subject=subject,
+            description=description
+        )
+        other_experience.save()
+
+        # Add to user's profile
+        req_obj = Requests.objects(userId=user).first()
+        if not req_obj:
+            req_obj = Requests(userId=user)
+
+        if not req_obj.otherExperiences:
+            req_obj.otherExperiences = []
+        
+        req_obj.otherExperiences.append(other_experience)
+        req_obj.save()
+
+        return Response({
+            "message": "Other experience added successfully",
+            "otherExperience": {
+                "_id": str(other_experience.id),
+                "subject": other_experience.subject,
+                "description": other_experience.description,
+                "createdAt": other_experience.createdAt,
+                "updatedAt": other_experience.updatedAt
+            }
+        }, status=201)
+
+    except Exception as e:
+        print("Error adding other experience:", e)
+        return Response({"message": "Error adding other experience", "error": str(e)}, status=500)
+
+
+@api_view(["PUT"])
+def update_other_experience(request, other_experience_id):
+    """
+    Update an existing other experience
+    """
+    try:
+        data = request.data
+        subject = data.get("subject")
+        description = data.get("description")
+
+        if not subject or not description:
+            return Response({"message": "Subject and description are required"}, status=400)
+
+        # Find the other experience
+        other_experience = OtherExperience.objects(id=other_experience_id).first()
+        if not other_experience:
+            return Response({"message": "Other experience not found"}, status=404)
+
+        # Update the other experience
+        other_experience.subject = subject
+        other_experience.description = description
+        other_experience.updatedAt = timezone.now()
+        other_experience.save()
+
+        return Response({
+            "message": "Other experience updated successfully",
+            "otherExperience": {
+                "_id": str(other_experience.id),
+                "subject": other_experience.subject,
+                "description": other_experience.description,
+                "createdAt": other_experience.createdAt,
+                "updatedAt": other_experience.updatedAt
+            }
+        }, status=200)
+
+    except Exception as e:
+        print("Error updating other experience:", e)
+        return Response({"message": "Error updating other experience", "error": str(e)}, status=500)
+
+
+@api_view(["DELETE"])
+def delete_other_experience(request, other_experience_id, user_id):
+    """
+    Delete an other experience
+    """
+    try:
+        # Find the other experience
+        other_experience = OtherExperience.objects(id=other_experience_id).first()
+        if not other_experience:
+            return Response({"message": "Other experience not found"}, status=404)
+
+        # Find user profile and remove from otherExperiences list
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        req_obj = Requests.objects(userId=user).first()
+        if req_obj and req_obj.otherExperiences:
+            req_obj.otherExperiences = [exp for exp in req_obj.otherExperiences if str(exp.id) != other_experience_id]
+            req_obj.save()
+
+        # Delete the other experience
+        other_experience.delete()
+
+        return Response({
+            "message": "Other experience deleted successfully"
+        }, status=200)
+
+    except Exception as e:
+        print("Error deleting other experience:", e)
+        return Response({"message": "Error deleting other experience", "error": str(e)}, status=500)

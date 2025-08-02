@@ -38,6 +38,7 @@ urlpatterns = [
     path('add-hourlyrate/', views.add_hourly_rate),
     path('add-photo-location-details/', views.add_photo_location),
     path("upload-photo/", views.add_photograph, name="add-photograph"),
+    path("add-video-introduction/", views.add_video_introduction, name="add-video-introduction"),
     path("profile/submit-application-for-review/", views.submit_for_review, name="submit-for-review"),
     path('profile/<str:user_id>/', views.get_profile_details, name='get_profile_details'),
     path('add-education/', views.add_education, name='add_education'),
@@ -45,6 +46,10 @@ urlpatterns = [
     path('get-educations/<str:user_id>/', views.get_educations, name='get_educations'),
     path('delete-education/<str:education_id>/<str:user_id>/', views.delete_education, name='delete_education'),
     path('education/single/<str:education_id>/', views.get_education_by_id, name='get_education_by_id'),
+    path('add-other-experience/', views.add_other_experience, name='add_other_experience'),
+    path('update-other-experience/<str:other_experience_id>/', views.update_other_experience, name='update_other_experience'),
+    path('delete-other-experience/<str:other_experience_id>/<str:user_id>/', views.delete_other_experience, name='delete_other_experience'),
+    path('get-other-experiences/<str:user_id>/', views.get_other_experiences, name='get_other_experiences'),
     path('check-request-status/', views.check_request_status, name='check_request_status'),
 
     path('add-job-post-title/', views.add_job_post_title, name='add_job_post_title'),
