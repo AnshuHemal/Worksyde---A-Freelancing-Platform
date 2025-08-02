@@ -189,6 +189,24 @@ class Requests(Document):
     submittedAt = DateTimeField()
     reviewedAt = DateTimeField()
     reviewFeedback = StringField()
+    
+    # Profile Settings Fields
+    visibility = StringField(
+        choices=["public", "private"], 
+        default="public"
+    )
+    projectPreference = StringField(
+        choices=["short_term_project", "long_term_project", "both"], 
+        default="both"
+    )
+    experienceLevel = StringField(
+        choices=["entry", "intermediate", "expert"], 
+        default="entry"
+    )
+    aiPreference = StringField(
+        choices=["yes", "no", "depends"], 
+        default="yes"
+    )
 
     meta = {"collection": "requests"}
 
@@ -324,6 +342,28 @@ class ResumeBuilder(Document):
         'auto_create_index': True,
     }
 
+    def save(self, *args, **kwargs):
+        if not self.createdAt:
+            self.createdAt = timezone.now()
+        self.updatedAt = timezone.now()
+        return super().save(*args, **kwargs)
+
+
+class PayPalAccount(Document):
+    userId = ReferenceField(User, required=True)
+    paypalEmail = EmailField(required=True)
+    paypalAccountId = StringField()  # PayPal account ID
+    isActive = BooleanField(default=True)
+    isDefault = BooleanField(default=False)
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+    
+    meta = {
+        "collection": "paypalaccounts",
+        "indexes": ["userId", "isActive", "isDefault"],
+        "ordering": ["-createdAt"]
+    }
+    
     def save(self, *args, **kwargs):
         if not self.createdAt:
             self.createdAt = timezone.now()

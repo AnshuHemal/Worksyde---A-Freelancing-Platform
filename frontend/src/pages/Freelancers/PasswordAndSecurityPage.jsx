@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import FreelancersSettingsSidebar from "./FreelancersSettingsSidebar";
 import { useNavigate } from "react-router-dom";
 import { BsEye, BsEyeSlash } from "react-icons/bs";
+import { motion } from "framer-motion";
+import axios from "axios";
 
 const SIDEBAR_WIDTH = 290;
 
@@ -13,6 +15,10 @@ const PasswordAndSecurityPage = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
 
   // Navigation handler for sidebar
   const handleSidebarNavigate = (key) => {
@@ -40,6 +46,83 @@ const PasswordAndSecurityPage = () => {
     }
   };
 
+  // Handle change password
+  const handleChangePassword = async () => {
+    // Reset states
+    setError("");
+    setSuccess("");
+    setIsLoading(true);
+
+    try {
+      // Validate form
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        setError("All fields are required.");
+        setIsLoading(false);
+        return;
+      }
+
+      if (newPassword !== confirmPassword) {
+        setError("New password and confirm password do not match.");
+        setIsLoading(false);
+        return;
+      }
+
+      if (newPassword.length < 8) {
+        setError("Password must be at least 8 characters long.");
+        setIsLoading(false);
+        return;
+      }
+
+      // Call API
+      const response = await axios.post(
+        "http://localhost:5000/api/auth/change-password/",
+        {
+          currentPassword,
+          newPassword,
+          confirmPassword,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (response.data.success) {
+        setSuccess("Password changed successfully! You will be logged out.");
+        
+        // Clear form
+        setCurrentPassword("");
+        setNewPassword("");
+        setConfirmPassword("");
+        
+        // Close modal after a delay
+        setTimeout(() => {
+          setShowChangePasswordModal(false);
+          setSuccess("");
+          // Redirect to login page
+          navigate("/login");
+        }, 2000);
+      }
+    } catch (error) {
+      if (error.response && error.response.data) {
+        setError(error.response.data.message || "An error occurred while changing password.");
+      } else {
+        setError("Network error. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle modal close
+  const handleCloseModal = () => {
+    setShowChangePasswordModal(false);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setError("");
+    setSuccess("");
+  };
+
   return (
     <div
       className="section-container"
@@ -62,12 +145,14 @@ const PasswordAndSecurityPage = () => {
           fontFamily: "Inter, Arial, sans-serif",
         }}
       >
-        <div style={{ width: "100%", maxWidth: 900, padding: "28px 0 0 0" }}>
+        <div style={{ width: "100%", padding: "36px 20px 0 20px", minWidth: 320 }}>
           <div
             style={{
               fontSize: 32,
               fontWeight: 600,
               marginBottom: 32,
+              marginLeft: 20,
+              marginRight: 20,
               color: "#222",
               textAlign: "left",
             }}
@@ -83,7 +168,8 @@ const PasswordAndSecurityPage = () => {
               borderRadius: 12,
               padding: 36,
               marginBottom: 32,
-              width: "100%",
+              marginLeft: 20,
+              marginRight: 20,
               boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
               position: "relative",
             }}
@@ -128,7 +214,7 @@ const PasswordAndSecurityPage = () => {
                 style={{
                   color: "#007476",
                   textDecoration: "underline",
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: 500,
                   cursor: "pointer",
                 }}
@@ -168,7 +254,7 @@ const PasswordAndSecurityPage = () => {
                 </div>
                 <div
                   style={{
-                    fontSize: 16,
+                    fontSize: 18,
                     color: "#666",
                   }}
                 >
@@ -182,7 +268,7 @@ const PasswordAndSecurityPage = () => {
                   borderRadius: 8,
                   padding: "8px 16px",
                   color: "#007476",
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: 600,
                   cursor: "pointer",
                   transition: "all 0.2s ease",
@@ -231,7 +317,7 @@ const PasswordAndSecurityPage = () => {
                 </div>
                 <div
                   style={{
-                    fontSize: 16,
+                    fontSize: 18,
                     color: "#666",
                   }}
                 >
@@ -245,7 +331,7 @@ const PasswordAndSecurityPage = () => {
                   borderRadius: 8,
                   padding: "8px 16px",
                   color: "#007476",
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: 600,
                   cursor: "pointer",
                   transition: "all 0.2s ease",
@@ -269,258 +355,385 @@ const PasswordAndSecurityPage = () => {
 
       {/* Change Password Modal */}
       {showChangePasswordModal && (
-        <div
-          className="section-container"
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
           style={{
             position: "fixed",
             top: 0,
             left: 0,
-            right: 0,
-            bottom: 0,
+            width: "100%",
+            height: "100%",
             backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            zIndex: 1000,
+            padding: "20px",
           }}
-          onClick={() => setShowChangePasswordModal(false)}
+          onClick={handleCloseModal}
         >
-          <div
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
             style={{
               background: "#fff",
-              borderRadius: 12,
-              padding: 32,
-              width: "90%",
-              maxWidth: 480,
-              position: "relative",
-              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.2)",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "800px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Close Button */}
-            <button
-              onClick={() => setShowChangePasswordModal(false)}
+            {/* Modal Header */}
+            <div
               style={{
-                position: "absolute",
-                top: 16,
-                right: 16,
-                background: "none",
-                border: "none",
-                fontSize: 24,
-                cursor: "pointer",
-                color: "#666",
-                width: 32,
-                height: 32,
                 display: "flex",
+                justifyContent: "space-between",
                 alignItems: "center",
-                justifyContent: "center",
+                marginBottom: "20px",
               }}
             >
-              ×
-            </button>
-
-            {/* Modal Title */}
-            <div
-              style={{
-                fontSize: 24,
-                fontWeight: 600,
-                color: "#222",
-                marginBottom: 12,
-                paddingRight: 40,
-              }}
-            >
-              Change your password
-            </div>
-
-            {/* Informational Text */}
-            <div
-              style={{
-                fontSize: 16,
-                color: "#666",
-                marginBottom: 24,
-              }}
-            >
-              You'll need to log in again after changing your password.
-            </div>
-
-            {/* Current Password */}
-            <div style={{ marginBottom: 20 }}>
-              <label
+              <h3
                 style={{
-                  display: "block",
-                  fontSize: 16,
-                  fontWeight: 500,
-                  color: "#222",
-                  marginBottom: 8,
+                  margin: 0,
+                  fontSize: "24px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
                 }}
               >
-                Current password
-              </label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "12px 16px",
-                  border: "1px solid #e6e6e6",
-                  borderRadius: 8,
-                  fontSize: 16,
-                  outline: "none",
-                }}
-                placeholder="Enter current password"
-              />
-            </div>
-
-            {/* New Password */}
-            <div style={{ marginBottom: 8 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 16,
-                  fontWeight: 500,
-                  color: "#222",
-                  marginBottom: 8,
-                }}
-              >
-                New Password
-              </label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type={showNewPassword ? "text" : "password"}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "12px 16px",
-                    paddingRight: "48px",
-                    border: "1px solid #e6e6e6",
-                    borderRadius: 8,
-                    fontSize: 16,
-                    outline: "none",
-                  }}
-                  placeholder="Enter new password"
-                />
-                <button
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  style={{
-                    position: "absolute",
-                    right: 12,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#666",
-                  }}
-                >
-                  {showNewPassword ? (
-                    <BsEyeSlash size={20} />
-                  ) : (
-                    <BsEye size={20} />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Password Requirement */}
-            <div
-              style={{
-                fontSize: 14,
-                color: "#666",
-                marginBottom: 20,
-              }}
-            >
-              Must be at least 8 characters long, including 1 number & 1 symbol.
-            </div>
-
-            {/* Re-enter New Password */}
-            <div style={{ marginBottom: 24 }}>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 16,
-                  fontWeight: 500,
-                  color: "#222",
-                  marginBottom: 8,
-                }}
-              >
-                Re-enter new password
-              </label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  style={{
-                    width: "100%",
-                    padding: "12px 16px",
-                    paddingRight: "48px",
-                    border: "1px solid #e6e6e6",
-                    borderRadius: 8,
-                    fontSize: 16,
-                    outline: "none",
-                  }}
-                  placeholder="Re-enter new password"
-                />
-                <button
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  style={{
-                    position: "absolute",
-                    right: 12,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "none",
-                    border: "none",
-                    cursor: "pointer",
-                    color: "#666",
-                  }}
-                >
-                  {showConfirmPassword ? (
-                    <BsEyeSlash size={20} />
-                  ) : (
-                    <BsEye size={20} />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div
-              style={{ display: "flex", gap: 12, justifyContent: "flex-end" }}
-            >
-              <button
-                onClick={() => setShowChangePasswordModal(false)}
+                Change your password
+              </h3>
+              <motion.button
+                onClick={handleCloseModal}
                 style={{
                   background: "none",
                   border: "none",
+                  fontSize: "24px",
                   color: "#666",
-                  fontSize: 16,
-                  fontWeight: 500,
                   cursor: "pointer",
-                  padding: "12px 24px",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
                 }}
+                whileHover={{
+                  color: "#1a1a1a",
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Error/Success Messages */}
+            {error && (
+              <div
+                style={{
+                  background: "#fee2e2",
+                  border: "1px solid #fecaca",
+                  color: "#dc2626",
+                  padding: "12px 16px",
+                  borderRadius: "8px",
+                  marginBottom: "20px",
+                  fontSize: "16px",
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div
+                style={{
+                  background: "#dcfce7",
+                  border: "1px solid #007476",
+                  color: "#16a34a",
+                  padding: "12px 16px",
+                  borderRadius: "8px",
+                  marginBottom: "20px",
+                  fontSize: "16px",
+                }}
+              >
+                {success}
+              </div>
+            )}
+
+            {/* Modal Body */}
+            <div style={{ marginBottom: "24px" }}>
+              <p
+                style={{
+                  margin: "0 0 16px 0",
+                  fontSize: "16px",
+                  color: "#666",
+                  lineHeight: "1.5",
+                }}
+              >
+                You'll need to log in again after changing your password.
+              </p>
+
+              {/* Current Password */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Current password
+                </label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "18px",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                    boxSizing: "border-box",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007674";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                  placeholder="Enter current password"
+                  disabled={isLoading}
+                />
+
+
+              </div>
+
+              {/* New Password */}
+              <div style={{ marginBottom: "8px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    marginBottom: "8px",
+                  }}
+                >
+                  New Password
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      paddingRight: "48px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "18px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007674";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                    }}
+                    placeholder="Enter new password"
+                    disabled={isLoading}
+                  />
+                  <motion.button
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#666",
+                      padding: "4px",
+                      borderRadius: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.2s ease",
+                      width: "32px",
+                      height: "32px",
+                    }}
+                    whileHover={{
+                      color: "#1a1a1a",
+                      background: "#f8f9fa",
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    disabled={isLoading}
+                  >
+                    {showNewPassword ? (
+                      <BsEyeSlash size={20} />
+                    ) : (
+                      <BsEye size={20} />
+                    )}
+                  </motion.button>
+                </div>
+              </div>
+
+              {/* Password Requirement */}
+              <div
+                style={{
+                  fontSize: "16px",
+                  color: "#666",
+                  marginBottom: "20px",
+                }}
+              >
+                Must be at least 8 characters long, including 1 number & 1 symbol.
+              </div>
+
+              {/* Re-enter New Password */}
+              <div style={{ marginBottom: "24px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "18px",
+                    fontWeight: "600",
+                    color: "#1a1a1a",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Re-enter new password
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      paddingRight: "48px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "18px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007674";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                    }}
+                    placeholder="Re-enter new password"
+                    disabled={isLoading}
+                  />
+                  <motion.button
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={{
+                      position: "absolute",
+                      right: 12,
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#666",
+                      padding: "4px",
+                      borderRadius: "4px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      transition: "all 0.2s ease",
+                      width: "32px",
+                      height: "32px",
+                    }}
+                    whileHover={{
+                      color: "#1a1a1a",
+                      background: "#f8f9fa",
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    disabled={isLoading}
+                  >
+                    {showConfirmPassword ? (
+                      <BsEyeSlash size={20} />
+                    ) : (
+                      <BsEye size={20} />
+                    )}
+                  </motion.button>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+              }}
+            >
+              <motion.button
+                onClick={handleCloseModal}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: "none",
+                  color: "#007674",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+                disabled={isLoading}
               >
                 Cancel
-              </button>
-              <button
+              </motion.button>
+              <motion.button
+                onClick={handleChangePassword}
                 style={{
-                  background: "#e6e6e6",
+                  padding: "10px 20px",
                   border: "none",
-                  color: "#666",
-                  fontSize: 16,
-                  fontWeight: 500,
-                  padding: "12px 24px",
-                  borderRadius: 8,
-                  cursor: "pointer",
+                  background: isLoading ? "#ccc" : "#007674",
+                  color: "#fff",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: isLoading ? "not-allowed" : "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
                 }}
-                disabled={!currentPassword || !newPassword || !confirmPassword}
+                whileHover={!isLoading ? {
+                  background: "#005a58",
+                } : {}}
+                whileTap={!isLoading ? { scale: 0.95 } : {}}
+                disabled={isLoading || !currentPassword || !newPassword || !confirmPassword}
               >
-                Confirm and log out
-              </button>
+                {isLoading ? "Changing..." : "Confirm and log out"}
+              </motion.button>
             </div>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
       )}
     </div>
   );

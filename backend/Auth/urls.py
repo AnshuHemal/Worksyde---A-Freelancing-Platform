@@ -68,11 +68,27 @@ urlpatterns = [
     path('freelancer/profile/<str:user_id>/', views.get_freelancer_profile),
     path('client/profile/<str:user_id>/', views.get_client_profile),
     
+    # Password Management
+    path('change-password/', views.change_password, name='change_password'),
+    
+    # Profile Settings
+    path('profile-settings/', views.get_profile_settings, name='get_profile_settings'),
+    path('update-profile-settings/', views.update_profile_settings, name='update_profile_settings'),
+    
     # Payment Card 
     path('payment-cards/', views.get_payment_cards, name='get_payment_cards'),
     path('payment-cards/add/', views.add_payment_card, name='add_payment_card'),
     path('payment-cards/<str:card_id>/', views.update_payment_card, name='update_payment_card'),
     path('payment-cards/<str:card_id>/delete/', views.delete_payment_card, name='delete_payment_card'),
     path('payment-cards/<str:card_id>/set-default/', views.set_default_payment_card, name='set_default_payment_card'),
+    
+    # PayPal
+    path('paypal-accounts/', views.get_paypal_accounts, name='get_paypal_accounts'),
+    path('paypal-accounts/add/', views.add_paypal_account, name='add_paypal_account'),
+    path('paypal-accounts/<str:account_id>/', views.update_paypal_account, name='update_paypal_account'),
+    path('paypal-accounts/<str:account_id>/delete/', views.delete_paypal_account, name='delete_paypal_account'),
+    path('paypal-accounts/<str:account_id>/set-default/', views.set_default_paypal_account, name='set_default_paypal_account'),
+    path('paypal/payment/initiate/', views.initiate_paypal_payment, name='initiate_paypal_payment'),
+    path('paypal/payment/complete/', views.complete_paypal_payment, name='complete_paypal_payment'),
     
 ]

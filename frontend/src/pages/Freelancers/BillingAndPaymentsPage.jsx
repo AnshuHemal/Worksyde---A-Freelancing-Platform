@@ -33,6 +33,14 @@ const BillingAndPaymentsPage = () => {
   const [submittingCard, setSubmittingCard] = useState(false);
   const [cardError, setCardError] = useState("");
   const [cardSuccess, setCardSuccess] = useState("");
+
+  // PayPal states
+  const [paypalAccounts, setPaypalAccounts] = useState([]);
+  const [loadingPaypal, setLoadingPaypal] = useState(false);
+  const [submittingPaypal, setSubmittingPaypal] = useState(false);
+  const [paypalError, setPaypalError] = useState("");
+  const [paypalSuccess, setPaypalSuccess] = useState("");
+  const [paypalEmail, setPaypalEmail] = useState("");
   
 
 
@@ -65,6 +73,7 @@ const BillingAndPaymentsPage = () => {
       .then((res) => {
         setUserId(res.data.user._id);
         fetchPaymentCards();
+        fetchPaypalAccounts();
       })
       .catch(() => setUserId(null));
   }, []);
@@ -86,6 +95,26 @@ const BillingAndPaymentsPage = () => {
       console.error("Error fetching payment cards:", error);
     } finally {
       setLoadingCards(false);
+    }
+  };
+
+  // Fetch PayPal accounts
+  const fetchPaypalAccounts = async () => {
+    if (!userId) return;
+
+    setLoadingPaypal(true);
+    try {
+      const response = await axios.get(`${API_URL}/paypal-accounts/`, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setPaypalAccounts(response.data.accounts);
+      }
+    } catch (error) {
+      console.error("Error fetching PayPal accounts:", error);
+    } finally {
+      setLoadingPaypal(false);
     }
   };
 
@@ -161,6 +190,83 @@ const BillingAndPaymentsPage = () => {
       }
     } catch (error) {
       console.error("Error setting default card:", error);
+    }
+  };
+
+  // Add PayPal account
+  const handleAddPaypalAccount = async () => {
+    if (!userId || !paypalEmail) return;
+
+    setSubmittingPaypal(true);
+    setPaypalError("");
+    setPaypalSuccess("");
+
+    try {
+      const response = await axios.post(`${API_URL}/paypal-accounts/add/`, {
+        paypalEmail: paypalEmail,
+      }, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setPaypalSuccess("PayPal account added successfully!");
+        setPaypalEmail("");
+        fetchPaypalAccounts(); // Refresh the accounts list
+      }
+    } catch (error) {
+      setPaypalError(error.response?.data?.message || "Failed to add PayPal account");
+    } finally {
+      setSubmittingPaypal(false);
+    }
+  };
+
+  // Delete PayPal account
+  const handleDeletePaypalAccount = async (accountId) => {
+    try {
+      const response = await axios.delete(`${API_URL}/paypal-accounts/${accountId}/delete/`, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        fetchPaypalAccounts(); // Refresh the accounts list
+      }
+    } catch (error) {
+      console.error("Error deleting PayPal account:", error);
+    }
+  };
+
+  // Set default PayPal account
+  const handleSetDefaultPaypalAccount = async (accountId) => {
+    try {
+      const response = await axios.put(`${API_URL}/paypal-accounts/${accountId}/set-default/`, {}, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        fetchPaypalAccounts(); // Refresh the accounts list
+      }
+    } catch (error) {
+      console.error("Error setting default PayPal account:", error);
+    }
+  };
+
+  // Handle PayPal payment initiation
+  const handlePaypalPayment = async () => {
+    try {
+      const response = await axios.post(`${API_URL}/paypal/payment/initiate/`, {
+        amount: 100, // Example amount - you can make this dynamic
+        currency: 'USD',
+        description: 'Worksyde Service Payment'
+      }, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        // Redirect to PayPal
+        window.open(response.data.redirectUrl, '_blank');
+      }
+    } catch (error) {
+      console.error("Error initiating PayPal payment:", error);
     }
   };
 
@@ -372,6 +478,99 @@ const BillingAndPaymentsPage = () => {
                         )}
                         <button
                           onClick={() => handleDeleteCard(card.id)}
+                          style={{
+                            padding: "6px 12px",
+                            border: "1px solid #dc2626",
+                            background: "transparent",
+                            color: "#dc2626",
+                            borderRadius: "4px",
+                            fontSize: "12px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* PayPal Accounts Section */}
+          {paypalAccounts.length > 0 && (
+            <div style={{ marginBottom: "32px" }}>
+              <div
+                style={{
+                  fontWeight: 600,
+                  fontSize: 26,
+                  color: "#111",
+                  marginBottom: 12,
+                }}
+              >
+                Your PayPal Accounts
+              </div>
+
+              {loadingPaypal ? (
+                <div style={{ textAlign: "center", padding: "20px" }}>
+                  Loading PayPal accounts...
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {paypalAccounts.map((account) => (
+                    <div
+                      key={account.id}
+                      style={{
+                        border: "1px solid #e6e6e6",
+                        borderRadius: "8px",
+                        padding: "20px",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        background: account.isDefault ? "#f8f9fa" : "#fff",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+                        <img
+                          src={paypal_logo}
+                          alt="PayPal"
+                          style={{ width: "60px", height: "20px" }}
+                        />
+                        <div>
+                          <div style={{ fontWeight: "600", fontSize: "16px" }}>
+                            {account.paypalEmail}
+                          </div>
+                          <div style={{ color: "#666", fontSize: "14px" }}>
+                            PayPal Account
+                          </div>
+                          {account.isDefault && (
+                            <div style={{ color: "#007476", fontSize: "12px", fontWeight: "600" }}>
+                              Default
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: "flex", gap: "8px" }}>
+                        {!account.isDefault && (
+                          <button
+                            onClick={() => handleSetDefaultPaypalAccount(account.id)}
+                            style={{
+                              padding: "6px 12px",
+                              border: "1px solid #007476",
+                              background: "transparent",
+                              color: "#007476",
+                              borderRadius: "4px",
+                              fontSize: "12px",
+                              cursor: "pointer",
+                            }}
+                          >
+                            Set Default
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeletePaypalAccount(account.id)}
                           style={{
                             padding: "6px 12px",
                             border: "1px solid #dc2626",
@@ -1272,6 +1471,141 @@ const BillingAndPaymentsPage = () => {
                     </button>
                   )}
                 </label>
+
+                {/* PayPal Account Form */}
+                {selectedMethod === "paypal" && (
+                  <div
+                    style={{
+                      marginTop: "24px",
+                      background: "#fff",
+                      border: "1px solid #e6e6e6",
+                      borderRadius: "12px",
+                      padding: "32px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        fontSize: 20,
+                        color: "#111",
+                        marginBottom: 24,
+                      }}
+                    >
+                      Add PayPal Account
+                    </div>
+
+                    <div style={{ marginBottom: 24 }}>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: 18,
+                          fontWeight: 500,
+                          color: "#222",
+                          marginBottom: 8,
+                        }}
+                      >
+                        PayPal Email
+                      </label>
+                      <input
+                        type="email"
+                        value={paypalEmail}
+                        onChange={(e) => setPaypalEmail(e.target.value)}
+                        placeholder="your-email@example.com"
+                        style={{
+                          width: "100%",
+                          padding: "12px 16px",
+                          border: "1px solid #e6e6e6",
+                          borderRadius: 8,
+                          fontSize: 18,
+                          outline: "none",
+                        }}
+                      />
+                    </div>
+
+                    {/* PayPal Error/Success Messages */}
+                    {paypalError && (
+                      <div style={{
+                        background: "#fee",
+                        border: "1px solid #fcc",
+                        color: "#c33",
+                        padding: "12px",
+                        borderRadius: "6px",
+                        marginBottom: "16px",
+                      }}>
+                        {paypalError}
+                      </div>
+                    )}
+
+                    {paypalSuccess && (
+                      <div style={{
+                        background: "#efe",
+                        border: "1px solid #cfc",
+                        color: "#3c3",
+                        padding: "12px",
+                        borderRadius: "6px",
+                        marginBottom: "16px",
+                      }}>
+                        {paypalSuccess}
+                      </div>
+                    )}
+
+                    <div style={{ display: "flex", gap: 12 }}>
+                      <button
+                        onClick={handleAddPaypalAccount}
+                        disabled={submittingPaypal || !paypalEmail}
+                        style={{
+                          background: submittingPaypal || !paypalEmail ? "#ccc" : "#007476",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: 8,
+                          padding: "12px 24px",
+                          fontSize: 16,
+                          fontWeight: 600,
+                          cursor: submittingPaypal || !paypalEmail ? "not-allowed" : "pointer",
+                          transition: "background-color 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!submittingPaypal && paypalEmail) {
+                            e.target.style.backgroundColor = "#005a58";
+                          }
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!submittingPaypal && paypalEmail) {
+                            e.target.style.backgroundColor = "#007476";
+                          }
+                        }}
+                      >
+                        {submittingPaypal ? "Adding..." : "Add PayPal Account"}
+                      </button>
+                      <button
+                        onClick={() => {
+                          setPaypalEmail("");
+                          setPaypalError("");
+                          setPaypalSuccess("");
+                        }}
+                        style={{
+                          background: "transparent",
+                          color: "#666",
+                          border: "1px solid #ccc",
+                          borderRadius: 8,
+                          padding: "12px 24px",
+                          fontSize: 16,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = "#f5f5f5";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = "transparent";
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
                 
                 {/* PayPal Redirection Layout */}
                 {selectedMethod === "paypal" && (
@@ -1333,8 +1667,7 @@ const BillingAndPaymentsPage = () => {
                     {/* PayPal Button */}
                     <button
                       onClick={() => {
-                        // Here you would implement the actual PayPal redirection
-                        console.log("Redirecting to PayPal...");
+                        handlePaypalPayment();
                         setSelectedMethod("");
                       }}
                       style={{

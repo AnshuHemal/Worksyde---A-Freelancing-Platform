@@ -23,6 +23,7 @@ from Auth.models import (
     JobAttachment,
     Language,
     PaymentCard,
+    PayPalAccount,
 )
 from .serializers import (
     EducationSerializer,
@@ -44,6 +45,7 @@ from django.core.files.base import ContentFile
 from django.core.mail import EmailMessage
 import random
 import traceback
+import time
 
 
 def generate_token_and_set_cookie(response, user_id):
@@ -2383,5 +2385,514 @@ def set_default_payment_card(request, card_id):
     except Exception as e:
         return Response(
             {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def add_paypal_account(request):
+    """Add a PayPal account for the user"""
+    try:
+        user_id = request.user.id
+        paypal_email = request.data.get('paypalEmail')
+        
+        if not paypal_email:
+            return Response(
+                {"success": False, "message": "PayPal email is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Check if PayPal account already exists for this user
+        existing_account = PayPalAccount.objects.filter(
+            userId=user_id, 
+            paypalEmail=paypal_email, 
+            isActive=True
+        ).first()
+        
+        if existing_account:
+            return Response(
+                {"success": False, "message": "PayPal account with this email already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Create new PayPal account
+        paypal_account = PayPalAccount(
+            userId=user_id,
+            paypalEmail=paypal_email,
+            isDefault=True  # Set as default if it's the first one
+        )
+        
+        # If this is not the first account, don't set as default
+        existing_accounts = PayPalAccount.objects.filter(userId=user_id, isActive=True)
+        if existing_accounts.count() > 0:
+            paypal_account.isDefault = False
+        
+        paypal_account.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "PayPal account added successfully.",
+                "account": {
+                    "id": str(paypal_account.id),
+                    "paypalEmail": paypal_account.paypalEmail,
+                    "isDefault": paypal_account.isDefault,
+                    "createdAt": paypal_account.createdAt
+                }
+            },
+            status=status.HTTP_201_CREATED,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@verify_token
+def get_paypal_accounts(request):
+    """Get all PayPal accounts for the user"""
+    try:
+        user_id = request.user.id
+        
+        paypal_accounts = PayPalAccount.objects.filter(
+            userId=user_id, 
+            isActive=True
+        ).order_by('-createdAt')
+        
+        accounts_data = []
+        for account in paypal_accounts:
+            accounts_data.append({
+                "id": str(account.id),
+                "paypalEmail": account.paypalEmail,
+                "isDefault": account.isDefault,
+                "createdAt": account.createdAt,
+                "updatedAt": account.updatedAt
+            })
+        
+        return Response(
+            {
+                "success": True,
+                "accounts": accounts_data
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["PUT"])
+@verify_token
+def update_paypal_account(request, account_id):
+    """Update a PayPal account"""
+    try:
+        user_id = request.user.id
+        paypal_email = request.data.get('paypalEmail')
+        
+        if not paypal_email:
+            return Response(
+                {"success": False, "message": "PayPal email is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Get the account and verify ownership
+        try:
+            account = PayPalAccount.objects.get(id=account_id, userId=user_id, isActive=True)
+        except PayPalAccount.DoesNotExist:
+            return Response(
+                {"success": False, "message": "PayPal account not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Check if email is already used by another account
+        existing_account = PayPalAccount.objects.filter(
+            userId=user_id, 
+            paypalEmail=paypal_email, 
+            isActive=True
+        ).exclude(id=account_id).first()
+        
+        if existing_account:
+            return Response(
+                {"success": False, "message": "PayPal account with this email already exists."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Update the account
+        account.paypalEmail = paypal_email
+        account.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "PayPal account updated successfully.",
+                "account": {
+                    "id": str(account.id),
+                    "paypalEmail": account.paypalEmail,
+                    "isDefault": account.isDefault,
+                    "updatedAt": account.updatedAt
+                }
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["DELETE"])
+@verify_token
+def delete_paypal_account(request, account_id):
+    """Delete a PayPal account (soft delete)"""
+    try:
+        user_id = request.user.id
+        
+        # Get the account and verify ownership
+        try:
+            account = PayPalAccount.objects.get(id=account_id, userId=user_id, isActive=True)
+        except PayPalAccount.DoesNotExist:
+            return Response(
+                {"success": False, "message": "PayPal account not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Soft delete the account
+        account.isActive = False
+        account.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "PayPal account deleted successfully."
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["PUT"])
+@verify_token
+def set_default_paypal_account(request, account_id):
+    """Set a PayPal account as default"""
+    try:
+        user_id = request.user.id
+        
+        # Get the account and verify ownership
+        try:
+            account = PayPalAccount.objects.get(id=account_id, userId=user_id, isActive=True)
+        except PayPalAccount.DoesNotExist:
+            return Response(
+                {"success": False, "message": "PayPal account not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Remove default from all other PayPal accounts
+        PayPalAccount.objects(userId=user_id, isDefault=True).update(isDefault=False)
+        
+        # Set this account as default
+        account.isDefault = True
+        account.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "Default PayPal account updated successfully."
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def initiate_paypal_payment(request):
+    """Initiate a PayPal payment"""
+    try:
+        user_id = request.user.id
+        amount = request.data.get('amount')
+        currency = request.data.get('currency', 'USD')
+        description = request.data.get('description', 'Worksyde Payment')
+        
+        if not amount:
+            return Response(
+                {"success": False, "message": "Amount is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # In a real implementation, you would:
+        # 1. Create a PayPal order using PayPal SDK
+        # 2. Store the order details in your database
+        # 3. Return the PayPal order ID for frontend to complete payment
+        
+        # For now, we'll simulate the PayPal order creation
+        paypal_order_id = f"PAYPAL_ORDER_{user_id}_{int(time.time())}"
+        
+        return Response(
+            {
+                "success": True,
+                "message": "PayPal payment initiated successfully.",
+                "paypalOrderId": paypal_order_id,
+                "redirectUrl": f"https://www.paypal.com/checkoutnow?token={paypal_order_id}"
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def complete_paypal_payment(request):
+    """Complete a PayPal payment"""
+    try:
+        user_id = request.user.id
+        paypal_order_id = request.data.get('paypalOrderId')
+        payment_id = request.data.get('paymentId')
+        
+        if not paypal_order_id or not payment_id:
+            return Response(
+                {"success": False, "message": "PayPal order ID and payment ID are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # In a real implementation, you would:
+        # 1. Verify the payment with PayPal
+        # 2. Update your database with payment confirmation
+        # 3. Send confirmation emails
+        
+        return Response(
+            {
+                "success": True,
+                "message": "PayPal payment completed successfully.",
+                "paymentId": payment_id,
+                "orderId": paypal_order_id
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def change_password(request):
+    """
+    Change user password with current password verification
+    """
+    try:
+        data = request.data
+        current_password = data.get("currentPassword")
+        new_password = data.get("newPassword")
+        confirm_password = data.get("confirmPassword")
+
+        # Validate required fields
+        if not all([current_password, new_password, confirm_password]):
+            return Response(
+                {
+                    "success": False,
+                    "message": "Current password, new password, and confirm password are required."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate password confirmation
+        if new_password != confirm_password:
+            return Response(
+                {
+                    "success": False,
+                    "message": "New password and confirm password do not match."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate password strength (minimum 8 characters)
+        if len(new_password) < 8:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Password must be at least 8 characters long."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Get the authenticated user
+        user = request.user
+
+        # Verify current password
+        if not check_password(current_password, user.password):
+            return Response(
+                {
+                    "success": False,
+                    "message": "Current password is incorrect."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Check if new password is same as current password
+        if check_password(new_password, user.password):
+            return Response(
+                {
+                    "success": False,
+                    "message": "New password must be different from current password."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Hash the new password
+        hashed_new_password = make_password(new_password)
+
+        # Update user password
+        user.password = hashed_new_password
+        user.save()
+
+        # Create response with success message
+        response = Response(
+            {
+                "success": True,
+                "message": "Password changed successfully. You will be logged out."
+            },
+            status=status.HTTP_200_OK,
+        )
+
+        # Clear the authentication cookie to force logout
+        response.delete_cookie("access_token")
+
+        return response
+
+    except Exception as e:
+        return Response(
+            {
+                "success": False,
+                "message": f"An error occurred while changing password: {str(e)}"
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@verify_token
+def get_profile_settings(request):
+    """
+    Get profile settings for the authenticated user
+    """
+    try:
+        user = request.user
+        
+        # Get user's profile/request
+        user_profile = Requests.objects(userId=user).first()
+        
+        if not user_profile:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Profile not found."
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        return Response(
+            {
+                "success": True,
+                "profile_settings": {
+                    "visibility": user_profile.visibility or "public",
+                    "projectPreference": user_profile.projectPreference or "both",
+                    "experienceLevel": user_profile.experienceLevel or "intermediate",
+                    "aiPreference": user_profile.aiPreference or "depends"
+                }
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {
+                "success": False,
+                "message": f"An error occurred while fetching profile settings: {str(e)}"
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["PUT"])
+@verify_token
+def update_profile_settings(request):
+    """
+    Update profile settings for the authenticated user
+    """
+    try:
+        user = request.user
+        data = request.data
+        
+        # Get user's profile/request
+        user_profile = Requests.objects(userId=user).first()
+        
+        if not user_profile:
+            return Response(
+                {
+                    "success": False,
+                    "message": "Profile not found."
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Update fields if provided
+        if "visibility" in data:
+            user_profile.visibility = data["visibility"]
+        if "projectPreference" in data:
+            user_profile.projectPreference = data["projectPreference"]
+        if "experienceLevel" in data:
+            user_profile.experienceLevel = data["experienceLevel"]
+        if "aiPreference" in data:
+            user_profile.aiPreference = data["aiPreference"]
+        
+        user_profile.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "Profile settings updated successfully.",
+                "profile_settings": {
+                    "visibility": user_profile.visibility,
+                    "projectPreference": user_profile.projectPreference,
+                    "experienceLevel": user_profile.experienceLevel,
+                    "aiPreference": user_profile.aiPreference
+                }
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {
+                "success": False,
+                "message": f"An error occurred while updating profile settings: {str(e)}"
+            },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
