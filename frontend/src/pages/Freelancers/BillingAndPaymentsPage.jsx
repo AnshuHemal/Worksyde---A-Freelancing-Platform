@@ -4,12 +4,14 @@ import FreelancersSettingsSidebar from "./FreelancersSettingsSidebar";
 import { useNavigate } from "react-router-dom";
 import paypal_logo from "../../assets/paypal.svg";
 import payment_illustration from "../../assets/payment.svg";
+import { useUser } from "../../contexts/UserContext";
 
 const SIDEBAR_WIDTH = 290;
 const API_URL = "http://localhost:5000/api/auth";
 
 const BillingAndPaymentsPage = () => {
   const navigate = useNavigate();
+  const { userId } = useUser();
   const [showAddMethod, setShowAddMethod] = useState(false);
   const [selectedMethod, setSelectedMethod] = useState("");
   const [countries, setCountries] = useState([]);
@@ -25,7 +27,6 @@ const BillingAndPaymentsPage = () => {
   const [address2, setAddress2] = useState("");
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
-  const [userId, setUserId] = useState(null);
 
   // Payment card states
   const [paymentCards, setPaymentCards] = useState([]);
@@ -66,17 +67,11 @@ const BillingAndPaymentsPage = () => {
   }, []);
 
   useEffect(() => {
-    axios
-      .get(`${API_URL}/current-user/`, {
-        withCredentials: true,
-      })
-      .then((res) => {
-        setUserId(res.data.user._id);
-        fetchPaymentCards();
-        fetchPaypalAccounts();
-      })
-      .catch(() => setUserId(null));
-  }, []);
+    if (userId) {
+      fetchPaymentCards();
+      fetchPaypalAccounts();
+    }
+  }, [userId]);
 
   // Fetch payment cards
   const fetchPaymentCards = async () => {

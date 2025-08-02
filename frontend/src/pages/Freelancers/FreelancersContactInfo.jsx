@@ -2,14 +2,14 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import FreelancersSettingsSidebar from "./FreelancersSettingsSidebar";
+import { useUser } from "../../contexts/UserContext";
 
 const SIDEBAR_WIDTH = 290;
 const API_URL = "http://localhost:5000/api/auth";
 
 const FreelancersContactInfo = () => {
   const navigate = useNavigate();
-  const [userId, setUserId] = useState(null);
-  const [userData, setUserData] = useState(null);
+  const { userId, userData, loading: userLoading, error: userError, refreshUserData } = useUser();
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -37,33 +37,26 @@ const FreelancersContactInfo = () => {
   });
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchProfileData = async () => {
+      if (!userId) return;
+      
       try {
         setLoading(true);
         setError(null);
 
-        // Fetch current user data
-        const userResponse = await axios.get(`${API_URL}/current-user/`, { 
-          withCredentials: true 
-        });
-        
-        const currentUser = userResponse.data.user;
-        setUserId(currentUser._id);
-        setUserData(currentUser);
-
         // Fetch detailed profile data
-        const profileResponse = await axios.get(`${API_URL}/profile/${currentUser._id}/`, {
+        const profileResponse = await axios.get(`${API_URL}/profile/${userId}/`, {
           withCredentials: true
         });
         
         setProfileData(profileResponse.data);
 
         // Initialize form data
-        const nameParts = currentUser.name ? currentUser.name.split(" ") : ["", ""];
+        const nameParts = userData?.name ? userData.name.split(" ") : ["", ""];
         setAccountForm({
           firstName: nameParts[0] || "",
           lastName: nameParts.slice(1).join(" ") || "",
-          email: currentUser.email || ""
+          email: userData?.email || ""
         });
 
         setLocationForm({
@@ -76,15 +69,15 @@ const FreelancersContactInfo = () => {
         });
 
       } catch (err) {
-        console.error("Error fetching user data:", err);
-        setError("Failed to load user data. Please try again.");
+        console.error("Error fetching profile data:", err);
+        setError("Failed to load profile data. Please try again.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserData();
-  }, []);
+    fetchProfileData();
+  }, [userId, userData]);
 
   // Navigation handler for sidebar
   const handleSidebarNavigate = (key) => {
@@ -241,11 +234,8 @@ const FreelancersContactInfo = () => {
         email: accountForm.email
       }, { withCredentials: true });
 
-      // Refresh user data
-      const userResponse = await axios.get(`${API_URL}/current-user/`, { 
-        withCredentials: true 
-      });
-      setUserData(userResponse.data.user);
+      // Refresh user data in context
+      await refreshUserData();
 
       setIsEditingAccount(false);
       
@@ -292,11 +282,11 @@ const FreelancersContactInfo = () => {
 
   // Cancel edit functions
   const cancelAccountEdit = () => {
-    const nameParts = userData.name ? userData.name.split(" ") : ["", ""];
+    const nameParts = userData?.name ? userData.name.split(" ") : ["", ""];
     setAccountForm({
       firstName: nameParts[0] || "",
       lastName: nameParts.slice(1).join(" ") || "",
-      email: userData.email || ""
+      email: userData?.email || ""
     });
     setIsEditingAccount(false);
   };
@@ -313,7 +303,7 @@ const FreelancersContactInfo = () => {
     setIsEditingLocation(false);
   };
 
-  if (loading) {
+  if (userLoading || loading) {
     return (
       <div
         className="section-container"
@@ -345,7 +335,7 @@ const FreelancersContactInfo = () => {
     );
   }
 
-  if (error) {
+  if (userError || error) {
     return (
       <div
         className="section-container"
@@ -372,7 +362,7 @@ const FreelancersContactInfo = () => {
           }}
         >
           <div style={{ fontSize: 18, color: "#e74c3c", textAlign: "center", maxWidth: "100%" }}>
-            {error}
+            {userError || error}
             <br />
             <button
               onClick={() => window.location.reload()}

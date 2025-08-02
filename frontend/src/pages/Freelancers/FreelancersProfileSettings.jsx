@@ -4,12 +4,14 @@ import FreelancersSettingsSidebar from "./FreelancersSettingsSidebar";
 import { BsQuestionCircle } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { useUser } from "../../contexts/UserContext";
 
 const SIDEBAR_WIDTH = 290;
 const API_URL = "http://localhost:5000/api/auth";
 
 const FreelancersProfileSettings = () => {
   const navigate = useNavigate();
+  const { userId, userData, loading: userLoading, error: userError } = useUser();
   
   // Add CSS animation for loading spinner
   React.useEffect(() => {
@@ -37,8 +39,6 @@ const FreelancersProfileSettings = () => {
   const [categoryData, setCategoryData] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
   const [selectedSpecialities, setSelectedSpecialities] = useState([]);
-  const [userId, setUserId] = useState(null);
-  const [userData, setUserData] = useState(null);
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -46,22 +46,15 @@ const FreelancersProfileSettings = () => {
   const [saveMessage, setSaveMessage] = useState("");
 
   useEffect(() => {
-    const fetchUserData = async () => {
+    const fetchProfileData = async () => {
+      if (!userId) return;
+      
       try {
         setLoading(true);
         setError(null);
 
-        // Fetch current user data
-        const userResponse = await axios.get(`${API_URL}/current-user/`, { 
-          withCredentials: true 
-        });
-        
-        const currentUser = userResponse.data.user;
-        setUserId(currentUser._id);
-        setUserData(currentUser);
-
         // Fetch detailed profile data
-        const profileResponse = await axios.get(`${API_URL}/profile/${currentUser._id}/`, {
+        const profileResponse = await axios.get(`${API_URL}/profile/${userId}/`, {
           withCredentials: true
         });
         
@@ -85,21 +78,21 @@ const FreelancersProfileSettings = () => {
         setCategoryData(categoriesResponse.data);
         
         // Set current category and specialities from profile data
-        if (profileData?.category) {
-          setSelectedCategoryId(profileData.category._id);
-          setSelectedSpecialities(profileData.specialities?.map(s => s._id) || []);
+        if (profileResponse.data?.category) {
+          setSelectedCategoryId(profileResponse.data.category._id);
+          setSelectedSpecialities(profileResponse.data.specialities?.map(s => s._id) || []);
         }
 
       } catch (err) {
-        console.error("Error fetching user data:", err);
-        setError("Failed to load user data. Please try again.");
+        console.error("Error fetching profile data:", err);
+        setError("Failed to load profile data. Please try again.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchUserData();
-  }, []);
+    fetchProfileData();
+  }, [userId]);
 
   const visibilityOptions = [
     { value: "public", label: "Public" },

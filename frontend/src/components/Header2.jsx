@@ -11,8 +11,10 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import tarz from "../assets/2.png";
 import UserStatusIndicator from "./UserStatusIndicator";
+import { useUser } from "../contexts/UserContext";
 
 const Header2 = () => {
+  const { userId } = useUser();
   const [showDropdown, setShowDropdown] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -22,6 +24,10 @@ const Header2 = () => {
     e.preventDefault();
     e.stopPropagation();
     setShowDropdown((prev) => !prev);
+  };
+
+  const closeDropdown = () => {
+    setShowDropdown(false);
   };
   const navigate = useNavigate();
   const location = useLocation();
@@ -366,7 +372,7 @@ const Header2 = () => {
               </div>
               <div className="dropdown-divider mb-2" />
 
-              <Link to="/profile" className="dropdown-item align-items-center">
+              <Link to={`/ws/freelancers/${userId}`} className="dropdown-item align-items-center" onClick={closeDropdown}>
                 <LuCircleUser
                   style={{ width: "20px", height: "18px" }}
                   className="me-2"
@@ -389,7 +395,7 @@ const Header2 = () => {
                   />
                 </div>
               </div>
-              <Link to="/ws/settings/contact-info" className="dropdown-item">
+              <Link to="/ws/settings/contact-info" className="dropdown-item" onClick={closeDropdown}>
                 <LuSettings
                   style={{ width: "20px", height: "18px" }}
                   className="me-2"
@@ -398,7 +404,10 @@ const Header2 = () => {
               </Link>
 
               <div className="dropdown-divider my-2" />
-              <a className="dropdown-item text-danger" onClick={handleLogout}>
+              <a className="dropdown-item text-danger" onClick={(e) => {
+                handleLogout(e);
+                closeDropdown();
+              }}>
                 <FiLogOut
                   style={{ width: "20px", height: "18px" }}
                   className="me-2 logout-icon"

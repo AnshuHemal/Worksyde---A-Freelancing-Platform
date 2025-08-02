@@ -4,11 +4,13 @@ import { useNavigate } from "react-router-dom";
 import { BsEye, BsEyeSlash } from "react-icons/bs";
 import { motion } from "framer-motion";
 import axios from "axios";
+import { useUser } from "../../contexts/UserContext";
 
 const SIDEBAR_WIDTH = 290;
 
 const PasswordAndSecurityPage = () => {
   const navigate = useNavigate();
+  const { userId, userData, loading: userLoading, error: userError } = useUser();
   const [showChangePasswordModal, setShowChangePasswordModal] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -19,6 +21,74 @@ const PasswordAndSecurityPage = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // Show loading state while user data is being fetched
+  if (userLoading) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          background: "#fff",
+          fontFamily: "Inter, Arial, sans-serif",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              border: "4px solid #f3f3f3",
+              borderTop: "4px solid #007476",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              margin: "0 auto 16px",
+            }}
+          />
+          <div style={{ fontSize: 18, color: "#666" }}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error state if user data failed to load
+  if (userError) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          minHeight: "100vh",
+          background: "#fff",
+          fontFamily: "Inter, Arial, sans-serif",
+        }}
+      >
+        <div style={{ textAlign: "center", maxWidth: "400px", padding: "20px" }}>
+          <div style={{ fontSize: 18, color: "#e74c3c", textAlign: "center", maxWidth: "100%" }}>
+            {userError}
+            <br />
+            <button
+              onClick={() => window.location.reload()}
+              style={{
+                marginTop: "16px",
+                padding: "8px 16px",
+                background: "#007476",
+                color: "#fff",
+                border: "none",
+                borderRadius: "6px",
+                cursor: "pointer",
+                fontSize: "14px",
+              }}
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Navigation handler for sidebar
   const handleSidebarNavigate = (key) => {
@@ -30,7 +100,7 @@ const PasswordAndSecurityPage = () => {
         navigate("/ws/settings/contact-info");
         break;
       case "profile":
-        navigate("/ws/settings/profile");
+        navigate("/ws/freelancers/profile");
         break;
       case "profile-settings":
         navigate("/ws/settings/profile");
@@ -131,6 +201,7 @@ const PasswordAndSecurityPage = () => {
       <FreelancersSettingsSidebar
         activeKey="security"
         onNavigate={handleSidebarNavigate}
+        freelancerId={userId}
       />
       {/* Main Content */}
       <main

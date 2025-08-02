@@ -1908,12 +1908,15 @@ const FreelancersProfilePage = () => {
       });
 
       if (response.data.message === "Skills saved successfully") {
-        // Refresh profile data to get updated skills
+        // Refresh both profile and summary data to get updated skills
         try {
-          const profileRes = await axios.get(
-            `${API_URL}/profile/${freelancerId}/`
-          );
+          const [profileRes, summaryRes] = await Promise.all([
+            axios.get(`${API_URL}/profile/${freelancerId}/`),
+            axios.get(`${API_URL}/freelancer/summary/${freelancerId}/`)
+          ]);
+          
           setProfile(profileRes.data);
+          setSummary(summaryRes.data);
 
           // Close modal
           setShowSkillsModal(false);
@@ -1924,8 +1927,12 @@ const FreelancersProfilePage = () => {
           console.log("Skills saved successfully");
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
-          // Fallback: Update local state directly
+          // Fallback: Update both local states directly
           setProfile((prev) => ({
+            ...prev,
+            skills: skillsValue,
+          }));
+          setSummary((prev) => ({
             ...prev,
             skills: skillsValue,
           }));
@@ -4124,7 +4131,7 @@ const FreelancersProfilePage = () => {
               <h3
                 style={{
                   margin: 0,
-                  fontSize: "24px",
+                  fontSize: "26px",
                   fontWeight: "600",
                   color: "#1a1a1a",
                 }}
@@ -4168,7 +4175,7 @@ const FreelancersProfilePage = () => {
               >
                 <span
                   style={{
-                    fontSize: "14px",
+                    fontSize: "18px",
                     color: "#666",
                     fontWeight: "500",
                   }}
@@ -4221,7 +4228,7 @@ const FreelancersProfilePage = () => {
                     padding: "15px 20px",
                     border: "2px solid #e3e3e3",
                     borderRadius: "12px",
-                    fontSize: "16px",
+                    fontSize: "18px",
                     fontFamily: "inherit",
                     fontWeight: "500",
                     transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -4298,7 +4305,7 @@ const FreelancersProfilePage = () => {
                   color: "#666",
                   marginTop: "8px",
                   display: "block",
-                  fontSize: "14px",
+                  fontSize: "16px",
                 }}
               >
                 {skillsValue.length >= 15
@@ -4340,7 +4347,7 @@ const FreelancersProfilePage = () => {
                         color: "white",
                         padding: "8px 16px",
                         borderRadius: "25px",
-                        fontSize: "14px",
+                        fontSize: "16px",
                         fontWeight: "500",
                         transition: "all 0.3s ease",
                         boxShadow: "0 2px 8px rgba(0, 118, 116, 0.2)",
@@ -4399,7 +4406,7 @@ const FreelancersProfilePage = () => {
                   </div>
                   <div
                     style={{
-                      fontSize: "14px",
+                      fontSize: "16px",
                     }}
                   >
                     Start by searching and adding your skills above
@@ -4465,7 +4472,7 @@ const FreelancersProfilePage = () => {
                   fontSize: "16px",
                   fontWeight: "600",
                   cursor: isSavingSkills ? "not-allowed" : "pointer",
-                  borderRadius: "6px",
+                  borderRadius: "26px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={!isSavingSkills ? { background: "#005a58" } : {}}

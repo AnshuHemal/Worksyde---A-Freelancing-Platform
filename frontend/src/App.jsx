@@ -57,6 +57,7 @@ import BillingAndPaymentsPage from "./pages/Freelancers/BillingAndPaymentsPage";
 import FreelancersProfileSettings from "./pages/Freelancers/FreelancersProfileSettings";
 import PasswordAndSecurityPage from "./pages/Freelancers/PasswordAndSecurityPage";
 import FreelancersProfilePage from "./pages/Freelancers/FreelancersProfilePage";
+import { UserProvider } from "./contexts/UserContext";
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -85,9 +86,10 @@ const App = () => {
   }, []);
 
   return (
-    <div>
-      <RefreshHandler setIsAuthenticated={setIsAuthenticated} />
-      <Routes>
+    <UserProvider>
+      <div>
+        <RefreshHandler setIsAuthenticated={setIsAuthenticated} />
+        <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/home" element={<HomePage />} />
@@ -252,7 +254,8 @@ const App = () => {
           <Route path="messages" element={<ClientMessagesPage />} />
         </Route>
       </Routes>
-    </div>
+      </div>
+    </UserProvider>
   );
 };
 
