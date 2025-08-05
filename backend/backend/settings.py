@@ -14,17 +14,10 @@ from pathlib import Path
 from mongoengine import connect
 import os
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-(=%p@sx^e$8%b$_-f@!cer10-!%x%(4n)x=+0-re@5)i#&*r*%"
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = [
@@ -86,7 +79,7 @@ SECRET_KEY = "whiteturtlesworkspace"
 
 EMAIL_BACKEND = "backend.custom_email_backend.CustomEmailBackend"
 EMAIL_HOST = "smtp.gmail.com"
-EMAIL_PORT = 587  # TLS port
+EMAIL_PORT = 587 
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
 EMAIL_HOST_USER = "worksyde.in@gmail.com"
@@ -136,9 +129,6 @@ ASGI_APPLICATION = "backend.asgi.application"
 CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
 
 
-# Password validation
-# https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
-
 # AUTH_PASSWORD_VALIDATORS = [
 #     {
 #         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -156,10 +146,6 @@ CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}
 
 AUTH_PASSWORD_VALIDATORS = []
 
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.2/topics/i18n/
-
 LANGUAGE_CODE = "en-us"
 
 TIME_ZONE = "UTC"
@@ -168,21 +154,13 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.2/howto/static-files/
-
 STATIC_URL = "static/"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
-
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Twilio SMS Configuration
 TWILIO_ACCOUNT_SID = "ACafec1fba446ceb9e4e50e2620c49313b"
 TWILIO_AUTH_TOKEN = "d9e0e21d4aef53c2d9c18d3d296d60c1"
-TWILIO_PHONE_NUMBER = "+12342629032"  # Format: +1234567890
+TWILIO_PHONE_NUMBER = "+12342629032" 
