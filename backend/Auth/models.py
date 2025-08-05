@@ -22,6 +22,7 @@ class User(Document):
     email = EmailField(required=True, unique=True)
     password = StringField(required=True)
     name = StringField(required=True)
+    phone = StringField()  # Phone number field
     isverified = BooleanField(default=False)
     lastLogin = DateTimeField(default=timezone.now)
     role = StringField(required=True)
@@ -92,6 +93,18 @@ class Otp(Document):
 
     meta = {
         "collection": "otps",
+        "indexes": ["createdAt"],
+    }
+
+
+class PhoneOtp(Document):
+    phone_number = StringField(required=True)
+    code = StringField(required=True, max_length=6)
+    createdAt = DateTimeField(default=timezone.now)
+    expiresAt = DateTimeField(default=timezone.now)  # OTP expiration time - made optional for backward compatibility
+
+    meta = {
+        "collection": "phone_otps",
         "indexes": ["createdAt"],
     }
 

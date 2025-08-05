@@ -181,3 +181,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Twilio SMS Configuration
+TWILIO_ACCOUNT_SID = "ACafec1fba446ceb9e4e50e2620c49313b"
+TWILIO_AUTH_TOKEN = "d9e0e21d4aef53c2d9c18d3d296d60c1"
+TWILIO_PHONE_NUMBER = "+12342629032"  # Format: +1234567890

@@ -5,6 +5,7 @@ from rest_framework import status
 from mongoengine.errors import DoesNotExist
 from django.contrib.auth.hashers import make_password, check_password
 from django.utils import timezone
+from django.utils.timezone import make_aware, is_naive, get_default_timezone
 from django.conf import settings
 from django.db import models
 from Auth.models import (
@@ -21,6 +22,7 @@ from Auth.models import (
     JobProposals,
     ProposalAttachment,
     Otp,
+    PhoneOtp,
     JobAttachment,
     Language,
     PaymentCard,
@@ -47,6 +49,44 @@ from django.core.mail import EmailMessage
 import random
 import traceback
 import time
+from twilio.rest import Client
+
+
+def send_otp_sms(phone_number, otp_code):
+    """
+    Send OTP via SMS using Twilio
+    Returns: (success: bool, message: str)
+    """
+    try:
+        # Get Twilio credentials from settings
+        account_sid = getattr(settings, 'TWILIO_ACCOUNT_SID', None)
+        auth_token = getattr(settings, 'TWILIO_AUTH_TOKEN', None)
+        twilio_phone = getattr(settings, 'TWILIO_PHONE_NUMBER', None)
+        
+        # Check if Twilio credentials are configured
+        if not all([account_sid, auth_token, twilio_phone]):
+            return False, "Twilio credentials not configured"
+        
+        # Initialize Twilio client
+        client = Client(account_sid, auth_token)
+        
+        # Prepare the message
+        message_body = f"Your Worksyde verification code is: {otp_code}. This code will expire in 10 minutes."
+        
+        # Send the SMS
+        message = client.messages.create(
+            body=message_body,
+            from_=twilio_phone,
+            to=phone_number
+        )
+        
+        print(f"Twilio SMS sent successfully. SID: {message.sid}")
+        return True, "SMS sent successfully"
+        
+    except Exception as e:
+        error_msg = f"Failed to send SMS: {str(e)}"
+        print(error_msg)
+        return False, error_msg
 
 
 def generate_token_and_set_cookie(response, user_id):
@@ -185,29 +225,59 @@ def verify_view(request):
 @verify_token
 def current_user(request):
     user = request.user
-    
-    # Get user's profile to fetch photograph
     user_profile = Requests.objects(userId=user).first()
     photograph = user_profile.photograph if user_profile else None
+    
+    data = {
+        "success": True,
+        "message": "User fetched..",
+        "user": {
+            "_id": str(user.id),
+            "name": user.name,
+            "email": user.email,
+            "phone": user.phone,
+            "role": user.role,
+            "isverified": user.isverified,
+            "lastLogin": user.lastLogin,
+            "photograph": photograph,
+            "onlineStatus": user.onlineStatus,
+            "lastSeen": user.lastSeen,
+        },
+    }
+    
+    return Response(data, status=status.HTTP_200_OK)
 
-    return Response(
-        {
+
+@api_view(["GET"])
+@verify_token
+def get_user_profile(request):
+    """Get current user's profile with phone information"""
+    try:
+        user = request.user
+        
+        # Get user's profile from Requests model
+        profile = Requests.objects(userId=user).first()
+        
+        profile_data = {
             "success": True,
-            "message": "User fetched..",
+            "phone": profile.phone if profile else None,
             "user": {
                 "_id": str(user.id),
                 "name": user.name,
                 "email": user.email,
+                "phone": user.phone,
                 "role": user.role,
                 "isverified": user.isverified,
-                "lastLogin": user.lastLogin,
-                "photograph": photograph,
-                "onlineStatus": user.onlineStatus,
-                "lastSeen": user.lastSeen,
-            },
-        },
-        status=status.HTTP_200_OK,
-    )
+            }
+        }
+
+        return Response(profile_data)
+
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=500,
+        )
 
 
 @api_view(["PUT"])
@@ -448,6 +518,156 @@ def verify_otp(request):
             {
                 "success": False,
                 "message": "OTP verification failed",
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def send_verification_code(request):
+    """Send OTP code to phone number for verification"""
+    phone_number = request.data.get("phone_number")
+    
+    if not phone_number:
+        return Response(
+            {"success": False, "message": "Phone number is required"},
+            status=400,
+        )
+
+    try:
+        # Generate 6-digit OTP
+        otp_code = str(random.randint(100000, 999999))
+        
+        # Delete existing OTPs for the phone number to avoid duplicates
+        PhoneOtp.objects(phone_number=phone_number).delete()
+        
+        # Set expiration time (10 minutes from now)
+        from datetime import timedelta
+        expires_at = timezone.now() + timedelta(minutes=10)
+        
+        # Save new OTP with expiration
+        phone_otp_obj = PhoneOtp(phone_number=phone_number, code=otp_code, expiresAt=expires_at)
+        phone_otp_obj.save()
+        print(f"Saved OTP: {phone_otp_obj.id}, expires at: {expires_at}")
+        
+        # Send OTP via SMS
+        sms_success, sms_message = send_otp_sms(phone_number, otp_code)
+        
+        if sms_success:
+            print(f"OTP sent successfully to {phone_number}: {otp_code}")
+            return Response(
+                {
+                    "success": True, 
+                    "message": "Verification code sent successfully via SMS"
+                },
+                status=201,
+            )
+        else:
+            # If SMS fails, still save OTP and return success (for development)
+            print(f"OTP for {phone_number}: {otp_code} (SMS failed: {sms_message})")
+            return Response(
+                {
+                    "success": True, 
+                    "message": "Verification code generated. Check console for OTP.",
+                    "debug_info": sms_message
+                },
+                status=201,
+            )
+            
+    except Exception as e:
+        print(f"Error in send_verification_code: {str(e)}")
+        return Response(
+            {"success": False, "message": f"Failed to send verification code: {str(e)}"},
+            status=500,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def verify_phone(request):
+    """Verify phone number with OTP code"""
+    phone_number = request.data.get("phone_number")
+    otp_code = request.data.get("otp_code")
+    
+    if not phone_number or not otp_code:
+        return Response(
+            {"success": False, "message": "Phone number and OTP code are required"},
+            status=400,
+        )
+
+    try:
+        print(f"Verifying OTP for phone: {phone_number}, code: {otp_code}")
+        # Find the OTP record
+        phone_otp = PhoneOtp.objects(phone_number=phone_number, code=otp_code).first()
+        print(f"Found OTP record: {phone_otp}")
+        
+        if not phone_otp:
+            return Response(
+                {"success": False, "message": "Invalid OTP code"},
+                status=400,
+            )
+        
+        # Check if OTP has expired (handle cases where expiresAt might not exist)
+        current_time = timezone.now()
+        
+        if hasattr(phone_otp, 'expiresAt') and phone_otp.expiresAt:
+            # Make expiresAt timezone-aware if it's naive
+            expires_at = phone_otp.expiresAt
+            if is_naive(expires_at):
+                expires_at = make_aware(expires_at, get_default_timezone())
+            
+            if expires_at < current_time:
+                # Delete expired OTP
+                phone_otp.delete()
+                return Response(
+                    {"success": False, "message": "OTP code has expired. Please request a new one."},
+                    status=400,
+                )
+        else:
+            # For backward compatibility, if expiresAt doesn't exist, consider it expired after 10 minutes
+            from datetime import timedelta
+            created_at = phone_otp.createdAt
+            if is_naive(created_at):
+                created_at = make_aware(created_at, get_default_timezone())
+            
+            if created_at + timedelta(minutes=10) < current_time:
+                phone_otp.delete()
+                return Response(
+                    {"success": False, "message": "OTP code has expired. Please request a new one."},
+                    status=400,
+                )
+        
+        # Get user from request (from token)
+        user = request.user
+        
+        if not user:
+            return Response(
+                {"success": False, "message": "User not found"},
+                status=404,
+            )
+        
+        # Update user's phone number
+        user.phone = phone_number
+        user.save()
+        
+        # Delete the used OTP
+        phone_otp.delete()
+        
+        return Response(
+            {
+                "success": True, 
+                "message": "Phone number verified successfully"
+            },
+            status=200,
+        )
+    except Exception as e:
+        print(f"Error in verify_phone: {str(e)}")  # For debugging
+        return Response(
+            {
+                "success": False, 
+                "message": "Phone verification failed",
                 "error": str(e),
             },
             status=500,
