@@ -51,8 +51,13 @@ const Header2 = () => {
           // If photograph is not included in current-user response, fetch it separately
           if (!data.user.photograph) {
             try {
+              // Use the appropriate endpoint based on user type
+              const endpoint = data.user.userType === 'client' 
+                ? `/api/auth/client/profile-details/${data.user._id}/`
+                : `/api/auth/profile/${data.user._id}/`;
+              
               const profileResponse = await fetch(
-                `/api/auth/profile/${data.user._id}/`,
+                endpoint,
                 {
                   credentials: "include",
                 }

@@ -236,6 +236,32 @@ class Requests(Document):
     meta = {"collection": "requests"}
 
 
+class Company(Document):
+    """Company model for storing client company information"""
+    userId = ReferenceField(User, required=True)
+    companyName = StringField(required=True)
+    website = StringField()
+    industry = StringField()
+    size = StringField()
+    tagline = StringField()
+    description = StringField()
+    logo = StringField()  # URL to company logo
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+
+    meta = {
+        "collection": "companies",
+        "indexes": ["userId"],
+        "ordering": ["-updatedAt"]
+    }
+
+    def save(self, *args, **kwargs):
+        if not self.createdAt:
+            self.createdAt = timezone.now()
+        self.updatedAt = timezone.now()
+        return super().save(*args, **kwargs)
+
+
 class JobPosts(Document):
     userId = ReferenceField("User", required=True)
     title = StringField()

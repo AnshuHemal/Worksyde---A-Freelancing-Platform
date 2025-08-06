@@ -1,5 +1,11 @@
 from rest_framework import serializers
-from .models import Education, Requests, WorkExperience, Skill, Speciality, Category, JobPosts, JobProposals
+from .models import Education, Requests, WorkExperience, Skill, Speciality, Category, JobPosts, JobProposals, Company
+
+
+class CompanySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Company
+        fields = '__all__'
 
 
 class EducationSerializer(serializers.ModelSerializer):

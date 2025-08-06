@@ -27,6 +27,7 @@ from Auth.models import (
     Language,
     PaymentCard,
     PayPalAccount,
+    Company,
 )
 from .serializers import (
     EducationSerializer,
@@ -50,6 +51,7 @@ import random
 import traceback
 import time
 from twilio.rest import Client
+import uuid
 
 
 def send_otp_sms(phone_number, otp_code):
@@ -2415,12 +2417,72 @@ def get_client_profile(request, user_id):
         user = User.objects(id=user_id).first()
         if not user:
             return Response({"message": "User not found"}, status=404)
-        data = {
+        
+        # Try to get any existing Requests object for this user (in case they were a freelancer before)
+        user_profile = Requests.objects(userId=user).first()
+        
+        # Build profile data combining User and Requests data
+        profile_data = {
+            "userId": str(user.id),
             "name": user.name,
+            "email": user.email,
+            "phone": user_profile.phone if user_profile else user.phone,
+            "streetAddress": user_profile.streetAddress if user_profile else None,
+            "city": user_profile.city if user_profile else None,
+            "state": user_profile.state if user_profile else None,
+            "country": user_profile.country if user_profile else None,
+            "postalCode": user_profile.postalCode if user_profile else None,
+            "companyName": user_profile.companyName if user_profile else None,
+            "website": user_profile.website if user_profile else None,
+            "industry": user_profile.industry if user_profile else None,
+            "size": user_profile.size if user_profile else None,
+            "tagline": user_profile.tagline if user_profile else None,
+            "description": user_profile.description if user_profile else None,
         }
-        return Response(data)
+        
+        return Response(profile_data)
     except Exception as e:
         print("Error in get_client_profile:", e)
+        return Response({"message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+def get_client_profile_details(request, user_id):
+    """Get detailed client profile information including location data"""
+    try:
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+        
+        # Try to get any existing Requests object for this user (in case they were a freelancer before)
+        user_profile = Requests.objects(userId=user).first()
+        
+        # Get company information
+        company_profile = Company.objects(userId=user).first()
+        
+        # Build profile data combining User, Requests, and Company data
+        profile_data = {
+            "userId": str(user.id),
+            "name": user.name,
+            "email": user.email,
+            "phone": user_profile.phone if user_profile else user.phone,
+            "streetAddress": user_profile.streetAddress if user_profile else None,
+            "city": user_profile.city if user_profile else None,
+            "state": user_profile.state if user_profile else None,
+            "country": user_profile.country if user_profile else None,
+            "postalCode": user_profile.postalCode if user_profile else None,
+            "companyName": company_profile.companyName if company_profile else None,
+            "website": company_profile.website if company_profile else None,
+            "industry": company_profile.industry if company_profile else None,
+            "size": company_profile.size if company_profile else None,
+            "tagline": company_profile.tagline if company_profile else None,
+            "description": company_profile.description if company_profile else None,
+            "logo": company_profile.logo if company_profile else None,
+        }
+        
+        return Response(profile_data)
+    except Exception as e:
+        print("Error in get_client_profile_details:", e)
         return Response({"message": "Server error", "error": str(e)}, status=500)
 
 
@@ -3378,3 +3440,100 @@ def delete_other_experience(request, other_experience_id, user_id):
     except Exception as e:
         print("Error deleting other experience:", e)
         return Response({"message": "Error deleting other experience", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser])
+def add_company_details(request):
+    """Add or update company details for a client"""
+    try:
+        user_id = request.data.get("userId")
+        company_name = request.data.get("companyName")
+        website = request.data.get("website")
+        industry = request.data.get("industry")
+        size = request.data.get("size")
+        tagline = request.data.get("tagline")
+        description = request.data.get("description")
+        logo = request.FILES.get("logo")
+
+        if not user_id:
+            return Response({"message": "User ID is required"}, status=400)
+
+        # Get or create Company object for this user
+        company_obj = Company.objects(userId=user_id).first()
+        if not company_obj:
+            company_obj = Company(userId=user_id)
+
+        # Update company fields
+        if company_name is not None:
+            company_obj.companyName = company_name
+        if website is not None:
+            company_obj.website = website
+        if industry is not None:
+            company_obj.industry = industry
+        if size is not None:
+            company_obj.size = size
+        if tagline is not None:
+            company_obj.tagline = tagline
+        if description is not None:
+            company_obj.description = description
+        
+        # Handle logo upload
+        if logo:
+            print(f"Logo upload detected: {logo.name}, size: {logo.size}")
+            # Generate unique filename
+            import uuid
+            file_extension = logo.name.split('.')[-1]
+            filename = f"company_logo_{user_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
+            
+            # Save file to media directory
+            file_path = f"company_logos/{filename}"
+            print(f"Saving logo to: {file_path}")
+            
+            try:
+                with default_storage.open(file_path, 'wb+') as destination:
+                    for chunk in logo.chunks():
+                        destination.write(chunk)
+                
+                # Update logo field with file path
+                company_obj.logo = f"/media/{file_path}"
+                print(f"Logo saved successfully: {company_obj.logo}")
+            except Exception as e:
+                print(f"Error saving logo: {e}")
+                return Response({"message": "Error saving logo file", "error": str(e)}, status=500)
+            
+        company_obj.save()
+
+        return Response(
+            {"message": "Company details updated successfully"}, status=200
+        )
+
+    except Exception as e:
+        print("Error saving company details:", e)
+        return Response({"message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+def get_company_details(request, user_id):
+    """Get company details for a specific user"""
+    try:
+        company = Company.objects(userId=user_id).first()
+        if not company:
+            return Response({"message": "Company not found"}, status=404)
+        
+        company_data = {
+            "companyName": company.companyName,
+            "website": company.website,
+            "industry": company.industry,
+            "size": company.size,
+            "tagline": company.tagline,
+            "description": company.description,
+            "logo": company.logo,
+            "createdAt": company.createdAt,
+            "updatedAt": company.updatedAt,
+        }
+        
+        return Response(company_data)
+    except Exception as e:
+        print("Error in get_company_details:", e)
+        return Response({"message": "Server error", "error": str(e)}, status=500)

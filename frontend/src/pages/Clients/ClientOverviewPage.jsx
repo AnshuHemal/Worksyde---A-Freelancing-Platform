@@ -88,7 +88,7 @@ const ClientOverviewPage = () => {
       }
 
       // Check phone verification by getting user profile
-      const profileResponse = await axios.get(`${API_URL}/profile/`, {
+      const profileResponse = await axios.get(`${API_URL}/client/profile-details/${userId}/`, {
         withCredentials: true,
       });
       
@@ -466,7 +466,7 @@ const ClientOverviewPage = () => {
     >
       <style>{`
         .client-main-container {
-          max-width: 1200px;
+          max-width: 1400px;
           margin: 0 auto;
           padding: 48px 32px 48px 32px;
         }
@@ -529,7 +529,7 @@ const ClientOverviewPage = () => {
          }
          .step-card.verified {
            border: 2px solid #007476;
-           background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+           background: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.15);
          }
         .step-card .step-icon {
@@ -698,7 +698,7 @@ const ClientOverviewPage = () => {
           transition: all 0.2s ease;
         }
         .post-job-card:hover {
-          background: #f0fdf4;
+          background: #fff;
         }
         .post-job-icon {
           width: 40px;

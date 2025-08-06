@@ -40,6 +40,8 @@ urlpatterns = [
     path('add-biography/', views.add_biography),
     path('add-hourlyrate/', views.add_hourly_rate),
     path('add-photo-location-details/', views.add_photo_location),
+    path('add-company-details/', views.add_company_details, name='add_company_details'),
+    path('company-details/<str:user_id>/', views.get_company_details, name='get_company_details'),
     path("upload-photo/", views.add_photograph, name="add-photograph"),
     path("add-video-introduction/", views.add_video_introduction, name="add-video-introduction"),
     path("profile/submit-application-for-review/", views.submit_for_review, name="submit-for-review"),
@@ -75,6 +77,7 @@ urlpatterns = [
     path('freelancer/summary/<str:user_id>/', views.get_freelancer_summary, name='get_freelancer_summary'),
     path('freelancer/profile/<str:user_id>/', views.get_freelancer_profile),
     path('client/profile/<str:user_id>/', views.get_client_profile),
+    path('client/profile-details/<str:user_id>/', views.get_client_profile_details, name='get_client_profile_details'),
     
     # Password Management
     path('change-password/', views.change_password, name='change_password'),

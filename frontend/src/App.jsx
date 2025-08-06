@@ -45,6 +45,11 @@ import ProtectedRoute from "./ProtectedRoute";
 import FreelancersDashboard from "./pages/Freelancers/FreelancersDashboard";
 import ClientOverviewPage from "./pages/Clients/ClientOverviewPage";
 import ClientMessagesPage from "./pages/Clients/ClientMessagesPage";
+import ClientInfoPage from "./pages/Clients/ClientInfoPage";
+import ClientBillingPage from "./pages/Clients/ClientBillingPage";
+import ClientSecurityPage from "./pages/Clients/ClientSecurityPage";
+import ClientNotificationsPage from "./pages/Clients/ClientNotificationsPage";
+import ClientPasswordAndSecurityPage from "./pages/Clients/ClientPasswordAndSecurityPage";
 import FreelancerMessagesPage from "./pages/Freelancers/FreelancerMessagesPage";
 import AiToolsOverview from "./pages/Freelancers/AiToolsOverview";
 import FreelancersOverview from "./pages/Freelancers/FreelancersOverview";
@@ -252,6 +257,10 @@ const App = () => {
         <Route path="/ws/client/" element={<ClientDashboard />}>
           <Route path="dashboard" element={<ClientOverviewPage />} />
           <Route path="messages" element={<ClientMessagesPage />} />
+          <Route path="info" element={<ClientInfoPage />} />
+          <Route path="billing" element={<ClientBillingPage />} />
+          <Route path="security" element={<ClientSecurityPage />} />
+          <Route path="notifications" element={<ClientNotificationsPage />} />
         </Route>
       </Routes>
       </div>
