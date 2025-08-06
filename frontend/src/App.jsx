@@ -63,6 +63,7 @@ import FreelancersProfileSettings from "./pages/Freelancers/FreelancersProfileSe
 import PasswordAndSecurityPage from "./pages/Freelancers/PasswordAndSecurityPage";
 import FreelancersProfilePage from "./pages/Freelancers/FreelancersProfilePage";
 import { UserProvider } from "./contexts/UserContext";
+import ClientJobDetailedPage from "./pages/Clients/ClientJobDetailedPage";
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -203,6 +204,7 @@ const App = () => {
           path="/job-post/instant/verify-email"
           element={<ClientJobVerifyEmail />}
         />
+        
 
         {/* Job Proposals */}
         <Route
@@ -261,6 +263,17 @@ const App = () => {
           <Route path="deposit-method" element={<ClientBillingPage />} />
           <Route path="security" element={<ClientSecurityPage />} />
           <Route path="notifications" element={<ClientNotificationsPage />} />
+          <Route path="applicants/:jobid" element={<ClientJobDetailedPage />}>
+            <Route path="job-details" element={<ClientJobDetailedPage />} />
+            <Route path="suggested" element={<ClientJobDetailedPage />} />
+            <Route path="invites" element={<ClientJobDetailedPage />} />
+            <Route path="hires" element={<ClientJobDetailedPage />} />     
+            <Route path="proposals" element={<ClientJobDetailedPage />} />
+                          <Route path="shortlisted" element={<ClientJobDetailedPage />} />
+              <Route path="messaged" element={<ClientJobDetailedPage />} />
+              <Route path="offers" element={<ClientJobDetailedPage />} />
+              <Route path="hired" element={<ClientJobDetailedPage />} />
+          </Route>
         </Route>
       </Routes>
       </div>

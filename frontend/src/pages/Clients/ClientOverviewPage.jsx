@@ -1076,7 +1076,7 @@ const ClientOverviewPage = () => {
                   key={job.id}
                   className="overview-card"
                   style={{ cursor: 'pointer', minHeight: 320 }}
-                  onClick={() => navigate(`/ws/applicants/${job.id}`)}
+                  onClick={() => navigate(`/ws/client/applicants/${job.id}`)}
                 >
                   {isVerified ? (
                     <>
