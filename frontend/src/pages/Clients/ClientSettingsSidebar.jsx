@@ -13,7 +13,7 @@ const SIDEBAR_WIDTH = 290;
 
 const sidebarSections = [
   {
-    header: "Billing",
+    header: "Payment Methods",
     items: [
       {
         label: "Billing & Payments",

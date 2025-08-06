@@ -3,6 +3,7 @@ import axios from "axios";
 import ClientSettingsSidebar from "./ClientSettingsSidebar";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "../../contexts/UserContext";
+import { motion } from "framer-motion";
 
 const SIDEBAR_WIDTH = 290;
 const API_URL = "http://localhost:5000/api/auth";
@@ -13,6 +14,22 @@ const ClientInfoPage = () => {
   const [profileData, setProfileData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Add CSS animation for loading spinner
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   // Edit states
   const [isEditingAccount, setIsEditingAccount] = useState(false);
@@ -28,11 +45,6 @@ const ClientInfoPage = () => {
 
   // Form states for Location
   const [locationForm, setLocationForm] = useState({
-    streetAddress: "",
-    city: "",
-    state: "",
-    country: "",
-    postalCode: "",
     phone: ""
   });
 
@@ -50,6 +62,12 @@ const ClientInfoPage = () => {
 
   // Edit states for Company
   const [isEditingCompany, setIsEditingCompany] = useState(false);
+
+  // AI Preference states
+  const [aiPreference, setAiPreference] = useState("yes");
+  const [showAiPreferenceModal, setShowAiPreferenceModal] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -75,11 +93,6 @@ const ClientInfoPage = () => {
         });
 
         setLocationForm({
-          streetAddress: profileResponse.data.streetAddress || "",
-          city: profileResponse.data.city || "",
-          state: profileResponse.data.state || "",
-          country: profileResponse.data.country || "",
-          postalCode: profileResponse.data.postalCode || "",
           phone: profileResponse.data.phone || ""
         });
 
@@ -93,6 +106,33 @@ const ClientInfoPage = () => {
           logo: profileResponse.data.logo ? `http://localhost:5000${profileResponse.data.logo}` : "", // Initialize logo with full URL
           logoFile: null // Initialize logoFile
         });
+
+        // Fetch profile settings to get AI preference
+        try {
+          const settingsResponse = await axios.get(`${API_URL}/client-profile-settings/`, {
+            withCredentials: true
+          });
+          
+          if (settingsResponse.data.success) {
+            const settings = settingsResponse.data.profile_settings;
+            if (settings.aiPreference) {
+              setAiPreference(settings.aiPreference);
+            } else {
+              // No AI preference found, set default to "yes" and save to backend
+              setAiPreference("yes");
+              await saveSettingsToDatabase({
+                aiPreference: "yes"
+              });
+            }
+          }
+        } catch (settingsError) {
+          console.log("No profile settings found, using default AI preference");
+          setAiPreference("yes");
+          // Save default preference to backend
+          await saveSettingsToDatabase({
+            aiPreference: "yes"
+          });
+        }
 
       } catch (err) {
         console.error("Error fetching profile data:", err);
@@ -109,7 +149,7 @@ const ClientInfoPage = () => {
   const handleSidebarNavigate = (key) => {
     switch (key) {
       case "billing":
-        navigate("/ws/client/billing");
+        navigate("/ws/client/deposit-method");
         break;
       case "info":
         navigate("/ws/client/info");
@@ -125,30 +165,12 @@ const ClientInfoPage = () => {
     }
   };
 
-  // Helper function to format address
-  const formatAddress = () => {
-    if (!profileData) return "Not provided";
-    
-    const parts = [];
-    if (profileData.streetAddress) parts.push(profileData.streetAddress);
-    if (profileData.city) parts.push(profileData.city);
-    if (profileData.state) parts.push(profileData.state);
-    if (profileData.country) parts.push(profileData.country);
-    if (profileData.postalCode) parts.push(profileData.postalCode);
-    
-    return parts.length > 0 ? parts.join(", ") : "Not provided";
-  };
-
-  // Helper function to format phone number
   const formatPhone = () => {
     if (!profileData?.phone) return "Not provided";
     
     const phone = profileData.phone;
-    
-    // Remove all non-digit characters except +
     const cleaned = phone.replace(/[^\d+]/g, '');
     
-    // Check if it's an Indian number (+91)
     if (cleaned.startsWith('+91') && cleaned.length === 13) {
       return `${cleaned.slice(0, 3)} ${cleaned.slice(3, 8)} ${cleaned.slice(8)}`;
     }
@@ -170,7 +192,6 @@ const ClientInfoPage = () => {
       return `${cleaned.slice(0, 5)} ${cleaned.slice(5)}`;
     }
     
-    // Return original if no pattern matches
     return phone;
   };
 
@@ -285,11 +306,6 @@ const ClientInfoPage = () => {
       // Update location information
       await axios.post(`${API_URL}/add-photo-location-details/`, {
         userId: userId,
-        streetAddress: locationForm.streetAddress,
-        city: locationForm.city,
-        state: locationForm.state,
-        country: locationForm.country,
-        postalCode: locationForm.postalCode,
         phone: locationForm.phone
       }, { withCredentials: true });
 
@@ -363,6 +379,14 @@ const ClientInfoPage = () => {
     }
   };
 
+  // Cancel location edit
+  const cancelLocationEdit = () => {
+    setLocationForm({
+      phone: profileData?.phone || ""
+    });
+    setIsEditingLocation(false);
+  };
+
   // Cancel company edit
   const cancelCompanyEdit = () => {
     setCompanyForm({
@@ -389,16 +413,40 @@ const ClientInfoPage = () => {
     setIsEditingAccount(false);
   };
 
-  const cancelLocationEdit = () => {
-    setLocationForm({
-      streetAddress: profileData?.streetAddress || "",
-      city: profileData?.city || "",
-      state: profileData?.state || "",
-      country: profileData?.country || "",
-      postalCode: profileData?.postalCode || "",
-      phone: profileData?.phone || ""
+  // Handle AI preference change
+  const handleAiPreferenceChange = async (preference) => {
+    // If no preference is selected, default to "yes"
+    const finalPreference = preference || "yes";
+    setAiPreference(finalPreference);
+    setShowAiPreferenceModal(false);
+    
+    // Auto-save to database
+    await saveSettingsToDatabase({
+      aiPreference: finalPreference
     });
-    setIsEditingLocation(false);
+  };
+
+  // Save settings to database
+  const saveSettingsToDatabase = async (settings) => {
+    try {
+      setSaving(true);
+      setSaveMessage("");
+
+      const response = await axios.put(`${API_URL}/update-client-profile-settings/`, settings, {
+        withCredentials: true
+      });
+
+      if (response.data.success) {
+        setSaveMessage("Settings saved automatically!");
+        setTimeout(() => setSaveMessage(""), 2000);
+      }
+    } catch (error) {
+      console.error("Error saving settings:", error);
+      setSaveMessage("Failed to save settings. Please try again.");
+      setTimeout(() => setSaveMessage(""), 3000);
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (userLoading || loading) {
@@ -718,6 +766,8 @@ const ClientInfoPage = () => {
               </div>
             )}
           </div>
+
+
 
           {/* Company Details Card */}
           <div
@@ -1208,8 +1258,8 @@ const ClientInfoPage = () => {
               background: "#fff",
               border: "1px solid #e6e6e6",
               borderRadius: 12,
-              padding: "36px 36px",
-              marginBottom: 40,
+              padding: "36px",
+              marginBottom: 32,
               width: "100%",
               boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
               position: "relative",
@@ -1230,116 +1280,7 @@ const ClientInfoPage = () => {
             {isEditingLocation ? (
               // Edit Form
               <div>
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 18, fontWeight: 500, color: "#222", marginBottom: 8 }}>
-                    Street Address
-                  </div>
-                  <input
-                    type="text"
-                    value={locationForm.streetAddress}
-                    onChange={(e) => handleLocationFormChange("streetAddress", e.target.value)}
-                    style={{
-                      width: "100%",
-                      padding: "12px 16px",
-                      border: "1px solid #e6e6e6",
-                      borderRadius: 8,
-                      fontSize: 18,
-                      outline: "none",
-                    }}
-                    placeholder="Enter street address"
-                  />
-                </div>
-                <div style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", 
-                  gap: 16, 
-                  marginBottom: 20 
-                }}>
-                  <div>
-                    <div style={{ fontSize: 18, fontWeight: 500, color: "#222", marginBottom: 8 }}>
-                      City
-                    </div>
-                    <input
-                      type="text"
-                      value={locationForm.city}
-                      onChange={(e) => handleLocationFormChange("city", e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        border: "1px solid #e6e6e6",
-                        borderRadius: 8,
-                        fontSize: 18,
-                        outline: "none",
-                      }}
-                      placeholder="Enter city"
-                    />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 18, fontWeight: 500, color: "#222", marginBottom: 8 }}>
-                      State
-                    </div>
-                    <input
-                      type="text"
-                      value={locationForm.state}
-                      onChange={(e) => handleLocationFormChange("state", e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        border: "1px solid #e6e6e6",
-                        borderRadius: 8,
-                        fontSize: 18,
-                        outline: "none",
-                      }}
-                      placeholder="Enter state"
-                    />
-                  </div>
-                </div>
-                <div style={{ 
-                  display: "grid", 
-                  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", 
-                  gap: 16, 
-                  marginBottom: 20 
-                }}>
-                  <div>
-                    <div style={{ fontSize: 18, fontWeight: 500, color: "#222", marginBottom: 8 }}>
-                      Country
-                    </div>
-                    <input
-                      type="text"
-                      value={locationForm.country}
-                      onChange={(e) => handleLocationFormChange("country", e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        border: "1px solid #e6e6e6",
-                        borderRadius: 8,
-                        fontSize: 18,
-                        outline: "none",
-                      }}
-                      placeholder="Enter country"
-                    />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 18, fontWeight: 500, color: "#222", marginBottom: 8 }}>
-                      Postal Code
-                    </div>
-                    <input
-                      type="text"
-                      value={locationForm.postalCode}
-                      onChange={(e) => handleLocationFormChange("postalCode", e.target.value)}
-                      style={{
-                        width: "100%",
-                        padding: "12px 16px",
-                        border: "1px solid #e6e6e6",
-                        borderRadius: 8,
-                        fontSize: 18,
-                        outline: "none",
-                      }}
-                      placeholder="Enter postal code"
-                    />
-                  </div>
-                </div>
-                <div style={{ marginBottom: 30 }}>
+                <div style={{ marginBottom: 24 }}>
                   <div style={{ fontSize: 18, fontWeight: 500, color: "#222", marginBottom: 8 }}>
                     Phone
                   </div>
@@ -1405,25 +1346,11 @@ const ClientInfoPage = () => {
                     {getTimezone()}
                   </div>
                 </div>
-                <div style={{ marginBottom: 20, color: "#222" }}>
-                  <div style={{ fontSize: 20, fontWeight: 600, color: "#222" }}>
-                    Address
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 18,
-                      color: "#6b6b6b",
-                      whiteSpace: "pre-line",
-                    }}
-                  >
-                    {formatAddress()}
-                  </div>
-                </div>
                 <div style={{ color: "#222" }}>
                   <div style={{ fontSize: 20, fontWeight: 600, color: "#222" }}>
                     Phone
                   </div>
-                  <div style={{ fontSize: 18, color: "#007476", fontWeight: 600 }}>
+                  <div style={{ fontSize: 18, color: "#007476" }}>
                     {formatPhone()}
                   </div>
                 </div>
@@ -1459,8 +1386,392 @@ const ClientInfoPage = () => {
               </div>
             )}
           </div>
+
+          {/* AI Preference Card */}
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e6e6e6",
+              borderRadius: 12,
+              padding: "36px",
+              marginBottom: 32,
+              width: "100%",
+              boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
+              position: "relative",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: 600,
+                fontSize: 26,
+                marginBottom: 24,
+                color: "#111",
+              }}
+            >
+              AI preference
+            </div>
+
+            <div style={{ marginBottom: 24 }}>
+              <div
+                style={{
+                  fontSize: 18,
+                  color: "#666",
+                  marginBottom: 16,
+                }}
+              >
+                Choose how your Worksyde data is used for AI training and improvement.
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  marginBottom: 24,
+                }}
+              >
+                {aiPreference === "yes" ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M13.5 4.5L6 12L2.5 8.5"
+                      stroke="#007476"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : aiPreference === "no" ? (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M12 4L4 12M4 4L12 12"
+                      stroke="#dc2626"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                    <path
+                      d="M8 4V8L10 10"
+                      stroke="#f59e0b"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx="8" cy="8" r="6" stroke="#f59e0b" strokeWidth="2" fill="none"/>
+                  </svg>
+                )}
+                <span style={{ 
+                  fontSize: 18, 
+                  color: aiPreference === "yes" 
+                    ? "#222" 
+                    : aiPreference === "no" 
+                    ? "#dc2626" 
+                    : "#f59e0b" 
+                }}>
+                  {aiPreference === "yes" 
+                    ? "Your data is being used to train our AI." 
+                    : aiPreference === "no" 
+                    ? "Your data is not being used to train our AI."
+                    : "Your data usage depends on the context."}
+                </span>
+              </div>
+
+              <button
+                onClick={() => setShowAiPreferenceModal(true)}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #007476",
+                  borderRadius: 8,
+                  padding: "12px 24px",
+                  color: "#007476",
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = "#007476";
+                  e.target.style.color = "#fff";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = "#fff";
+                  e.target.style.color = "#007476";
+                }}
+              >
+                Change Preference
+              </button>
+            </div>
+          </div>
+
+
         </div>
       </main>
+
+      {/* AI Preference Modal */}
+      {showAiPreferenceModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100vw",
+            height: "100vh",
+            background: "rgba(0,0,0,0.55)",
+            backdropFilter: "blur(6px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 0,
+            margin: 0,
+          }}
+          onClick={() => setShowAiPreferenceModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
+            style={{
+              background: "#fff",
+              borderRadius: 16,
+              maxWidth: 800,
+              width: "100%",
+              boxShadow: "0 20px 48px 0 rgba(0,0,0,0.18)",
+              border: "1px solid #e6e6e6",
+              overflow: "hidden",
+              position: "relative",
+              display: "flex",
+              flexDirection: "row",
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Modal Content */}
+            <div style={{ display: "flex", minHeight: "500px" }}>
+              {/* Left Panel - Graphic */}
+              <div
+                style={{
+                  flex: "0 0 45%",
+                  background: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  padding: "60px 40px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "200px",
+                    height: "200px",
+                    position: "relative",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {/* Spirograph-like pattern */}
+                  <svg width="200" height="200" viewBox="0 0 200 200">
+                    <circle cx="100" cy="100" r="90" fill="none" stroke="#e0e0e0" strokeWidth="2"/>
+                    <circle cx="100" cy="100" r="70" fill="none" stroke="#d0d0d0" strokeWidth="2"/>
+                    <circle cx="100" cy="100" r="50" fill="none" stroke="#c0c0c0" strokeWidth="2"/>
+                    <circle cx="100" cy="100" r="30" fill="none" stroke="#b0b0b0" strokeWidth="2"/>
+                    <circle cx="100" cy="100" r="10" fill="#a0a0a0"/>
+                    
+                    {/* Additional decorative circles */}
+                    <circle cx="60" cy="60" r="15" fill="none" stroke="#e0e0e0" strokeWidth="1"/>
+                    <circle cx="140" cy="60" r="12" fill="none" stroke="#d0d0d0" strokeWidth="1"/>
+                    <circle cx="140" cy="140" r="18" fill="none" stroke="#c0c0c0" strokeWidth="1"/>
+                    <circle cx="60" cy="140" r="10" fill="none" stroke="#b0b0b0" strokeWidth="1"/>
+                  </svg>
+                </div>
+              </div>
+
+              {/* Right Panel - Content */}
+              <div
+                style={{
+                  flex: "0 0 55%",
+                  padding: "40px 50px",
+                  display: "flex",
+                  flexDirection: "column",
+                  justifyContent: "space-between",
+                  position: "relative",
+                }}
+              >
+                {/* Close Button */}
+                <motion.button
+                  onClick={() => setShowAiPreferenceModal(false)}
+                  style={{
+                    position: "absolute",
+                    top: 18,
+                    right: 18,
+                    background: "none",
+                    border: "none",
+                    fontSize: 28,
+                    color: "#888",
+                    cursor: "pointer",
+                    padding: 4,
+                    borderRadius: 6,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    transition: "background 0.2s, color 0.2s",
+                  }}
+                  whileHover={{
+                    background: "#f2f2f2",
+                    color: "#222",
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  ×
+                </motion.button>
+
+                <div>
+                  {/* Heading */}
+                  <h3
+                    style={{
+                      margin: "0 0 34px 0",
+                      fontSize: "24px",
+                      fontWeight: "600",
+                      color: "#1a1a1a",
+                      lineHeight: "1.3",
+                    }}
+                  >
+                    Update your AI preferences
+                  </h3>
+
+                  {/* Body Text */}
+                  <p
+                    style={{
+                      fontSize: "18px",
+                      color: "#121212",
+                      lineHeight: "1.6",
+                      marginBottom: "26px",
+                    }}
+                  >
+                    Allow your Worksyde data to be used for AI training and improvement. 
+                    Third parties won't be able to use this data to train their own models.
+                  </p>
+                  <p
+                    style={{
+                      fontSize: "18px",
+                      color: "#121212",
+                      lineHeight: "1.6",
+                    }}
+                  >
+                    You can change this any time.{" "}
+                    <a
+                      href="#"
+                      style={{
+                        color: "#007476",
+                        textDecoration: "underline",
+                        fontWeight: "500",
+                      }}
+                    >
+                      Learn more
+                    </a>
+                  </p>
+                </div>
+
+                {/* Action Buttons */}
+                <div
+                  style={{
+                    display: "flex",
+                    gap: "16px",
+                    justifyContent: "flex-end",
+                    marginTop: "40px",
+                  }}
+                >
+                  <button
+                    onClick={() => handleAiPreferenceChange("no")}
+                    style={{
+                      background: "transparent",
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "12px 24px",
+                      color: "#007476",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = "transparent";
+                    }}
+                  >
+                    Don't allow
+                  </button>
+                  <button
+                    onClick={() => handleAiPreferenceChange("yes")}
+                    style={{
+                      background: "#007476",
+                      border: "none",
+                      borderRadius: "8px",
+                      padding: "12px 24px",
+                      color: "#fff",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = "#005a58";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = "#007476";
+                    }}
+                  >
+                    Allow
+                  </button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Auto-save Status */}
+      {saveMessage && (
+        <div style={{ 
+          position: "fixed", 
+          bottom: 20, 
+          right: 20, 
+          zIndex: 1000 
+        }}>
+          <div style={{
+            background: saveMessage.includes("automatically") ? "#fff" : "#fff",
+            border: saveMessage.includes("automatically") ? "1px solid #007476" : "1px solid #007476",
+            color: saveMessage.includes("automatically") ? "#007476" : "#007476",
+            padding: "12px 16px",
+            borderRadius: "8px",
+            fontSize: "16px",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+          }}>
+            {saving && (
+              <div style={{
+                width: "16px",
+                height: "16px",
+                border: "2px solid currentColor",
+                borderTop: "2px solid transparent",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }} />
+            )}
+            {saveMessage}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

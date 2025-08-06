@@ -94,7 +94,7 @@ const ClientPasswordAndSecurityPage = () => {
   const handleSidebarNavigate = (key) => {
     switch (key) {
       case "billing":
-        navigate("/ws/client-info/billing");
+        navigate("/ws/client-info/deposit-method");
         break;
       case "my-info":
         navigate("/ws/client-info/my-info");

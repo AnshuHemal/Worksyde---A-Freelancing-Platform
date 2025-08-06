@@ -258,7 +258,7 @@ const App = () => {
           <Route path="dashboard" element={<ClientOverviewPage />} />
           <Route path="messages" element={<ClientMessagesPage />} />
           <Route path="info" element={<ClientInfoPage />} />
-          <Route path="billing" element={<ClientBillingPage />} />
+          <Route path="deposit-method" element={<ClientBillingPage />} />
           <Route path="security" element={<ClientSecurityPage />} />
           <Route path="notifications" element={<ClientNotificationsPage />} />
         </Route>

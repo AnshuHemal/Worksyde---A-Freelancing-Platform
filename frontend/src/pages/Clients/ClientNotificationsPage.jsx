@@ -14,7 +14,7 @@ const ClientNotificationsPage = () => {
   const handleSidebarNavigate = (key) => {
     switch (key) {
       case "billing":
-        navigate("/ws/client/billing");
+        navigate("/ws/client/deposit-method");
         break;
       case "info":
         navigate("/ws/client/info");

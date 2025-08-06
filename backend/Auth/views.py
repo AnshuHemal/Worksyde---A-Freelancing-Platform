@@ -1373,11 +1373,6 @@ def add_photo_location(request):
     try:
         user_id = request.data.get("userId")
         dob = request.data.get("dob")
-        street = request.data.get("streetAddress") or request.data.get("street")
-        city = request.data.get("city")
-        state = request.data.get("state")
-        postal_code = request.data.get("postalCode")
-        country = request.data.get("country")
         phone = request.data.get("phone")
         photo = request.data.get("photo")
 
@@ -1391,16 +1386,6 @@ def add_photo_location(request):
         # Only update fields that are provided
         if dob is not None:
             req_obj.dob = dob
-        if street is not None:
-            req_obj.streetAddress = street
-        if city is not None:
-            req_obj.city = city
-        if state is not None:
-            req_obj.state = state
-        if postal_code is not None:
-            req_obj.postalCode = postal_code
-        if country is not None:
-            req_obj.country = country
         if phone is not None:
             req_obj.phone = phone
         if photo is not None:
@@ -1409,11 +1394,11 @@ def add_photo_location(request):
         req_obj.save()
 
         return Response(
-            {"message": "Location and photo updated successfully"}, status=200
+            {"message": "Phone and photo updated successfully"}, status=200
         )
 
     except Exception as e:
-        print("Error saving photo/location:", e)
+        print("Error saving phone/photo:", e)
         return Response({"message": "Server error", "error": str(e)}, status=500)
 
 
@@ -1532,11 +1517,6 @@ def get_profile_details(request, user_id):
             "bio": user_profile.bio,
             "dob": user_profile.dob,
             "phone": user_profile.phone,
-            "city": user_profile.city,
-            "state": user_profile.state,
-            "country": user_profile.country,
-            "postalCode": user_profile.postalCode,
-            "streetAddress": user_profile.streetAddress,
             "photograph": user_profile.photograph,
             "videoIntro": user_profile.videoIntro,
             "hourlyRate": float(user_profile.hourlyRate or 0),
@@ -2427,11 +2407,6 @@ def get_client_profile(request, user_id):
             "name": user.name,
             "email": user.email,
             "phone": user_profile.phone if user_profile else user.phone,
-            "streetAddress": user_profile.streetAddress if user_profile else None,
-            "city": user_profile.city if user_profile else None,
-            "state": user_profile.state if user_profile else None,
-            "country": user_profile.country if user_profile else None,
-            "postalCode": user_profile.postalCode if user_profile else None,
             "companyName": user_profile.companyName if user_profile else None,
             "website": user_profile.website if user_profile else None,
             "industry": user_profile.industry if user_profile else None,
@@ -2466,11 +2441,6 @@ def get_client_profile_details(request, user_id):
             "name": user.name,
             "email": user.email,
             "phone": user_profile.phone if user_profile else user.phone,
-            "streetAddress": user_profile.streetAddress if user_profile else None,
-            "city": user_profile.city if user_profile else None,
-            "state": user_profile.state if user_profile else None,
-            "country": user_profile.country if user_profile else None,
-            "postalCode": user_profile.postalCode if user_profile else None,
             "companyName": company_profile.companyName if company_profile else None,
             "website": company_profile.website if company_profile else None,
             "industry": company_profile.industry if company_profile else None,
@@ -3537,3 +3507,69 @@ def get_company_details(request, user_id):
     except Exception as e:
         print("Error in get_company_details:", e)
         return Response({"message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@verify_token
+def get_client_profile_settings(request):
+    """
+    Get profile settings for the authenticated client user
+    """
+    try:
+        user = request.user
+        
+        return Response(
+            {
+                "success": True,
+                "profile_settings": {
+                    "aiPreference": user.aiPreference or "depends"
+                }
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {
+                "success": False,
+                "message": f"An error occurred while fetching profile settings: {str(e)}"
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["PUT"])
+@verify_token
+def update_client_profile_settings(request):
+    """
+    Update profile settings for the authenticated client user
+    """
+    try:
+        user = request.user
+        data = request.data
+        
+        # Update fields if provided
+        if "aiPreference" in data:
+            user.aiPreference = data["aiPreference"]
+        
+        user.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "Profile settings updated successfully.",
+                "profile_settings": {
+                    "aiPreference": user.aiPreference
+                }
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {
+                "success": False,
+                "message": f"An error occurred while updating profile settings: {str(e)}"
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

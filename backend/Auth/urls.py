@@ -86,6 +86,10 @@ urlpatterns = [
     path('profile-settings/', views.get_profile_settings, name='get_profile_settings'),
     path('update-profile-settings/', views.update_profile_settings, name='update_profile_settings'),
     
+    # Client Profile Settings
+    path('client-profile-settings/', views.get_client_profile_settings, name='get_client_profile_settings'),
+    path('update-client-profile-settings/', views.update_client_profile_settings, name='update_client_profile_settings'),
+    
     # Payment Card 
     path('payment-cards/', views.get_payment_cards, name='get_payment_cards'),
     path('payment-cards/add/', views.add_payment_card, name='add_payment_card'),

@@ -29,6 +29,7 @@ class User(Document):
     freelanceSurveyAnswers = MapField(field=StringField(), default={})
     onlineStatus = StringField(choices=["online", "offline"], default="offline")
     lastSeen = DateTimeField(default=timezone.now)
+    aiPreference = StringField(choices=["yes", "no", "depends"], default="depends")
 
     meta = {"collection": "users", "strict": False}
 
