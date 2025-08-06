@@ -13,10 +13,13 @@ import {
   BsCheckCircle,
   BsShield,
   BsFileText,
+  BsPeople,
+  BsChat,
 } from "react-icons/bs";
 import axios from "axios";
 import toast from "react-hot-toast";
 import ProposalDetailsModal from "./ProposalDetailsModal";
+import { motion } from "framer-motion";
 
 const API_URL = "http://localhost:5000/api/auth";
 
@@ -60,6 +63,7 @@ const ClientOverviewPage = () => {
   const [loadingVerification, setLoadingVerification] = useState(true);
   
   const navigate = useNavigate();
+  const [publishingJobId, setPublishingJobId] = useState(null);
 
   // Function to get greeting based on time
   const getGreeting = () => {
@@ -83,7 +87,8 @@ const ClientOverviewPage = () => {
       if (userResponse.data.success && userResponse.data.user) {
         setVerificationStatus(prev => ({
           ...prev,
-          emailVerified: userResponse.data.user.isverified || false
+          emailVerified: userResponse.data.user.isverified || false,
+          phoneVerified: userResponse.data.user.phoneVerified === true
         }));
       }
 
@@ -1011,27 +1016,158 @@ const ClientOverviewPage = () => {
         </div>
 
         <div className="overview-grid">
-          {/* Job Post Status Card */}
-          <div className="overview-card">
-            <div className="job-card-header">
-              <div className="job-card-title">
-                <BsFileText className="job-card-icon" />
-                Freelancing Website Development Project
-              </div>
-              <BsThreeDots 
-                className="job-card-menu" 
-                onClick={handleThreeDotsClick}
-              />
+          {/* Job Posts Grid */}
+          {loadingJobs ? (
+            <div className="overview-card" style={{ gridColumn: '1 / -1', textAlign: 'center' }}>
+              Loading job posts...
             </div>
-            <div className="job-status-badge">Pending job post</div>
-            <div className="job-status-message">
-              Your job post is not live yet.<br />
-              You need to verify your email and phone number first.
+          ) : jobs.length === 0 ? (
+            <div className="overview-card" style={{ gridColumn: '1 / -1', textAlign: 'center' }}>
+              No job posts yet. <Link to="/client/post-job">Post your first job</Link>!
             </div>
-            <button className="job-action-btn">
-              Verify and publish your job
-            </button>
-          </div>
+          ) : (
+            jobs.map((job) => {
+              const isVerified = job.status === 'verified';
+              const allVerificationsDone = verificationStatus.emailVerified && verificationStatus.phoneVerified;
+              const handleJobButtonClick = async (e) => {
+                e.stopPropagation();
+                if (isVerified) {
+                  handleJobClick(job);
+                } else if (!allVerificationsDone) {
+                  // Check which verification is missing
+                  if (!verificationStatus.phoneVerified) {
+                    setShowPhoneModal(true);
+                  } else if (!verificationStatus.emailVerified) {
+                    toast.error('Please verify your email to publish your job post.');
+                    // Optionally scroll to steps section
+                    const stepsSection = document.querySelector('.steps-row');
+                    if (stepsSection) stepsSection.scrollIntoView({ behavior: 'smooth' });
+                  } else {
+                    toast.error('Please complete all required verifications.');
+                  }
+                } else {
+                  // All verifications done but job is not published
+                  setPublishingJobId(job.id);
+                  try {
+                    const res = await axios.post(
+                      `${API_URL}/jobpost/publish/${job.id}/`,
+                      {},
+                      { withCredentials: true }
+                    );
+                    if (res.data.success) {
+                      toast.success('Job post published successfully!');
+                      setJobs((prevJobs) =>
+                        prevJobs.map((j) =>
+                          j.id === job.id ? { ...j, status: 'verified' } : j
+                        )
+                      );
+                    } else {
+                      toast.error(res.data.message || 'Failed to publish job post.');
+                    }
+                  } catch (err) {
+                    toast.error('Failed to publish job post.');
+                  } finally {
+                    setPublishingJobId(null);
+                  }
+                }
+              };
+              return (
+                <div
+                  key={job.id}
+                  className="overview-card"
+                  style={{ cursor: 'pointer', minHeight: 320 }}
+                  onClick={() => navigate(`/ws/applicants/${job.id}`)}
+                >
+                  {isVerified ? (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                          <div style={{ width: 40, height: 40, borderRadius: '50%', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <BsFileText style={{ color: '#bdbdbd', fontSize: 22 }} />
+                          </div>
+                          <div style={{ fontWeight: 600, fontSize: 20, color: '#222' }}>{job.title || 'Untitled Job'}</div>
+                        </div>
+                        <BsThreeDots className="job-card-menu" style={{ fontSize: 22, color: '#888', cursor: 'pointer' }} onClick={handleThreeDotsClick} />
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+                        <span style={{ background: '#f1f8ff', color: '#007476', fontWeight: 600, fontSize: 17, borderRadius: 12, padding: '4px 14px', display: 'inline-block' }}>Open job post</span>
+                        <span style={{ color: '#888', fontSize: 16 }}>
+                          Created {job.createdAt ? timeAgo(job.createdAt) : ''}
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', margin: '10px 0 10px 0', fontSize: 15, color: '#222', fontWeight: 500 }}>
+                        <div style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ color: '#121212', fontSize: 16, marginBottom: 2 }}>Invited</div>
+                          <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}><BsEnvelope style={{ fontSize: 17 }} /> 0/30</div>
+                        </div>
+                        <div style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ color: '#121212', fontSize: 16, marginBottom: 2 }}>Proposals</div>
+                          <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}><BsPeople style={{ fontSize: 17 }} /> 0</div>
+                        </div>
+                        <div style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ color: '#121212', fontSize: 16, marginBottom: 2 }}>Messaged</div>
+                          <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}><BsChat style={{ fontSize: 17 }} /> 0</div>
+                        </div>
+                        <div style={{ textAlign: 'center', flex: 1 }}>
+                          <div style={{ color: '#121212', fontSize: 16, marginBottom: 2 }}>Hired</div>
+                          <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}><BsCheckCircle style={{ fontSize: 17 }} /> 0/1</div>
+                        </div>
+                      </div>
+                      <button
+                        className="job-action-btn"
+                        style={{
+                          marginTop: 18,
+                          background: 'linear-gradient(135deg, #007674 0%, #005a58 100%)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: 15,
+                          fontWeight: 600,
+                          fontSize: 17,
+                          boxShadow: '0 6px 20px rgba(0, 118, 116, 0.3)',
+                          width: '100%',
+                          padding: '12px 0',
+                          transition: 'all 0.3s ease',
+                          cursor: 'pointer',
+                        }}
+                        onMouseOver={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #121212 0%, #0a0a0a 100%)'; }}
+                        onMouseOut={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #007674 0%, #005a58 100%)'; }}
+                        onClick={e => { e.stopPropagation(); navigate(`/ws/applicants/${job.id}`); }}
+                      >
+                        Find talent
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div className="job-card-header">
+                        <div className="job-card-title">
+                          <BsFileText className="job-card-icon" />
+                          {job.title || 'Untitled Job'}
+                        </div>
+                        <span className="job-status-badge">
+                          {job.status === 'draft' ? 'Draft' : job.status === 'verified' ? 'Live' : job.status}
+                        </span>
+                      </div>
+                      <div className="job-status-message" style={{ minHeight: 40 }}>
+                        {job.description ? job.description.slice(0, 100) + (job.description.length > 100 ? '...' : '') : 'No description.'}
+                      </div>
+                      <button
+                        className="job-action-btn"
+                        style={{ marginTop: 16 }}
+                        onClick={handleJobButtonClick}
+                        disabled={(!isVerified && allVerificationsDone) ? publishingJobId === job.id : !isVerified && allVerificationsDone}
+                      >
+                        {isVerified
+                          ? 'View Proposals'
+                          : !allVerificationsDone
+                            ? 'Verify and Publish your job post'
+                            : (publishingJobId === job.id ? 'Publishing...' : 'Publish your job post')}
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })
+          )}
 
           {/* Post Job Card */}
           <div className="overview-card">
@@ -1104,22 +1240,56 @@ const ClientOverviewPage = () => {
 
                    {/* Phone Verification Modal */}
           {showPhoneModal && (
-            <div className="phone-modal-overlay" onClick={handleClosePhoneModal}>
-              <div className="phone-modal" onClick={(e) => e.stopPropagation()}>
-                <button className="phone-modal-close" onClick={handleClosePhoneModal}>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                width: "100vw",
+                height: "100vh",
+                background: "rgba(0,0,0,0.55)",
+                backdropFilter: "blur(6px)",
+                zIndex: 9999,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                margin: 0,
+              }}
+              onClick={handleClosePhoneModal}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                transition={{ duration: 0.3, type: "spring", damping: 25 }}
+                style={{
+                  background: "#fff",
+                  borderRadius: 16,
+                  width: "600px",
+                  boxShadow: "0 20px 48px 0 rgba(0,0,0,0.18)",
+                  border: "1px solid #e6e6e6",
+                  overflow: "hidden",
+                  position: "relative",
+                  display: "flex",
+                  flexDirection: "column",
+                  padding: 40,
+                }}
+                onClick={e => e.stopPropagation()}
+              >
+                <button className="phone-modal-close" onClick={handleClosePhoneModal} style={{ position: 'absolute', top: 16, right: 16, background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#6b7280', width: 32, height: 32, borderRadius: 4, transition: 'background-color 0.2s ease', zIndex: 2 }}>
                   ×
                 </button>
-                
-                <div className="phone-modal-title">Please verify your phone number</div>
-                <div className="phone-modal-subtitle">
+                <div className="phone-modal-title" style={{ fontSize: '1.5rem', fontWeight: 600, color: '#000', marginBottom: 8, textAlign: 'center' }}>Please verify your phone number</div>
+                <div className="phone-modal-subtitle" style={{ fontSize: '1rem', color: '#6b7280', textAlign: 'center', marginBottom: 24, lineHeight: 1.5 }}>
                   We'll text you a code to verify your number.
                 </div>
-                
-                <div className="phone-input-container">
-                  <div className="phone-input-group">
-                    <div className="country-selector">
-                      🇮🇳 +91
-                    </div>
+                <div className="phone-input-container" style={{ marginBottom: 16 }}>
+                  <div className="phone-input-group" style={{ display: 'flex', border: '1px solid #d1d5db', borderRadius: 8, overflow: 'hidden', background: '#fff' }}>
+                    <div className="country-selector" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '12px 16px', background: '#f9fafb', borderRight: '1px solid #d1d5db', minWidth: 100, fontSize: '1.05rem', fontWeight: 500, color: '#121212' }}>🇮🇳 +91</div>
                     <input
                       type="tel"
                       className="phone-input"
@@ -1134,26 +1304,26 @@ const ClientOverviewPage = () => {
                         }
                       }}
                       maxLength="10"
+                      style={{ flex: 1, border: 'none', padding: '12px 16px', fontSize: '1rem', outline: 'none', background: '#fff' }}
                     />
                   </div>
                 </div>
-                
-                <div className="phone-modal-disclaimer">
+                <div className="phone-modal-disclaimer" style={{ fontSize: '1rem', color: '#121212', textAlign: 'center', lineHeight: 1.6, marginTop: 20, marginBottom: 24 }}>
                   Messaging rates may apply.<br />
                   We'll use this number for verification purposes only — we won't share it or use it for marketing.
                 </div>
-                
-                <div className="text-center">
+                <div className="text-center" style={{ textAlign: 'center' }}>
                   <button
                     className="send-code-btn"
                     onClick={handleSendCode}
                     disabled={loadingPhoneVerification || !validatePhoneNumber(phoneNumber)}
+                    style={{ background: 'linear-gradient(135deg, #007674 0%, #005a58 100%)', color: '#fff', border: 'none', borderRadius: 15, textAlign: 'center', padding: '12px 24px', fontSize: '1rem', fontWeight: 600, transition: 'all 0.3s ease', width: '40%', cursor: loadingPhoneVerification || !validatePhoneNumber(phoneNumber) ? 'not-allowed' : 'pointer', boxShadow: '0 6px 20px rgba(0, 118, 116, 0.3)' }}
                   >
                     {loadingPhoneVerification ? "Sending..." : "Send code"}
                   </button>
                 </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           )}
 
           {/* OTP Verification Modal */}
@@ -1218,3 +1388,15 @@ const ClientOverviewPage = () => {
 };
 
 export default ClientOverviewPage;
+
+function timeAgo(dateString) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diff = Math.floor((now - date) / 60000); // minutes
+  if (diff < 1) return 'just now';
+  if (diff < 60) return `${diff} minute${diff > 1 ? 's' : ''} ago`;
+  const hours = Math.floor(diff / 60);
+  if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days > 1 ? 's' : ''} ago`;
+}

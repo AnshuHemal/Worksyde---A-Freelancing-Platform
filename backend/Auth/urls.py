@@ -106,4 +106,5 @@ urlpatterns = [
     path('paypal/payment/initiate/', views.initiate_paypal_payment, name='initiate_paypal_payment'),
     path('paypal/payment/complete/', views.complete_paypal_payment, name='complete_paypal_payment'),
     
+    path('jobpost/publish/<str:job_id>/', views.publish_job_post, name='publish_job_post'),
 ]

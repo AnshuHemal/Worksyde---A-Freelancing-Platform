@@ -22,7 +22,8 @@ class User(Document):
     email = EmailField(required=True, unique=True)
     password = StringField(required=True)
     name = StringField(required=True)
-    phone = StringField()  # Phone number field
+    phone = StringField() 
+    phoneVerified = BooleanField(default=False)
     isverified = BooleanField(default=False)
     lastLogin = DateTimeField(default=timezone.now)
     role = StringField(required=True)

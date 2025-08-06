@@ -182,6 +182,7 @@ def login(request):
                 "name": user.name,
                 "role": user.role,
                 "isverified": user.isverified,
+                "phoneVerified": getattr(user, 'phoneVerified', False),
                 "lastLogin": user.lastLogin,
                 "onlineStatus": user.onlineStatus,
                 "lastSeen": user.lastSeen,
@@ -240,6 +241,7 @@ def current_user(request):
             "phone": user.phone,
             "role": user.role,
             "isverified": user.isverified,
+            "phoneVerified": getattr(user, 'phoneVerified', False),
             "lastLogin": user.lastLogin,
             "photograph": photograph,
             "onlineStatus": user.onlineStatus,
@@ -652,6 +654,7 @@ def verify_phone(request):
         
         # Update user's phone number
         user.phone = phone_number
+        user.phoneVerified = True
         user.save()
         
         # Delete the used OTP
@@ -3573,3 +3576,20 @@ def update_client_profile_settings(request):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+@api_view(["POST"])
+@verify_token
+def publish_job_post(request, job_id):
+    try:
+        job_post = JobPosts.objects(id=job_id).first()
+        if not job_post:
+            return Response({"success": False, "message": "Job post not found."}, status=404)
+        # Only the owner can publish
+        if str(job_post.userId.id) != str(request.user.id):
+            return Response({"success": False, "message": "Unauthorized."}, status=403)
+        job_post.status = "verified"
+        job_post.save()
+        return Response({"success": True, "message": "Job post published successfully."}, status=200)
+    except Exception as e:
+        return Response({"success": False, "message": str(e)}, status=500)
