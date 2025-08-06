@@ -11,15 +11,15 @@ import Modal from "react-modal";
 import { LiaFileDownloadSolid } from "react-icons/lia";
 import { FiSmile } from "react-icons/fi";
 import {
-  AiFillFilePdf,
-  AiFillFileWord,
-  AiFillFileExcel,
-  AiFillFileUnknown,
-} from "react-icons/ai";
+  FaRegFilePdf,
+  FaRegFileWord,
+  FaRegFileExcel,
+  FaRegFileAlt,
+} from "react-icons/fa";
 import { FiLink } from "react-icons/fi";
 import UserStatusIndicator from "../../components/UserStatusIndicator";
 
-axios.defaults.baseURL = "http://localhost:5000";
+axios.defaults.baseURL = "http://localhost:5173";
 
 // Filter out number emojis (0-9) from emoji-mart data
 const filteredData = {
@@ -81,14 +81,14 @@ const mockFiles = [
 
 const FileIcon = ({ type }) => {
   const ext = (type || "").toLowerCase();
-  if (ext === "link") return <FiLink size={20} color="#007674" />;
-  if (ext === "pdf") return <AiFillFilePdf size={20} color="#E53935" />;
+  if (ext === "link") return <FiLink size={20} color="#fff" />;
+  if (ext === "pdf") return <FaRegFilePdf size={20} color="#fff" />;
   if (ext === "doc" || ext === "docx")
-    return <AiFillFileWord size={20} color="#1976D2" />;
+    return <FaRegFileWord size={20} color="#fff" />;
   if (ext === "xls" || ext === "xlsx")
-    return <AiFillFileExcel size={20} color="#43A047" />;
-  if (ext === "csv") return <AiFillFileExcel size={20} color="#43A047" />;
-  return <AiFillFileUnknown size={20} color="#007674" />;
+    return <FaRegFileExcel size={20} color="#fff" />;
+  if (ext === "csv") return <FaRegFileExcel size={20} color="#fff" />;
+  return <FaRegFileAlt size={20} color="#fff" />;
 };
 
 const TABS = ["All", "Files", "Links"];
@@ -165,6 +165,7 @@ const FreelancerMessagesPage = () => {
   const messageRefs = useRef({});
   const [filesSearch, setFilesSearch] = useState("");
   const [userOnlineStatus, setUserOnlineStatus] = useState({});
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
     axios
@@ -810,9 +811,11 @@ const FreelancerMessagesPage = () => {
     setUploading(true);
     setUploadProgress(0);
     try {
-      // Mock upload: replace with your real API
+      console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type);
+      
       const formData = new FormData();
       formData.append("file", file);
+      
       // Use axios for progress
       const res = await axios.post("/api/chats/upload/", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -823,8 +826,24 @@ const FreelancerMessagesPage = () => {
           setUploadProgress(percent);
         },
       });
+      
+      console.log("Upload response:", res.data);
+      
       // Assume response: { url, type: 'image'|'file', name }
       const { url, type, name } = res.data;
+      
+      // Test if the uploaded file is accessible
+      try {
+        const testResponse = await fetch(url, { method: 'HEAD' });
+        if (!testResponse.ok) {
+          console.warn("Uploaded file may not be accessible:", url);
+        } else {
+          console.log("Uploaded file is accessible:", url);
+        }
+      } catch (testErr) {
+        console.warn("Could not verify uploaded file accessibility:", testErr);
+      }
+      
       // Send message with attachment
       await axios.post("/api/chats/", {
         sender: currentUserId,
@@ -832,9 +851,11 @@ const FreelancerMessagesPage = () => {
         message: "", // No text, just attachment
         attachment: { url, type, name },
       });
+      
       setUploading(false);
       setUploadProgress(0);
       setSelectedFiles([]);
+      
       // Optionally, trigger a refresh
       if (wsRef.current && wsRef.current.readyState === 1) {
         wsRef.current.send(
@@ -847,6 +868,7 @@ const FreelancerMessagesPage = () => {
         );
       }
     } catch (err) {
+      console.error("Upload error:", err);
       setUploading(false);
       setUploadProgress(0);
       alert("Failed to upload file: " + err.message);
@@ -1044,7 +1066,7 @@ const FreelancerMessagesPage = () => {
           width: "100vw",
           maxWidth: "100vw",
           fontFamily: "Urbanist, sans-serif",
-          background: "#f6f8fa",
+          background: "#f7f2fa",
           display: "flex",
           flexDirection: "row",
         }}
@@ -1054,15 +1076,15 @@ const FreelancerMessagesPage = () => {
           style={{
             width: 340,
             background: "#fff",
-            borderRight: "1.5px solid #e3e3e3",
+            borderRight: "1.5px solid #e9ecef",
             display: "flex",
             flexDirection: "column",
             height: "100vh",
             minHeight: 0,
             boxSizing: "border-box",
-            borderTopLeftRadius: 24,
-            borderBottomLeftRadius: 24,
-            boxShadow: "2px 0 12px rgba(0,118,116,0.04)",
+            borderTopLeftRadius: 16,
+            borderBottomLeftRadius: 16,
+            boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
           }}
         >
           {/* Header */}
@@ -1071,10 +1093,10 @@ const FreelancerMessagesPage = () => {
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "24px 22px 12px 22px",
+              padding: "24px 24px 12px 24px",
             }}
           >
-            <div style={{ fontWeight: 700, fontSize: 22, color: "#007674" }}>
+            <div style={{ fontWeight: 700, fontSize: 22, color: "#007476" }}>
               Messages
             </div>
             <button
@@ -1082,7 +1104,7 @@ const FreelancerMessagesPage = () => {
                 background: "none",
                 border: "none",
                 fontSize: 22,
-                color: "#007674",
+                color: "#007476",
                 cursor: "pointer",
               }}
               onClick={() => {
@@ -1093,7 +1115,7 @@ const FreelancerMessagesPage = () => {
             </button>
           </div>
           {/* Search */}
-          <div style={{ padding: "0 22px 18px 22px" }}>
+          <div style={{ padding: "0 24px 18px 24px" }}>
             <input
               type="text"
               placeholder="Search"
@@ -1101,14 +1123,15 @@ const FreelancerMessagesPage = () => {
               onChange={(e) => setSearch(e.target.value)}
               style={{
                 width: "100%",
-                padding: "10px 36px 10px 14px",
-                borderRadius: 14,
-                border: "1.5px solid #e3e3e3",
+                padding: "12px 16px",
+                borderRadius: 12,
+                border: "2px solid #e9ecef",
                 fontSize: 16,
-                background: "#f6f8fa",
+                background: "#f8f9fa",
                 outline: "none",
-                color: "#007674",
+                color: "#495057",
                 fontWeight: 500,
+                transition: "all 0.3s ease",
               }}
             />
           </div>
@@ -1163,32 +1186,36 @@ const FreelancerMessagesPage = () => {
                     style={{
                       display: "flex",
                       alignItems: "center",
-                      gap: 16,
-                      padding: "18px 20px",
+                      gap: 12,
+                      padding: "12px 16px",
                       background:
                         selectedChat && selectedChat.room_id === chat.room_id
-                          ? "linear-gradient(90deg, #007674 0%, #005a58 100%)"
-                          : "#fff",
-                      borderBottom: "1.5px solid #f2f2f2",
-                      cursor: "pointer",
-                      borderLeft:
+                          ? "#f8f9ff"
+                          : "transparent",
+                      borderRadius: "12px",
+                      border:
                         selectedChat && selectedChat.room_id === chat.room_id
-                          ? "5px solid #007674"
-                          : "5px solid transparent",
-                      borderRadius:
+                          ? "2px solid #e9ecef"
+                          : "2px solid transparent",
+                      fontWeight:
                         selectedChat && selectedChat.room_id === chat.room_id
-                          ? "0 14px 14px 0"
-                          : 0,
+                          ? "600"
+                          : "400",
                       color:
                         selectedChat && selectedChat.room_id === chat.room_id
-                          ? "#fff"
-                          : undefined,
-                      transition: "background 0.2s, color 0.2s",
-                      boxShadow:
-                        selectedChat && selectedChat.room_id === chat.room_id
-                          ? "0 2px 12px rgba(0,118,116,0.08)"
-                          : undefined,
+                          ? "#007476"
+                          : "#495057",
+                      fontSize: "14px",
+                      cursor: "pointer",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      transition: "all 0.3s ease",
+                      marginBottom: "8px",
                       position: "relative",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
                     }}
                   >
                     <div style={{ position: "relative" }}>
@@ -1197,8 +1224,8 @@ const FreelancerMessagesPage = () => {
                           src={chat.display_avatar}
                           alt={chat.display_name || "Client"}
                           style={{
-                            width: 48,
-                            height: 48,
+                            width: 40,
+                            height: 40,
                             borderRadius: "50%",
                             objectFit: "cover",
                             marginBottom: 0,
@@ -1208,8 +1235,8 @@ const FreelancerMessagesPage = () => {
                       ) : (
                         <div
                           style={{
-                            width: 48,
-                            height: 48,
+                            width: 40,
+                            height: 40,
                             borderRadius: "50%",
                             background: getColorFromName(chat.display_name),
                             color: "#fff",
@@ -1217,10 +1244,10 @@ const FreelancerMessagesPage = () => {
                             alignItems: "center",
                             justifyContent: "center",
                             fontWeight: 700,
-                            fontSize: 20,
+                            fontSize: 16,
                             marginBottom: 0,
                             marginRight: 2,
-                            border: "2px solid #e3e3e3",
+                            border: "2px solid #e9ecef",
                           }}
                         >
                           {getInitials(chat.display_name || chat.other_user_id)}
@@ -1260,13 +1287,13 @@ const FreelancerMessagesPage = () => {
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div
                         style={{
-                          fontWeight: 700,
-                          fontSize: 16,
+                          fontWeight: 600,
+                          fontSize: 14,
                           color:
                             selectedChat &&
                             selectedChat.room_id === chat.room_id
-                              ? "#fff"
-                              : "#222",
+                              ? "#007476"
+                              : "#495057",
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -1279,9 +1306,9 @@ const FreelancerMessagesPage = () => {
                           color:
                             selectedChat &&
                             selectedChat.room_id === chat.room_id
-                              ? "#e0f7f6"
-                              : "#666",
-                          fontSize: 14,
+                              ? "#6c757d"
+                              : "#6c757d",
+                          fontSize: 12,
                           whiteSpace: "nowrap",
                           overflow: "hidden",
                           textOverflow: "ellipsis",
@@ -1294,9 +1321,9 @@ const FreelancerMessagesPage = () => {
                           color:
                             selectedChat &&
                             selectedChat.room_id === chat.room_id
-                              ? "#e0f7f6"
-                              : "#222",
-                          fontSize: 13,
+                              ? "#6c757d"
+                              : "#495057",
+                          fontSize: 12,
                           marginTop: 2,
                           whiteSpace: "nowrap",
                           overflow: "hidden",
@@ -1311,10 +1338,10 @@ const FreelancerMessagesPage = () => {
                       style={{
                         color:
                           selectedChat && selectedChat.room_id === chat.room_id
-                            ? "#fff"
-                            : "#222",
-                        fontWeight: 600,
-                        fontSize: 13,
+                            ? "#007476"
+                            : "#6c757d",
+                        fontWeight: 500,
+                        fontSize: 12,
                         marginLeft: 8,
                       }}
                     >
@@ -1337,27 +1364,28 @@ const FreelancerMessagesPage = () => {
               minWidth: 0,
               display: "flex",
               flexDirection: "column",
-              background: "#f6f8fa",
+              background: "#fff",
               height: "100vh",
               transition: "all 0.4s cubic-bezier(.4,2,.6,1)",
-              borderTopRightRadius: showFilesSidebar ? 0 : 24,
-              borderBottomRightRadius: showFilesSidebar ? 0 : 24,
+              borderTopRightRadius: showFilesSidebar ? 0 : 16,
+              borderBottomRightRadius: showFilesSidebar ? 0 : 16,
             }}
           >
             {/* Chat header */}
             {selectedChat ? (
               <div
                 style={{
-                  padding: "22px 32px 18px 32px",
-                  borderBottom: "1.5px solid #e3e3e3",
+                  padding: "24px 32px",
+                  borderBottom: "1px solid #e9ecef",
                   display: "flex",
                   alignItems: "center",
-                  gap: 18,
+                  gap: 16,
                   background: "#fff",
+                  borderRadius: "16px 16px 0 0",
                   position: "sticky",
                   top: 0,
                   zIndex: 1,
-                  borderTopRightRadius: showFilesSidebar ? 0 : 24,
+                  borderTopRightRadius: showFilesSidebar ? 0 : 16,
                 }}
               >
                 {selectedChat.display_avatar ? (
@@ -1365,18 +1393,18 @@ const FreelancerMessagesPage = () => {
                     src={selectedChat.display_avatar}
                     alt={selectedClientName || "Client"}
                     style={{
-                      width: 54,
-                      height: 54,
+                      width: 48,
+                      height: 48,
                       borderRadius: "50%",
                       objectFit: "cover",
-                      border: "2.5px solid #007674",
+                      border: "2px solid #e9ecef",
                     }}
                   />
                 ) : (
                   <div
                     style={{
-                      width: 54,
-                      height: 54,
+                      width: 48,
+                      height: 48,
                       borderRadius: "50%",
                       background: getColorFromName(selectedClientName),
                       color: "#fff",
@@ -1384,8 +1412,8 @@ const FreelancerMessagesPage = () => {
                       alignItems: "center",
                       justifyContent: "center",
                       fontWeight: 700,
-                      fontSize: 22,
-                      border: "2.5px solid #007674",
+                      fontSize: 20,
+                      border: "2px solid #e9ecef",
                     }}
                   >
                     {getInitials(
@@ -1394,20 +1422,32 @@ const FreelancerMessagesPage = () => {
                   </div>
                 )}
                 <div style={{ flex: 1 }}>
-                  <div
-                    style={{ fontWeight: 700, fontSize: 20, color: "#007674" }}
+                  <h4
+                    style={{
+                      fontWeight: "600",
+                      color: "#121212",
+                      margin: "0",
+                      fontSize: "20px",
+                    }}
                   >
                     {selectedClientName || "Client Name"}
-                  </div>
-                  <div style={{ color: "#666", fontSize: 15 }}>
+                  </h4>
+                  <p
+                    style={{
+                      color: "#4d5ff8",
+                      fontWeight: "500",
+                      margin: "0",
+                      fontSize: "14px",
+                    }}
+                  >
                     {selectedClientTitle || "Client Title"}
-                  </div>
+                  </p>
                 </div>
                 <div
                   style={{
-                    color: "#00b67a",
-                    fontWeight: 600,
-                    fontSize: 15,
+                    color: "#4d5ff8",
+                    fontWeight: "600",
+                    fontSize: "15px",
                     marginRight: 12,
                   }}
                 >
@@ -1495,12 +1535,13 @@ const FreelancerMessagesPage = () => {
             ) : (
               <div
                 style={{
-                  padding: "22px 32px 18px 32px",
-                  borderBottom: "1.5px solid #e3e3e3",
+                  padding: "24px 32px",
+                  borderBottom: "1px solid #e9ecef",
                   background: "#fff",
-                  borderTopRightRadius: showFilesSidebar ? 0 : 24,
-                  color: "#888",
-                  fontSize: 20,
+                  borderRadius: "16px 16px 0 0",
+                  borderTopRightRadius: showFilesSidebar ? 0 : 16,
+                  color: "#6c757d",
+                  fontSize: 18,
                   textAlign: "center",
                   minHeight: 94,
                   display: "flex",
@@ -1520,8 +1561,8 @@ const FreelancerMessagesPage = () => {
                 minHeight: 0,
                 overflowY: "auto",
                 overflowX: "hidden",
-                padding: "32px 36px 24px 36px",
-                background: "#f6f8fa",
+                padding: "24px 32px",
+                background: "#fff",
                 display: "flex",
                 flexDirection: "column",
               }}
@@ -1570,7 +1611,7 @@ const FreelancerMessagesPage = () => {
                             key={"date-" + item.date}
                             style={{
                               textAlign: "center",
-                              color: "#007674",
+                              color: "#007476",
                               fontWeight: 700,
                               fontSize: 15,
                               margin: "18px 0 10px 0",
@@ -1589,7 +1630,11 @@ const FreelancerMessagesPage = () => {
                           (msg.attachment?.url &&
                             msg.attachment?.type === "image") ||
                           (msg.attachment_url &&
-                            msg.attachment_type === "image");
+                            msg.attachment_type === "image") ||
+                          (msg.attachment?.url && 
+                            msg.attachment?.url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) ||
+                          (msg.attachment_url && 
+                            msg.attachment_url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i));
                         const isFile =
                           (msg.attachment && msg.attachment.type === "file") ||
                           (msg.attachment?.url &&
@@ -1600,6 +1645,17 @@ const FreelancerMessagesPage = () => {
                           msg.attachment?.url || msg.attachment_url;
                         const attachmentName =
                           msg.attachment?.name || msg.attachment_name;
+                        
+                        // Debug logging for image detection
+                        if (isImage) {
+                          console.log("Image detected:", {
+                            attachmentUrl,
+                            attachmentName,
+                            attachment: msg.attachment,
+                            attachment_url: msg.attachment_url,
+                            attachment_type: msg.attachment_type
+                          });
+                        }
                         return (
                           <div
                             key={msg._id || item.idx}
@@ -1626,55 +1682,85 @@ const FreelancerMessagesPage = () => {
                                 style={{
                                   background:
                                     msg.sender_id === currentUserId
-                                      ? "linear-gradient(135deg, #e0f7f6 0%, #b2f0d6 100%)"
-                                      : "#fff",
+                                      ? "#007476"
+                                      : "#f8f9fa",
                                   color:
                                     msg.sender_id === currentUserId
-                                      ? "#005a58"
-                                      : "#222",
-                                  borderRadius:
-                                    msg.sender_id === currentUserId
-                                      ? "18px 18px 4px 18px"
-                                      : "18px 18px 18px 4px",
-                                  padding: isImage ? 0 : "14px 18px",
-                                  fontSize: 15,
+                                      ? "#fff"
+                                      : "#495057",
+                                  borderRadius: "18px",
+                                  padding: isImage ? 0 : "16px 20px",
+                                  fontSize: 16,
                                   fontWeight: 500,
-                                  boxShadow:
-                                    msg.sender_id === currentUserId
-                                      ? "0 2px 8px rgba(0,182,122,0.07)"
-                                      : "0 2px 8px rgba(0,0,0,0.04)",
+                                  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
                                   border:
                                     msg.sender_id === currentUserId
-                                      ? "1.5px solid #b2f0d6"
-                                      : "1.5px solid #e3e3e3",
+                                      ? "none"
+                                      : "1px solid #e9ecef",
                                   marginBottom: 2,
-                                  transition:
-                                    "all 0.3s cubic-bezier(.4,2,.6,1)",
+                                  transition: "all 0.3s ease",
                                   position: "relative",
                                   overflow: isImage ? "hidden" : undefined,
+                                  wordBreak: "break-word",
+                                  display: "flex",
+                                  flexDirection: "column",
                                 }}
                               >
                                 {/* Image attachment */}
                                 {isImage && (
                                   <>
-                                    <img
-                                      src={attachmentUrl}
-                                      alt={attachmentName || "Image"}
-                                      style={{
-                                        width: 180,
-                                        height: 180,
-                                        objectFit: "cover",
-                                        borderRadius: 14,
-                                        cursor: "pointer",
-                                        display: "block",
-                                      }}
-                                      onClick={() =>
-                                        setImageModal({
-                                          open: true,
-                                          url: attachmentUrl,
-                                        })
-                                      }
-                                    />
+                                    <div style={{ position: "relative" }}>
+                                      <img
+                                        src={attachmentUrl}
+                                        alt={attachmentName || "Image"}
+                                        style={{
+                                          width: 180,
+                                          height: 180,
+                                          objectFit: "cover",
+                                          borderRadius: 14,
+                                          cursor: "pointer",
+                                          display: "block",
+                                        }}
+                                        onClick={() =>
+                                          setImageModal({
+                                            open: true,
+                                            url: attachmentUrl,
+                                          })
+                                        }
+                                        onError={(e) => {
+                                          console.error("Image failed to load:", attachmentUrl);
+                                          e.target.style.display = "none";
+                                          // Show a fallback message
+                                          const fallbackDiv = document.createElement("div");
+                                          fallbackDiv.innerHTML = `
+                                            <div style="
+                                              width: 180px; 
+                                              height: 180px; 
+                                              background: #f8f9fa; 
+                                              border: 2px dashed #dee2e6; 
+                                              border-radius: 14px; 
+                                              display: flex; 
+                                              align-items: center; 
+                                              justify-content: center; 
+                                              color: #6c757d; 
+                                              font-size: 14px;
+                                              text-align: center;
+                                              padding: 10px;
+                                            ">
+                                              <div>
+                                                <div style="font-size: 24px; margin-bottom: 8px;">📷</div>
+                                                <div>Image not available</div>
+                                                <div style="font-size: 12px; margin-top: 4px;">${attachmentName || 'Unknown file'}</div>
+                                              </div>
+                                            </div>
+                                          `;
+                                          e.target.parentNode.appendChild(fallbackDiv.firstElementChild);
+                                        }}
+                                        onLoad={() => {
+                                          console.log("Image loaded successfully:", attachmentUrl);
+                                        }}
+                                      />
+                                    </div>
                                     {msg.content && (
                                       <div style={{ padding: "10px 14px" }}>
                                         {msg.content}
@@ -1690,7 +1776,19 @@ const FreelancerMessagesPage = () => {
                                       alignItems: "center",
                                       gap: 10,
                                       padding: "10px 0 10px 0",
+                                      cursor: "pointer",
                                     }}
+                                    onClick={() => {
+                                      const link = document.createElement('a');
+                                      link.href = attachmentUrl;
+                                      link.download = attachmentName;
+                                      link.target = "_blank";
+                                      link.rel = "noopener noreferrer";
+                                      document.body.appendChild(link);
+                                      link.click();
+                                      document.body.removeChild(link);
+                                    }}
+                                    title="Click to download file"
                                   >
                                     <FileIcon
                                       type={
@@ -1704,7 +1802,7 @@ const FreelancerMessagesPage = () => {
                                         minWidth: 0,
                                         fontWeight: 600,
                                         fontSize: 15,
-                                        color: "#007674",
+                                        color: msg.sender_id === currentUserId ? "#fff" : "#007476",
                                         overflow: "hidden",
                                         textOverflow: "ellipsis",
                                         whiteSpace: "nowrap",
@@ -1712,21 +1810,6 @@ const FreelancerMessagesPage = () => {
                                     >
                                       {attachmentName}
                                     </div>
-                                    <a
-                                      href={attachmentUrl}
-                                      download={attachmentName}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      style={{
-                                        color: "#007674",
-                                        fontWeight: 700,
-                                        fontSize: 18,
-                                        textDecoration: "none",
-                                      }}
-                                      title="Download file"
-                                    >
-                                      <LiaFileDownloadSolid />
-                                    </a>
                                   </div>
                                 )}
                                 {/* Text message (if not image/file only) */}
@@ -1734,7 +1817,7 @@ const FreelancerMessagesPage = () => {
                               </div>
                               <div
                                 style={{
-                                  color: "#888",
+                                  color: "#6c757d",
                                   fontSize: 12,
                                   marginTop: 2,
                                   textAlign:
@@ -1801,12 +1884,12 @@ const FreelancerMessagesPage = () => {
             <div
               style={{
                 background: "#fff",
-                borderTop: "1.5px solid #e3e3e3",
+                borderTop: "1px solid #e9ecef",
                 padding: 0,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                borderBottomRightRadius: showFilesSidebar ? 0 : 24,
+                borderBottomRightRadius: showFilesSidebar ? 0 : 16,
                 transition: "all 0.4s cubic-bezier(.4,2,.6,1)",
                 minHeight: 80,
                 boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
@@ -1817,13 +1900,12 @@ const FreelancerMessagesPage = () => {
                   display: "flex",
                   flexDirection: "column",
                   flex: 1,
-                  maxWidth: 900,
-                  margin: "18px 0",
-                  borderRadius: 22,
-                  background: "#fff",
+                  margin: "18px 24px",
+                  borderRadius: 24,
+                  background: "#f8f9fa",
                   boxShadow: "0 2px 12px rgba(0,0,0,0.07)",
-                  border: "1.5px solid #e3e3e3",
-                  padding: "0 0 0 0",
+                  border: "2px solid #e9ecef",
+                  padding: "0 0 0 20px",
                   position: "relative",
                 }}
               >
@@ -1850,12 +1932,12 @@ const FreelancerMessagesPage = () => {
                     style={{
                       border: "none",
                       outline: "none",
-                      fontSize: 17,
+                      fontSize: 18,
                       fontWeight: 500,
-                      padding: "20px 24px 10px 24px",
-                      borderRadius: 22,
-                      background: "#fff",
-                      color: "#222",
+                      padding: "12px 0",
+                      borderRadius: 24,
+                      background: "transparent",
+                      color: "#495057",
                       width: "100%",
                     }}
                     disabled={!selectedChat}
@@ -2083,22 +2165,33 @@ const FreelancerMessagesPage = () => {
                   <div style={{ flex: 1 }} />
                   <button
                     style={{
-                      background:
-                        "linear-gradient(90deg, #007674 0%, #005a58 100%)",
+                      background: message && !isTyping ? "#007476" : "#e9ecef",
                       border: "none",
                       borderRadius: "50%",
-                      width: 38,
-                      height: 38,
+                      width: 44,
+                      height: 44,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      cursor: "pointer",
-                      boxShadow: "0 2px 8px rgba(0,118,116,0.13)",
-                      marginLeft: 2,
+                      fontSize: "18px",
+                      cursor: message && !isTyping ? "pointer" : "not-allowed",
+                      transition: "all 0.3s ease",
+                    }}
+                    disabled={!message || isTyping}
+                    onMouseEnter={(e) => {
+                      if (message && !isTyping) {
+                        e.target.style.background = "#007476";
+                        e.target.style.transform = "scale(1.05)";
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (message && !isTyping) {
+                        e.target.style.background = "#007476";
+                        e.target.style.transform = "scale(1)";
+                      }
                     }}
                     aria-label="Send"
                     onClick={handleSendMessage}
-                    disabled={!selectedChat || !message.trim()}
                   >
                     <LuSendHorizontal size={22} color="#fff" />
                   </button>
@@ -2353,6 +2446,50 @@ const FreelancerMessagesPage = () => {
           </span>
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes spin {
+          0% {
+            transform: rotate(0deg);
+          }
+          100% {
+            transform: rotate(360deg);
+          }
+        }
+
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes typing {
+          0%,
+          60%,
+          100% {
+            transform: translateY(0);
+            opacity: 0.4;
+          }
+          30% {
+            transform: translateY(-10px);
+            opacity: 1;
+          }
+        }
+
+        .row > * {
+          padding-left: 0px !important;
+          padding-right: 0px !important;
+        }
+
+        p {
+          margin-bottom: 0px !important;
+        }
+      `}</style>
     </>
   );
 };
