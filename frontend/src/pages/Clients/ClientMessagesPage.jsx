@@ -228,6 +228,10 @@ const ClientMessagesPage = () => {
     wsRef.current = ws;
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
       console.log("WebSocket message received:", data); // Debug
       // Handle new message event
       const newMsg = {

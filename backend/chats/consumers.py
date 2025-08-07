@@ -7,6 +7,7 @@ from bson import ObjectId
 from channels.layers import get_channel_layer
 from datetime import datetime
 import pytz
+from .text_validation import validate_text
 
 # Setup your MongoDB client (reuse your connection string)
 client = MongoClient(
@@ -43,6 +44,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         if not all([sender_id, receiver_id]) or (not message and not attachment):
             # Optionally handle invalid data here
             return
+
+        # Validate message text if present
+        if message is not None:
+            is_valid = validate_text(message)
+            if not is_valid:
+                # Send alert to sender only (not broadcasted)
+                await self.send(text_data=json.dumps({
+                    "error": "Chat regulations violated. Message not sent."
+                }))
+                return
 
         # Save message to MongoDB (run sync code in thread pool)
         inserted_id = await self.save_message(

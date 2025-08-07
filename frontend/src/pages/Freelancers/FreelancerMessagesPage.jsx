@@ -522,6 +522,10 @@ const FreelancerMessagesPage = () => {
     wsRef.current = ws;
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
       // Handle new message event
       const newMsg = {
         _id: data._id, // must be provided by backend!
