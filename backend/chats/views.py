@@ -12,6 +12,7 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
+from .text_validation import validate_text
 
 
 def send_system_message(client_id, freelancer_id, job_title, client_name):
@@ -21,11 +22,7 @@ def send_system_message(client_id, freelancer_id, job_title, client_name):
     # Ensure chat room exists
     room = ChatRoom.objects(id=room_id).first()
     if not room:
-        room = ChatRoom(
-            id=room_id,
-            name=room_id,
-            participants=participants
-        )
+        room = ChatRoom(id=room_id, name=room_id, participants=participants)
         room.save()
 
     # Compose message
@@ -37,7 +34,7 @@ def send_system_message(client_id, freelancer_id, job_title, client_name):
         sender_id=str(client_id),
         receiver_id=str(freelancer_id),
         content=content,
-        system="true"
+        system="true",
     ).save()
 
 
@@ -49,18 +46,22 @@ def chat_file_upload(request):
         return Response({"success": False, "message": "No file uploaded"}, status=400)
     upload_dir = os.path.join(settings.MEDIA_ROOT, "chat_uploads")
     os.makedirs(upload_dir, exist_ok=True)
-    filename = default_storage.save(f"chat_uploads/{file.name}", ContentFile(file.read()))
+    filename = default_storage.save(
+        f"chat_uploads/{file.name}", ContentFile(file.read())
+    )
     file_url = request.build_absolute_uri(settings.MEDIA_URL + filename)
     if file.content_type.startswith("image/"):
         file_type = "image"
     else:
         file_type = "file"
-    return Response({
-        "success": True,
-        "url": file_url,
-        "type": file_type,
-        "name": file.name,
-    })
+    return Response(
+        {
+            "success": True,
+            "url": file_url,
+            "type": file_type,
+            "name": file.name,
+        }
+    )
 
 
 @api_view(["POST", "GET"])
@@ -73,27 +74,42 @@ def chat_view(request):
         attachment = data.get("attachment")
         if not sender_id or not receiver_id or (not content and not attachment):
             return Response(
-                {"success": False, "message": "Missing sender, receiver, or message/attachment"},
+                {
+                    "success": False,
+                    "message": "Missing sender, receiver, or message/attachment",
+                },
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        if content:
+            is_valid = validate_text(content)
+            if not is_valid:
+                return Response(
+                    {
+                        "success": False,
+                        "message": "Chat regulations violated. Message not saved.",
+                    },
+                    status=status.HTTP_200_OK,
+                )
+        elif not attachment:
+            # no content, no attachment
+            return Response(
+                {"success": False, "message": "Empty message. Nothing to send."},
+                status=status.HTTP_200_OK,
             )
         participants = sorted([str(sender_id), str(receiver_id)])
         room_id = "_".join(participants)
         room = ChatRoom.objects(id=room_id).first()
         if not room:
-            room = ChatRoom(
-                id=room_id,
-                name=room_id,
-                participants=participants
-            )
+            room = ChatRoom(id=room_id, name=room_id, participants=participants)
             room.save()
-        ist = pytz.timezone('Asia/Kolkata')
+        ist = pytz.timezone("Asia/Kolkata")
         now_ist = datetime.now(ist)
         msg_kwargs = dict(
             room_id=room_id,
             sender_id=sender_id,
             receiver_id=receiver_id,
             content=content,
-            timestamp=now_ist
+            timestamp=now_ist,
         )
         if attachment:
             msg_kwargs.update(
@@ -135,11 +151,15 @@ def chat_view(request):
                 "content": m.content,
                 "timestamp": m.timestamp.isoformat() if m.timestamp else None,
                 "system": m.system,
-                "attachment": {
-                    "url": m.attachment_url,
-                    "type": m.attachment_type,
-                    "name": m.attachment_name,
-                } if m.attachment_url else None,
+                "attachment": (
+                    {
+                        "url": m.attachment_url,
+                        "type": m.attachment_type,
+                        "name": m.attachment_name,
+                    }
+                    if m.attachment_url
+                    else None
+                ),
             }
             for m in messages
         ]
@@ -166,25 +186,37 @@ def hire_notify(request):
 def chat_rooms_view(request):
     user_id = request.query_params.get("user_id")
     if not user_id:
-        return Response({"success": False, "message": "user_id is required"}, status=400)
+        return Response(
+            {"success": False, "message": "user_id is required"}, status=400
+        )
     rooms = ChatRoom.objects(participants=user_id)
     room_list = []
     for room in rooms:
         # Get the other participant
         others = [uid for uid in room.participants if uid != user_id]
         last_msg = Message.objects(room_id=room.name).order_by("-timestamp").first()
-        room_list.append({
-            "room_id": room.name,
-            "participants": room.participants,
-            "other_user_id": others[0] if others else None,
-            "last_message": {
-                "_id": str(last_msg.id) if last_msg else None,
-                "content": last_msg.content if last_msg else None,
-                "timestamp": last_msg.timestamp.isoformat() if last_msg and last_msg.timestamp else None,
-                "sender_id": last_msg.sender_id if last_msg else None,
-                "status": last_msg.status if last_msg else None,
-            } if last_msg else None
-        })
+        room_list.append(
+            {
+                "room_id": room.name,
+                "participants": room.participants,
+                "other_user_id": others[0] if others else None,
+                "last_message": (
+                    {
+                        "_id": str(last_msg.id) if last_msg else None,
+                        "content": last_msg.content if last_msg else None,
+                        "timestamp": (
+                            last_msg.timestamp.isoformat()
+                            if last_msg and last_msg.timestamp
+                            else None
+                        ),
+                        "sender_id": last_msg.sender_id if last_msg else None,
+                        "status": last_msg.status if last_msg else None,
+                    }
+                    if last_msg
+                    else None
+                ),
+            }
+        )
     return Response({"success": True, "rooms": room_list})
 
 
@@ -197,7 +229,11 @@ def mark_messages_read(request):
     room_id = request.data.get("room_id")
     user_id = request.data.get("user_id")
     if not room_id or not user_id:
-        return Response({"success": False, "message": "room_id and user_id required"}, status=400)
+        return Response(
+            {"success": False, "message": "room_id and user_id required"}, status=400
+        )
     # Only mark messages as read where receiver is user and status != 'read'
-    updated = Message.objects(room_id=room_id, receiver_id=user_id, status__ne="read").update(set__status="read")
+    updated = Message.objects(
+        room_id=room_id, receiver_id=user_id, status__ne="read"
+    ).update(set__status="read")
     return Response({"success": True, "updated": updated})

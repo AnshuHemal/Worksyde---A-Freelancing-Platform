@@ -22,7 +22,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         # Get room id from URL route (for dynamic rooms)
-        self.room_id = self.scope["url_route"]["kwargs"].get("room_id") or self.scope["url_route"]["kwargs"].get("room_name")
+        self.room_id = self.scope["url_route"]["kwargs"].get("room_id") or self.scope[
+            "url_route"
+        ]["kwargs"].get("room_name")
         self.room_group_name = f"chat_{self.room_id}"
 
         # Join room group
@@ -42,20 +44,29 @@ class ChatConsumer(AsyncWebsocketConsumer):
         attachment = data.get("attachment")
 
         if not all([sender_id, receiver_id]) or (not message and not attachment):
-            # Optionally handle invalid data here
+            await self.send(text_data=json.dumps({
+                "error": "Missing sender, receiver, or message/attachment."
+            }))
             return
 
-        # Validate message text if present
-        if message is not None:
+        # === ✅ STRICT TEXT VALIDATION START ===
+        if message:
             is_valid = validate_text(message)
             if not is_valid:
-                # Send alert to sender only (not broadcasted)
                 await self.send(text_data=json.dumps({
                     "error": "Chat regulations violated. Message not sent."
                 }))
                 return
+        # If message is None but there is an attachment, continue.
+        elif not attachment:
+            # No message and no attachment
+            await self.send(text_data=json.dumps({
+                "error": "Empty message. Nothing to send."
+            }))
+            return
+        # === ✅ STRICT TEXT VALIDATION END ===
 
-        # Save message to MongoDB (run sync code in thread pool)
+        # Save only after validation passes
         inserted_id = await self.save_message(
             room_id=self.room_id,
             sender_id=sender_id,
@@ -64,9 +75,10 @@ class ChatConsumer(AsyncWebsocketConsumer):
             attachment=attachment,
         )
 
-        # Broadcast message to the room group
         ist = pytz.timezone('Asia/Kolkata')
         now_ist = datetime.now(ist)
+
+        # Send message to room group
         await self.channel_layer.group_send(
             self.room_group_name,
             {
@@ -80,7 +92,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             },
         )
 
-        # Broadcast notification to the receiver's notification group
+        # Send notification to receiver
         await self.channel_layer.group_send(
             f"notify_{receiver_id}",
             {
@@ -93,6 +105,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "attachment": attachment,
             },
         )
+
 
     async def chat_message(self, event):
         # Send message to WebSocket
@@ -114,7 +127,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         # Ensure chat room exists or create it
         room = chat_rooms_col.find_one({"_id": room_id})
         if not room:
-            ist = pytz.timezone('Asia/Kolkata')
+            ist = pytz.timezone("Asia/Kolkata")
             now_ist = datetime.now(ist)
             chat_rooms_col.insert_one(
                 {
@@ -125,7 +138,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
 
         # Insert chat message
-        ist = pytz.timezone('Asia/Kolkata')
+        ist = pytz.timezone("Asia/Kolkata")
         now_ist = datetime.now(ist)
         msg_data = {
             "room_id": room_id,
