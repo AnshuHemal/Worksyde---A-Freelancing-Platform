@@ -20,36 +20,6 @@ import { FiLink } from "react-icons/fi";
 
 axios.defaults.baseURL = "http://localhost:5000";
 
-const mockFiles = [
-  {
-    type: "link",
-    label: "https://www.shopcraze.com",
-    user: "Jayson Kuhick",
-    time: "Yesterday",
-  },
-  {
-    type: "pdf",
-    label: "Data_Source.pdf",
-    user: "Jayson Kuhick",
-    size: "850 bytes",
-    time: "Yesterday",
-  },
-  {
-    type: "doc",
-    label: "Data_Analysis_Strategy.docx",
-    user: "Jayson Kuhick",
-    size: "6 kB",
-    time: "Yesterday",
-  },
-  {
-    type: "csv",
-    label: "ShopCraze_Export.csv",
-    user: "Jayson Kuhick",
-    size: "213 bytes",
-    time: "Yesterday",
-  },
-];
-
 // Replace FileIcon emoji with SVGs
 const FileIcon = ({ type }) => {
   const ext = (type || "").toLowerCase();
@@ -1182,8 +1152,6 @@ const ClientMessagesPage = () => {
                       transition: "all 0.3s ease",
                       marginBottom: "8px",
                       position: "relative",
-                      display: "flex",
-                      alignItems: "center",
                       justifyContent: "space-between",
                     }}
                   >

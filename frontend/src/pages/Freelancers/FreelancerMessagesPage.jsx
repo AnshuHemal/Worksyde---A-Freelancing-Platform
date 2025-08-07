@@ -6,7 +6,7 @@ import { LuSendHorizontal } from "react-icons/lu";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import toast, { Toaster } from "react-hot-toast";
-import notificationSound from "../../assets/notification.wav"; // Place a short mp3 in assets
+import notificationSound from "../../assets/notification.wav";
 import Modal from "react-modal";
 import { LiaFileDownloadSolid } from "react-icons/lia";
 import { FiSmile } from "react-icons/fi";
@@ -48,36 +48,6 @@ const filteredData = {
     })
   ),
 };
-
-const mockFiles = [
-  {
-    type: "link",
-    label: "https://www.freelancehub.com",
-    user: "Priya Sharma",
-    time: "Yesterday",
-  },
-  {
-    type: "pdf",
-    label: "Proposal.pdf",
-    user: "Priya Sharma",
-    size: "1 MB",
-    time: "Yesterday",
-  },
-  {
-    type: "doc",
-    label: "Contract.docx",
-    user: "Priya Sharma",
-    size: "24 kB",
-    time: "Yesterday",
-  },
-  {
-    type: "csv",
-    label: "Project_Tasks.csv",
-    user: "Priya Sharma",
-    size: "1.2 kB",
-    time: "Yesterday",
-  },
-];
 
 const FileIcon = ({ type }) => {
   const ext = (type || "").toLowerCase();
@@ -229,15 +199,18 @@ const FreelancerMessagesPage = () => {
                     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
                   );
                   jobTitle = sorted[0].title || "";
-                  
+
                   // Step 4: Fetch online status for the client
                   axios
-                    .get(`/api/auth/user-status/${chat.other_user_id}/`, { withCredentials: true })
+                    .get(`/api/auth/user-status/${chat.other_user_id}/`, {
+                      withCredentials: true,
+                    })
                     .then((statusRes) => {
                       if (statusRes.data.success) {
-                        setUserOnlineStatus(prev => ({
+                        setUserOnlineStatus((prev) => ({
                           ...prev,
-                          [chat.other_user_id]: statusRes.data.user.onlineStatus
+                          [chat.other_user_id]:
+                            statusRes.data.user.onlineStatus,
                         }));
                       }
                     })
@@ -297,12 +270,14 @@ const FreelancerMessagesPage = () => {
       chatList.forEach((chat) => {
         if (chat.other_user_id) {
           axios
-            .get(`/api/auth/user-status/${chat.other_user_id}/`, { withCredentials: true })
+            .get(`/api/auth/user-status/${chat.other_user_id}/`, {
+              withCredentials: true,
+            })
             .then((statusRes) => {
               if (statusRes.data.success) {
-                setUserOnlineStatus(prev => ({
+                setUserOnlineStatus((prev) => ({
                   ...prev,
-                  [chat.other_user_id]: statusRes.data.user.onlineStatus
+                  [chat.other_user_id]: statusRes.data.user.onlineStatus,
                 }));
               }
             })
@@ -811,11 +786,18 @@ const FreelancerMessagesPage = () => {
     setUploading(true);
     setUploadProgress(0);
     try {
-      console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type);
-      
+      console.log(
+        "Uploading file:",
+        file.name,
+        "Size:",
+        file.size,
+        "Type:",
+        file.type
+      );
+
       const formData = new FormData();
       formData.append("file", file);
-      
+
       // Use axios for progress
       const res = await axios.post("/api/chats/upload/", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -826,15 +808,15 @@ const FreelancerMessagesPage = () => {
           setUploadProgress(percent);
         },
       });
-      
+
       console.log("Upload response:", res.data);
-      
+
       // Assume response: { url, type: 'image'|'file', name }
       const { url, type, name } = res.data;
-      
+
       // Test if the uploaded file is accessible
       try {
-        const testResponse = await fetch(url, { method: 'HEAD' });
+        const testResponse = await fetch(url, { method: "HEAD" });
         if (!testResponse.ok) {
           console.warn("Uploaded file may not be accessible:", url);
         } else {
@@ -843,7 +825,7 @@ const FreelancerMessagesPage = () => {
       } catch (testErr) {
         console.warn("Could not verify uploaded file accessibility:", testErr);
       }
-      
+
       // Send message with attachment
       await axios.post("/api/chats/", {
         sender: currentUserId,
@@ -851,11 +833,11 @@ const FreelancerMessagesPage = () => {
         message: "", // No text, just attachment
         attachment: { url, type, name },
       });
-      
+
       setUploading(false);
       setUploadProgress(0);
       setSelectedFiles([]);
-      
+
       // Optionally, trigger a refresh
       if (wsRef.current && wsRef.current.readyState === 1) {
         wsRef.current.send(
@@ -1166,192 +1148,194 @@ const FreelancerMessagesPage = () => {
               </div>
             ) : (
               chatList
-                .filter(chat => {
+                .filter((chat) => {
                   if (!search.trim()) return true;
                   const q = search.toLowerCase();
                   return (
-                    (chat.display_name && chat.display_name.toLowerCase().includes(q)) ||
+                    (chat.display_name &&
+                      chat.display_name.toLowerCase().includes(q)) ||
                     (chat.subtitle && chat.subtitle.toLowerCase().includes(q))
                   );
                 })
                 .map((chat, idx) => {
-                const isUnread =
-                  chat.last_message &&
-                  chat.last_message.sender_id !== currentUserId &&
-                  chat.last_message.status !== "read";
-                return (
-                  <div
-                    key={chat.room_id}
-                    onClick={() => setSelectedChat(chat)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "12px 16px",
-                      background:
-                        selectedChat && selectedChat.room_id === chat.room_id
-                          ? "#f8f9ff"
-                          : "transparent",
-                      borderRadius: "12px",
-                      border:
-                        selectedChat && selectedChat.room_id === chat.room_id
-                          ? "2px solid #e9ecef"
-                          : "2px solid transparent",
-                      fontWeight:
-                        selectedChat && selectedChat.room_id === chat.room_id
-                          ? "600"
-                          : "400",
-                      color:
-                        selectedChat && selectedChat.room_id === chat.room_id
-                          ? "#007476"
-                          : "#495057",
-                      fontSize: "14px",
-                      cursor: "pointer",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      transition: "all 0.3s ease",
-                      marginBottom: "8px",
-                      position: "relative",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                    }}
-                  >
-                    <div style={{ position: "relative" }}>
-                      {chat.display_avatar ? (
-                        <img
-                          src={chat.display_avatar}
-                          alt={chat.display_name || "Client"}
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: "50%",
-                            objectFit: "cover",
-                            marginBottom: 0,
-                            marginRight: 2,
-                          }}
-                        />
-                      ) : (
+                  const isUnread =
+                    chat.last_message &&
+                    chat.last_message.sender_id !== currentUserId &&
+                    chat.last_message.status !== "read";
+                  return (
+                    <div
+                      key={chat.room_id}
+                      onClick={() => setSelectedChat(chat)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "12px 16px",
+                        background:
+                          selectedChat && selectedChat.room_id === chat.room_id
+                            ? "#f8f9ff"
+                            : "transparent",
+                        borderRadius: "12px",
+                        border:
+                          selectedChat && selectedChat.room_id === chat.room_id
+                            ? "2px solid #e9ecef"
+                            : "2px solid transparent",
+                        fontWeight:
+                          selectedChat && selectedChat.room_id === chat.room_id
+                            ? "600"
+                            : "400",
+                        color:
+                          selectedChat && selectedChat.room_id === chat.room_id
+                            ? "#007476"
+                            : "#495057",
+                        fontSize: "14px",
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        transition: "all 0.3s ease",
+                        marginBottom: "8px",
+                        position: "relative",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div style={{ position: "relative" }}>
+                        {chat.display_avatar ? (
+                          <img
+                            src={chat.display_avatar}
+                            alt={chat.display_name || "Client"}
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: "50%",
+                              objectFit: "cover",
+                              marginBottom: 0,
+                              marginRight: 2,
+                            }}
+                          />
+                        ) : (
+                          <div
+                            style={{
+                              width: 40,
+                              height: 40,
+                              borderRadius: "50%",
+                              background: getColorFromName(chat.display_name),
+                              color: "#fff",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontWeight: 700,
+                              fontSize: 16,
+                              marginBottom: 0,
+                              marginRight: 2,
+                              border: "2px solid #e9ecef",
+                            }}
+                          >
+                            {getInitials(
+                              chat.display_name || chat.other_user_id
+                            )}
+                          </div>
+                        )}
+                        {isUnread && (
+                          <span
+                            style={{
+                              position: "absolute",
+                              top: 2,
+                              right: 2,
+                              width: 12,
+                              height: 12,
+                              borderRadius: "50%",
+                              background: "#e53935",
+                              border: "2px solid #fff",
+                              display: "block",
+                              zIndex: 2,
+                            }}
+                          />
+                        )}
+                        {/* Online Status Indicator */}
                         <div
                           style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: "50%",
-                            background: getColorFromName(chat.display_name),
-                            color: "#fff",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontWeight: 700,
-                            fontSize: 16,
-                            marginBottom: 0,
-                            marginRight: 2,
-                            border: "2px solid #e9ecef",
-                          }}
-                        >
-                          {getInitials(chat.display_name || chat.other_user_id)}
-                        </div>
-                      )}
-                      {isUnread && (
-                        <span
-                          style={{
                             position: "absolute",
-                            top: 2,
+                            bottom: 2,
                             right: 2,
-                            width: 12,
-                            height: 12,
-                            borderRadius: "50%",
-                            background: "#e53935",
-                            border: "2px solid #fff",
-                            display: "block",
                             zIndex: 2,
                           }}
-                        />
-                      )}
-                      {/* Online Status Indicator */}
-                      <div
-                        style={{
-                          position: "absolute",
-                          bottom: 2,
-                          right: 2,
-                          zIndex: 2,
-                        }}
-                      >
-                        <UserStatusIndicator 
-                          status={userOnlineStatus[chat.other_user_id]} 
-                          size={12}
-                        />
+                        >
+                          <UserStatusIndicator
+                            status={userOnlineStatus[chat.other_user_id]}
+                            size={12}
+                          />
+                        </div>
                       </div>
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            fontSize: 14,
+                            color:
+                              selectedChat &&
+                              selectedChat.room_id === chat.room_id
+                                ? "#007476"
+                                : "#495057",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {chat.display_name || "Loading..."}
+                        </div>
+                        <div
+                          style={{
+                            color:
+                              selectedChat &&
+                              selectedChat.room_id === chat.room_id
+                                ? "#6c757d"
+                                : "#6c757d",
+                            fontSize: 12,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {chat.subtitle || ""}
+                        </div>
+                        <div
+                          style={{
+                            color:
+                              selectedChat &&
+                              selectedChat.room_id === chat.room_id
+                                ? "#6c757d"
+                                : "#495057",
+                            fontSize: 12,
+                            marginTop: 2,
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {chat.last_message &&
+                            getAttachmentLabel(chat.last_message)}
+                        </div>
+                      </div>
                       <div
                         style={{
-                          fontWeight: 600,
-                          fontSize: 14,
                           color:
                             selectedChat &&
                             selectedChat.room_id === chat.room_id
                               ? "#007476"
-                              : "#495057",
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {chat.display_name || "Loading..."}
-                      </div>
-                      <div
-                        style={{
-                          color:
-                            selectedChat &&
-                            selectedChat.room_id === chat.room_id
-                              ? "#6c757d"
                               : "#6c757d",
+                          fontWeight: 500,
                           fontSize: 12,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
+                          marginLeft: 8,
                         }}
                       >
-                        {chat.subtitle || ""}
-                      </div>
-                      <div
-                        style={{
-                          color:
-                            selectedChat &&
-                            selectedChat.room_id === chat.room_id
-                              ? "#6c757d"
-                              : "#495057",
-                          fontSize: 12,
-                          marginTop: 2,
-                          whiteSpace: "nowrap",
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                        }}
-                      >
-                        {chat.last_message &&
-                          getAttachmentLabel(chat.last_message)}
+                        {chat.last_message && chat.last_message.timestamp
+                          ? formatTimeShort(chat.last_message.timestamp)
+                          : ""}
                       </div>
                     </div>
-                    <div
-                      style={{
-                        color:
-                          selectedChat && selectedChat.room_id === chat.room_id
-                            ? "#007476"
-                            : "#6c757d",
-                        fontWeight: 500,
-                        fontSize: 12,
-                        marginLeft: 8,
-                      }}
-                    >
-                      {chat.last_message && chat.last_message.timestamp
-                        ? formatTimeShort(chat.last_message.timestamp)
-                        : ""}
-                    </div>
-                  </div>
-                );
-              })
+                  );
+                })
             )}
           </div>
         </div>
@@ -1631,10 +1615,14 @@ const FreelancerMessagesPage = () => {
                             msg.attachment?.type === "image") ||
                           (msg.attachment_url &&
                             msg.attachment_type === "image") ||
-                          (msg.attachment?.url && 
-                            msg.attachment?.url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) ||
-                          (msg.attachment_url && 
-                            msg.attachment_url.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i));
+                          (msg.attachment?.url &&
+                            msg.attachment?.url.match(
+                              /\.(jpg|jpeg|png|gif|webp|svg)$/i
+                            )) ||
+                          (msg.attachment_url &&
+                            msg.attachment_url.match(
+                              /\.(jpg|jpeg|png|gif|webp|svg)$/i
+                            ));
                         const isFile =
                           (msg.attachment && msg.attachment.type === "file") ||
                           (msg.attachment?.url &&
@@ -1645,7 +1633,7 @@ const FreelancerMessagesPage = () => {
                           msg.attachment?.url || msg.attachment_url;
                         const attachmentName =
                           msg.attachment?.name || msg.attachment_name;
-                        
+
                         // Debug logging for image detection
                         if (isImage) {
                           console.log("Image detected:", {
@@ -1653,7 +1641,7 @@ const FreelancerMessagesPage = () => {
                             attachmentName,
                             attachment: msg.attachment,
                             attachment_url: msg.attachment_url,
-                            attachment_type: msg.attachment_type
+                            attachment_type: msg.attachment_type,
                           });
                         }
                         return (
@@ -1728,10 +1716,14 @@ const FreelancerMessagesPage = () => {
                                           })
                                         }
                                         onError={(e) => {
-                                          console.error("Image failed to load:", attachmentUrl);
+                                          console.error(
+                                            "Image failed to load:",
+                                            attachmentUrl
+                                          );
                                           e.target.style.display = "none";
                                           // Show a fallback message
-                                          const fallbackDiv = document.createElement("div");
+                                          const fallbackDiv =
+                                            document.createElement("div");
                                           fallbackDiv.innerHTML = `
                                             <div style="
                                               width: 180px; 
@@ -1750,14 +1742,22 @@ const FreelancerMessagesPage = () => {
                                               <div>
                                                 <div style="font-size: 24px; margin-bottom: 8px;">📷</div>
                                                 <div>Image not available</div>
-                                                <div style="font-size: 12px; margin-top: 4px;">${attachmentName || 'Unknown file'}</div>
+                                                <div style="font-size: 12px; margin-top: 4px;">${
+                                                  attachmentName ||
+                                                  "Unknown file"
+                                                }</div>
                                               </div>
                                             </div>
                                           `;
-                                          e.target.parentNode.appendChild(fallbackDiv.firstElementChild);
+                                          e.target.parentNode.appendChild(
+                                            fallbackDiv.firstElementChild
+                                          );
                                         }}
                                         onLoad={() => {
-                                          console.log("Image loaded successfully:", attachmentUrl);
+                                          console.log(
+                                            "Image loaded successfully:",
+                                            attachmentUrl
+                                          );
                                         }}
                                       />
                                     </div>
@@ -1779,7 +1779,7 @@ const FreelancerMessagesPage = () => {
                                       cursor: "pointer",
                                     }}
                                     onClick={() => {
-                                      const link = document.createElement('a');
+                                      const link = document.createElement("a");
                                       link.href = attachmentUrl;
                                       link.download = attachmentName;
                                       link.target = "_blank";
@@ -1802,7 +1802,10 @@ const FreelancerMessagesPage = () => {
                                         minWidth: 0,
                                         fontWeight: 600,
                                         fontSize: 15,
-                                        color: msg.sender_id === currentUserId ? "#fff" : "#007476",
+                                        color:
+                                          msg.sender_id === currentUserId
+                                            ? "#fff"
+                                            : "#007476",
                                         overflow: "hidden",
                                         textOverflow: "ellipsis",
                                         whiteSpace: "nowrap",
@@ -2238,7 +2241,7 @@ const FreelancerMessagesPage = () => {
                     type="text"
                     placeholder="Search files"
                     value={filesSearch}
-                    onChange={e => setFilesSearch(e.target.value)}
+                    onChange={(e) => setFilesSearch(e.target.value)}
                     style={{
                       width: "100%",
                       padding: "8px 14px",
@@ -2298,7 +2301,7 @@ const FreelancerMessagesPage = () => {
                   }}
                 >
                   {filesAndLinks
-                    .filter(file => {
+                    .filter((file) => {
                       if (!filesSearch.trim()) return true;
                       const q = filesSearch.toLowerCase();
                       return (

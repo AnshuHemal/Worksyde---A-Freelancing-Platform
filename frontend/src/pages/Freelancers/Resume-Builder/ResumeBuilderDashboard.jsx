@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BsPlus,
@@ -16,54 +16,53 @@ import axios from "axios";
 const ResumeBuilderDashboard = () => {
   const [showModal, setShowModal] = useState(false);
   const [resumeTitle, setResumeTitle] = useState("");
-  const [drafts, setDrafts] = useState([
-    {
-      id: 1,
-      title: "Software Developer Resume",
-      lastModified: "2024-01-15",
-      status: "draft",
-    },
-    {
-      id: 2,
-      title: "UX Designer Portfolio",
-      lastModified: "2024-01-10",
-      status: "completed",
-    },
-    {
-      id: 3,
-      title: "Marketing Manager CV",
-      lastModified: "2024-01-08",
-      status: "draft",
-    },
-  ]);
+  const [drafts, setDrafts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+
+  // Fetch resumes on component mount
+  useEffect(() => {
+    fetchResumes();
+  }, []);
+
+  const fetchResumes = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get("/api/ai-resumes/", {
+        withCredentials: true,
+      });
+      setDrafts(response.data || []);
+    } catch (error) {
+      console.error("Failed to fetch resumes:", error);
+      setDrafts([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCreateResume = async () => {
     if (resumeTitle.trim()) {
       try {
-        // Fetch userId from current-user API
-        const userRes = await axios.get("/api/auth/current-user/", {
-          withCredentials: true,
-        });
-        const userId = userRes.data?.user?._id || userRes.data?.user?.id;
-        if (!userId) throw new Error("User not authenticated");
-
-        // Create the resume with userId
+        // Create the resume with just the title
         const response = await axios.post(
-          "/api/ai-resumes/", // Adjust if your backend route is different
-          { title: resumeTitle, userId },
+          "/api/ai-resumes/",
+          { title: resumeTitle },
           { withCredentials: true }
         );
         const newResume = response.data;
         setResumeTitle("");
         setShowModal(false);
+        
+        // Refresh the resumes list
+        await fetchResumes();
+        
         if (newResume && (newResume._id || newResume.id)) {
           const id = newResume._id || newResume.id;
           navigate(`/ws/ai-tools/ai-resume/${id}`);
         }
       } catch (error) {
-        // Optionally show a toast or error message
         console.error("Failed to create resume:", error);
+        // You can add a toast notification here to show the error to the user
       }
     }
   };
@@ -75,30 +74,65 @@ const ResumeBuilderDashboard = () => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-US", {
+      year: "numeric",
       month: "short",
       day: "numeric",
-      year: "numeric",
     });
   };
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: "linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)",
+          fontFamily: "Urbanist, sans-serif",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              border: "4px solid #f3f4f6",
+              borderTop: "4px solid #007674",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              margin: "0 auto 16px",
+            }}
+          />
+          <p style={{ color: "#6b7280", fontSize: "16px" }}>Loading resumes...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
       className="section-container"
-      style={{ background: "#f8f9fa", padding: "32px 24px 0 24px" }}
+      style={{ 
+        background: "linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)", 
+        padding: "32px 24px 0 24px",
+        fontFamily: "Urbanist, sans-serif",
+      }}
     >
       {/* Header */}
       <div
         style={{
           width: "100%",
-          borderBottom: "1px solid #e3e3e3",
+          borderBottom: "1px solid #e5e7eb",
           background: "#fff",
           top: 0,
           zIndex: 10,
+          borderRadius: "16px 16px 0 0",
+          boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
         }}
       >
         <div
           className="d-flex align-items-center justify-content-between py-4 px-4"
-          // style={{ width: "100%" }}
         >
           <div className="d-flex align-items-center gap-2">
             <RiAiGenerate
@@ -109,9 +143,10 @@ const ResumeBuilderDashboard = () => {
             <span
               style={{
                 fontFamily: "Urbanist, sans-serif",
-                fontWeight: 700,
+                fontWeight: 600,
                 fontSize: 24,
                 color: "#121212",
+                letterSpacing: "0.3px",
               }}
             >
               AI Resume Builder
@@ -121,15 +156,15 @@ const ResumeBuilderDashboard = () => {
             onClick={handlePortfolioClick}
             className="btn"
             style={{
-              border: "1.5px solid #007674",
+              border: "2px solid #007674",
               color: "#007674",
-              borderRadius: 999,
+              borderRadius: "12px",
               fontWeight: 600,
               fontFamily: "Urbanist, sans-serif",
               fontSize: 16,
-              padding: "8px 18px",
+              padding: "12px 24px",
               background: "#fff",
-              transition: "all 0.2s",
+              transition: "all 0.3s ease",
               display: "inline-flex",
               alignItems: "center",
               gap: 8,
@@ -138,16 +173,20 @@ const ResumeBuilderDashboard = () => {
               boxSizing: "border-box",
               width: "auto",
               flex: "none",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
             }}
             onMouseEnter={(e) => {
-              e.target.style.background = "#f8f9fa";
-              e.target.style.color = "#005a58";
-              e.target.style.borderColor = "#005a58";
+              e.target.style.background = "#007674";
+              e.target.style.color = "#ffffff";
+              e.target.style.transform = "translateY(-2px)";
+              e.target.style.boxShadow = "0 8px 24px rgba(0, 118, 116, 0.3)";
             }}
             onMouseLeave={(e) => {
               e.target.style.background = "#fff";
               e.target.style.color = "#007674";
               e.target.style.borderColor = "#007674";
+              e.target.style.transform = "translateY(0)";
+              e.target.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.05)";
             }}
           >
             <BsGlobe style={{ marginRight: 6 }} /> AI Portfolio Web
@@ -171,9 +210,9 @@ const ResumeBuilderDashboard = () => {
             whileTap={{ scale: 0.98 }}
             style={{
               width: 320,
-              background: "#fff",
-              border: "1.5px solid #e3e3e3",
-              borderRadius: 18,
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: "20px",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
@@ -181,8 +220,16 @@ const ResumeBuilderDashboard = () => {
               padding: "36px 0 28px 0",
               cursor: "pointer",
               marginBottom: 10,
-              boxShadow: "none",
-              transition: "all 0.2s",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = "#007674";
+              e.currentTarget.style.boxShadow = "0 12px 32px rgba(0, 118, 116, 0.15)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = "#e5e7eb";
+              e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.05)";
             }}
             onClick={() => setShowModal(true)}
           >
@@ -193,6 +240,7 @@ const ResumeBuilderDashboard = () => {
                 fontSize: 18,
                 color: "#121212",
                 fontFamily: "Urbanist, sans-serif",
+                letterSpacing: "0.3px",
               }}
             >
               Create New Resume
@@ -200,10 +248,10 @@ const ResumeBuilderDashboard = () => {
           </motion.div>
           <span
             style={{
-              color: "#666",
+              color: "#6b7280",
               fontSize: 15,
               fontFamily: "Urbanist, sans-serif",
-              opacity: 0.85,
+              fontWeight: "500",
             }}
           >
             Start building your professional resume with AI assistance
@@ -222,8 +270,7 @@ const ResumeBuilderDashboard = () => {
               fontWeight: 600,
               fontFamily: "Urbanist, sans-serif",
               margin: 0,
-              wordSpacing: "2px",
-              letterSpacing: "0.5px",
+              letterSpacing: "0.3px",
             }}
           >
             Your Drafts
@@ -232,7 +279,7 @@ const ResumeBuilderDashboard = () => {
             style={{
               flex: 1,
               height: 1,
-              background: "#e3e3e3",
+              background: "#e5e7eb",
               borderRadius: 2,
             }}
           />
@@ -241,13 +288,19 @@ const ResumeBuilderDashboard = () => {
           <div
             className="text-center p-5"
             style={{
-              background: "#fff",
-              borderRadius: 16,
-              border: "1.5px solid #e3e3e3",
+              background: "#ffffff",
+              borderRadius: "16px",
+              border: "1px solid #e5e7eb",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
             }}
           >
             <BsFileEarmarkText size={50} color="#ccc" className="mb-3" />
-            <p style={{ color: "#666", fontSize: 17 }}>
+            <p style={{ 
+              color: "#6b7280", 
+              fontSize: 17,
+              fontWeight: "500",
+              fontFamily: "Urbanist, sans-serif",
+            }}>
               No drafts yet. Create your first resume to get started!
             </p>
           </div>
@@ -263,11 +316,11 @@ const ResumeBuilderDashboard = () => {
               >
                 <div
                   style={{
-                    background: "#fff",
-                    borderRadius: 14,
-                    border: "1.5px solid #e3e3e3",
-                    boxShadow: "none",
-                    transition: "all 0.2s",
+                    background: "#ffffff",
+                    borderRadius: "16px",
+                    border: "1px solid #e5e7eb",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.05)",
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                     cursor: "pointer",
                     minHeight: 120,
                     display: "flex",
@@ -277,11 +330,13 @@ const ResumeBuilderDashboard = () => {
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.borderColor = "#007674";
-                    e.currentTarget.style.transform = "scale(1.015)";
+                    e.currentTarget.style.transform = "translateY(-4px)";
+                    e.currentTarget.style.boxShadow = "0 12px 32px rgba(0, 118, 116, 0.15)";
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = "#e3e3e3";
-                    e.currentTarget.style.transform = "scale(1)";
+                    e.currentTarget.style.borderColor = "#e5e7eb";
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.05)";
                   }}
                 >
                   <div className="d-flex align-items-center gap-3">
@@ -289,7 +344,7 @@ const ResumeBuilderDashboard = () => {
                       style={{
                         width: 40,
                         height: 40,
-                        borderRadius: 10,
+                        borderRadius: "12px",
                         background: "#f8f9fa",
                         display: "flex",
                         alignItems: "center",
@@ -299,52 +354,67 @@ const ResumeBuilderDashboard = () => {
                       <BsFileEarmarkText size={20} color="#007674" />
                     </div>
                     <div>
-                      <div
-                        style={{
-                          color: "#121212",
-                          fontWeight: 600,
-                          fontSize: 16,
-                          fontFamily: "Urbanist, sans-serif",
-                        }}
-                      >
-                        {draft.title}
-                      </div>
-                      <div className="d-flex align-items-center gap-2">
-                        <BsCalendar size={13} color="#666" />
-                        <span
+                                              <div
                           style={{
-                            color: "#666",
-                            fontSize: 13,
+                            color: "#121212",
+                            fontWeight: 600,
+                            fontSize: 16,
                             fontFamily: "Urbanist, sans-serif",
                           }}
                         >
-                          {formatDate(draft.lastModified)}
-                        </span>
-                      </div>
+                          {draft.title}
+                        </div>
+                        <div className="d-flex align-items-center gap-2">
+                          <BsCalendar size={13} color="#6b7280" />
+                          <span
+                            style={{
+                              color: "#6b7280",
+                              fontSize: 13,
+                              fontFamily: "Urbanist, sans-serif",
+                              fontWeight: "500",
+                            }}
+                          >
+                            {formatDate(draft.updatedAt || draft.createdAt)}
+                          </span>
+                        </div>
                     </div>
                   </div>
                   <div className="d-flex align-items-center gap-2">
-                    <button
-                      className="btn btn-link p-0"
-                      style={{ color: "#007674" }}
-                      title="Edit"
-                    >
-                      <BsPencil size={18} />
-                    </button>
-                    <button
-                      className="btn btn-link p-0"
-                      style={{ color: "#007674" }}
-                      title="Preview"
-                    >
-                      <BsEye size={18} />
-                    </button>
-                    <button
-                      className="btn btn-link p-0"
-                      style={{ color: "#dc3545" }}
-                      title="Delete"
-                    >
-                      <BsTrash size={18} />
-                    </button>
+                                         <button
+                       className="btn btn-link p-0"
+                       style={{ color: "#007674" }}
+                       title="Edit"
+                       onClick={() => navigate(`/ws/ai-tools/ai-resume/${draft._id || draft.id}`)}
+                     >
+                       <BsPencil size={18} />
+                     </button>
+                     <button
+                       className="btn btn-link p-0"
+                       style={{ color: "#007674" }}
+                       title="Preview"
+                       onClick={() => navigate(`/ws/ai-tools/ai-resume/${draft._id || draft.id}`)}
+                     >
+                       <BsEye size={18} />
+                     </button>
+                     <button
+                       className="btn btn-link p-0"
+                       style={{ color: "#dc3545" }}
+                       title="Delete"
+                       onClick={async () => {
+                         if (window.confirm("Are you sure you want to delete this resume?")) {
+                           try {
+                             await axios.delete(`/api/ai-resumes/${draft._id || draft.id}/`, {
+                               withCredentials: true,
+                             });
+                             await fetchResumes();
+                           } catch (error) {
+                             console.error("Failed to delete resume:", error);
+                           }
+                         }
+                       }}
+                     >
+                       <BsTrash size={18} />
+                     </button>
                   </div>
                 </div>
               </motion.div>
@@ -368,7 +438,7 @@ const ResumeBuilderDashboard = () => {
               left: 0,
               right: 0,
               bottom: 0,
-              background: "rgba(0, 0, 0, 0.18)",
+              background: "rgba(0, 0, 0, 0.5)",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -384,12 +454,12 @@ const ResumeBuilderDashboard = () => {
               className="modal-content"
               style={{
                 background: "#fff",
-                borderRadius: 18,
-                padding: 36,
-                maxWidth: 540,
+                borderRadius: "20px",
+                padding: "40px",
+                maxWidth: "540px",
                 width: "90%",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.13)",
-                border: "1.5px solid #e3e3e3",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.2)",
+                border: "1px solid #e5e7eb",
                 display: "flex",
                 flexDirection: "column",
                 alignItems: "stretch",
@@ -400,10 +470,10 @@ const ResumeBuilderDashboard = () => {
                 className="fw-semibold mb-4 text-center"
                 style={{
                   color: "#121212",
-                  fontSize: 20,
+                  fontSize: "1.5rem",
+                  fontWeight: "600",
+                  letterSpacing: "0.3px",
                   fontFamily: "Urbanist, sans-serif",
-                  wordSpacing: "2px",
-                  letterSpacing: "0.5px",
                 }}
               >
                 Create New Resume
@@ -413,7 +483,9 @@ const ResumeBuilderDashboard = () => {
                   className="form-label fw-semibold"
                   style={{
                     color: "#121212",
-                    fontSize: 18,
+                    fontSize: "1.1rem",
+                    fontWeight: "600",
+                    marginBottom: "8px",
                     fontFamily: "Urbanist, sans-serif",
                   }}
                 >
@@ -426,20 +498,20 @@ const ResumeBuilderDashboard = () => {
                   value={resumeTitle}
                   onChange={(e) => setResumeTitle(e.target.value)}
                   style={{
-                    border: "1.5px solid #e3e3e3",
-                    borderRadius: 10,
-                    padding: "10px 14px",
-                    fontSize: 16,
+                    border: "2px solid #e5e7eb",
+                    borderRadius: "12px",
+                    padding: "12px 16px",
+                    fontSize: "1rem",
+                    transition: "all 0.3s ease",
                     fontFamily: "Urbanist, sans-serif",
-                    transition: "all 0.2s",
                   }}
                   onFocus={(e) => {
                     e.target.style.borderColor = "#007674";
                     e.target.style.boxShadow =
-                      "0 0 0 2px rgba(0, 118, 116, 0.08)";
+                      "0 0 0 3px rgba(0, 118, 116, 0.1)";
                   }}
                   onBlur={(e) => {
-                    e.target.style.borderColor = "#e3e3e3";
+                    e.target.style.borderColor = "#e5e7eb";
                     e.target.style.boxShadow = "none";
                   }}
                 />
@@ -449,16 +521,21 @@ const ResumeBuilderDashboard = () => {
                   className="btn flex-fill"
                   onClick={() => setShowModal(false)}
                   style={{
-                    background: "#f3f3f3",
-                    color: "#222",
-                    border: "none",
-                    borderRadius: 50,
-                    padding: "12px 28px",
-                    fontSize: "1.05rem",
+                    background: "#f8f9fa",
+                    color: "#374151",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "12px",
+                    padding: "12px 24px",
+                    fontSize: "1rem",
+                    fontWeight: "600",
+                    transition: "all 0.3s ease",
                     fontFamily: "Urbanist, sans-serif",
-                    fontWeight: 600,
-                    boxShadow: "none",
-                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "#e5e7eb";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "#f8f9fa";
                   }}
                 >
                   Cancel
@@ -472,14 +549,14 @@ const ResumeBuilderDashboard = () => {
                       "linear-gradient(135deg, #007674 0%, #005a58 100%)",
                     color: "#fff",
                     border: "none",
-                    borderRadius: 50,
-                    padding: "12px 28px",
-                    fontSize: "1.05rem",
-                    fontFamily: "Urbanist, sans-serif",
-                    fontWeight: 600,
-                    boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
+                    borderRadius: "12px",
+                    padding: "12px 24px",
+                    fontSize: "1rem",
+                    fontWeight: "600",
+                    boxShadow: "0 4px 16px rgba(0, 118, 116, 0.2)",
                     opacity: resumeTitle.trim() ? 1 : 0.6,
                     transition: "all 0.3s ease",
+                    fontFamily: "Urbanist, sans-serif",
                   }}
                   onMouseEnter={(e) => {
                     if (resumeTitle.trim()) {
@@ -495,7 +572,7 @@ const ResumeBuilderDashboard = () => {
                       e.target.style.background =
                         "linear-gradient(135deg, #007674 0%, #005a58 100%)";
                       e.target.style.boxShadow =
-                        "0 6px 20px rgba(0, 118, 116, 0.3)";
+                        "0 4px 16px rgba(0, 118, 116, 0.2)";
                       e.target.style.transform = "translateY(0)";
                     }
                   }}
