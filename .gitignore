@@ -24,7 +24,7 @@ staticfiles/
 .env.*.local
 
 # Virtual environments
-venv/
+.venv/
 python_env/
 env/
 
