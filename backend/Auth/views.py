@@ -2425,6 +2425,102 @@ def fetch_proposals_for_job(request, job_id):
         return Response({"success": False, "message": str(e)}, status=500)
 
 
+@api_view(["GET"])
+@verify_token
+def fetch_proposals_by_freelancer(request):
+    """Fetch all proposals submitted by the authenticated freelancer"""
+    try:
+        user_id = request.user.id
+        
+        # Get all proposals submitted by this freelancer
+        proposals = JobProposals.objects(userId=user_id).order_by('-createdAt')
+        
+        proposals_data = []
+        for proposal in proposals:
+            # Get job details
+            job = JobPosts.objects(id=proposal.jobId.id).first()
+            if not job:
+                continue
+                
+            # Get client details
+            client = User.objects(id=job.userId.id).first()
+            
+            proposal_data = {
+                "id": str(proposal.id),
+                "jobId": str(proposal.jobId.id),
+                "projectScope": proposal.projectScope,
+                "bidAmount": float(proposal.bidAmount) if proposal.bidAmount else 0,
+                "serviceFee": float(proposal.serviceFee) if proposal.serviceFee else 0,
+                "youReceive": float(proposal.youReceive) if proposal.youReceive else 0,
+                "projectDuration": proposal.projectDuration,
+                "coverLetter": proposal.coverLetter,
+                "attachment": proposal.attachment,
+                "status": proposal.status,
+                "createdAt": proposal.createdAt.isoformat() if proposal.createdAt else None,
+                "updatedAt": proposal.updatedAt.isoformat() if proposal.updatedAt else None,
+                "viewedByClient": getattr(proposal, 'viewedByClient', False),  # Add viewed status
+                "job": {
+                    "id": str(job.id),
+                    "title": job.title,
+                    "description": job.description,
+                    "hourlyRateFrom": float(job.hourlyRateFrom) if job.hourlyRateFrom else 0,
+                    "hourlyRateTo": float(job.hourlyRateTo) if job.hourlyRateTo else 0,
+                    "scopeOfWork": job.scopeOfWork,
+                    "duration": job.duration,
+                    "experienceLevel": job.experienceLevel,
+                    "postedTime": job.postedTime.isoformat() if job.postedTime else None,
+                },
+                "client": {
+                    "id": str(client.id) if client else None,
+                    "name": client.name if client else "Unknown Client",
+                }
+            }
+            proposals_data.append(proposal_data)
+        
+        return Response(
+            {
+                "success": True,
+                "proposals": proposals_data
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["PUT"])
+@verify_token
+def mark_proposal_viewed(request, proposal_id):
+    """Mark a proposal as viewed by client"""
+    try:
+        # Get the proposal
+        proposal = JobProposals.objects(id=proposal_id).first()
+        if not proposal:
+            return Response(
+                {"success": False, "message": "Proposal not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        # Mark as viewed
+        proposal.viewedByClient = True
+        proposal.save()
+        
+        return Response(
+            {"success": True, "message": "Proposal marked as viewed"},
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
 @api_view(["POST"])
 @verify_token
 def shortlist_proposal(request):
@@ -3990,3 +4086,139 @@ def get_declined_job_invitations(request, job_id):
     except Exception as e:
         print(f"Error in get_declined_job_invitations: {str(e)}")
         return Response({"success": False, "message": "Internal server error"}, status=500)
+
+
+@api_view(["GET"])
+def get_freelancer_complete_profile(request, user_id):
+    """
+    Get complete freelancer profile information including all details
+    """
+    try:
+        # Get user basic info
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+        
+        # Get profile info
+        req = Requests.objects(userId=user).first()
+        if not req:
+            return Response({"message": "Profile not found"}, status=404)
+        
+        # Get work experiences
+        try:
+            work_experiences = WorkExperience.objects(userId=user)
+        except Exception as e:
+            print(f"Error fetching work experiences: {e}")
+            work_experiences = []
+        
+        # Get education
+        try:
+            educations = Education.objects(userId=user)
+        except Exception as e:
+            print(f"Error fetching education: {e}")
+            educations = []
+        
+        # Get languages from the Requests object (they are embedded documents)
+        languages = req.languages if hasattr(req, 'languages') else []
+        
+        # Get other experiences
+        try:
+            other_experiences = OtherExperience.objects(userId=user)
+        except Exception as e:
+            print(f"Error fetching other experiences: {e}")
+            other_experiences = []
+        
+        # Calculate earnings and job success rate
+        proposals = JobProposals.objects(userId=user)
+        total_earnings = sum([float(p.youReceive or 0) for p in proposals])
+        completed_count = sum(1 for p in proposals if getattr(p, 'status', None) == 'completed')
+        job_success = int((completed_count / proposals.count()) * 100) if proposals.count() > 0 else 0
+        
+        # Format location
+        location_parts = []
+        if hasattr(req, 'city') and req.city:
+            location_parts.append(req.city)
+        if hasattr(req, 'country') and req.country:
+            location_parts.append(req.country)
+        location = ", ".join(location_parts) if location_parts else "N/A"
+        
+        # Compose comprehensive response
+        data = {
+            "id": str(user.id),
+            "name": user.name,
+            "email": user.email,
+            "title": req.title,
+            "location": location,
+            "hourlyRate": float(req.hourlyRate) if hasattr(req, 'hourlyRate') and req.hourlyRate else 0,
+            "photograph": req.photograph if hasattr(req, 'photograph') else None,
+            "bio": req.bio if hasattr(req, 'bio') else None,
+            "skills": [{"id": str(s.id), "name": s.name} for s in getattr(req, 'skills', [])],
+            "totalEarnings": total_earnings,
+            "jobSuccess": job_success,
+            "onlineStatus": getattr(user, "onlineStatus", "offline"),
+            "lastSeen": getattr(user, "lastSeen", None),
+            "createdAt": getattr(user, "createdAt", None),
+            
+            # Work Experiences
+            "workExperiences": [
+                {
+                    "id": str(exp.id),
+                    "company": getattr(exp, 'company', ''),
+                    "position": getattr(exp, 'title', ''),  # Using title field from model
+                    "startDate": getattr(exp, 'startDate', None),
+                    "endDate": getattr(exp, 'endDate', None),
+                    "isCurrent": getattr(exp, 'isCurrent', False),
+                    "description": getattr(exp, 'description', '')
+                } for exp in work_experiences
+            ],
+            
+            # Education
+            "education": [
+                {
+                    "id": str(edu.id),
+                    "school": getattr(edu, 'school', ''),  # Using lowercase school field from model
+                    "degree": getattr(edu, 'degree', ''),
+                    "fieldOfStudy": getattr(edu, 'fieldOfStudy', ''),
+                    "startYear": getattr(edu, 'startYear', None),
+                    "endYear": getattr(edu, 'endYear', None),
+                    "isExpected": getattr(edu, 'isExpected', False)
+                } for edu in educations
+            ],
+            
+            # Languages
+            "languages": [
+                {
+                    "id": str(idx),  # Use index as ID since embedded documents don't have IDs
+                    "name": getattr(lang, 'name', ''),
+                    "proficiency": getattr(lang, 'proficiency', '')
+                } for idx, lang in enumerate(languages)
+            ],
+            
+            # Other Experiences
+            "otherExperiences": [
+                {
+                    "id": str(exp.id),
+                    "title": getattr(exp, 'subject', ''),  # Using subject field from model
+                    "description": getattr(exp, 'description', ''),
+                    "startDate": getattr(exp, 'createdAt', None),  # Using createdAt as startDate
+                    "endDate": getattr(exp, 'updatedAt', None),  # Using updatedAt as endDate
+                    "isCurrent": False  # Default to False since model doesn't have isCurrent
+                } for exp in other_experiences
+            ],
+            
+            # Profile details
+            "phone": getattr(req, 'phone', None),
+            "city": getattr(req, 'city', None),
+            "country": getattr(req, 'country', None),
+            "timezone": getattr(req, 'timezone', None),
+            "hoursPerWeek": getattr(req, 'hoursPerWeek', None),
+            "experience": getattr(req, 'experience', None),
+            "videoIntroduction": getattr(req, 'videoIntroduction', None),
+            "resume": getattr(req, 'resume', None),
+        }
+        
+        return Response({"success": True, "freelancer": data})
+        
+    except Exception as e:
+        print("Error in get_freelancer_complete_profile:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)

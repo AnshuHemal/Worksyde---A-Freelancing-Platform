@@ -66,6 +66,7 @@ import { UserProvider } from "./contexts/UserContext";
 import ClientJobDetailedPage from "./pages/Clients/ClientJobDetailedPage";
 import FreelancersProposals from "./pages/Freelancers/FreelancersProposals";
 import FreelancersProposalDetails from "./pages/Freelancers/FreelancersProposalDetails";
+import OfferSendingPage from "./pages/Clients/OfferSendingPage";
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -292,6 +293,10 @@ const App = () => {
               <Route path="hired" element={<ClientJobDetailedPage />} />
               <Route path="archived" element={<ClientJobDetailedPage />} />
             </Route>
+            <Route
+              path="offer/job-application/:freelancerId"
+              element={<OfferSendingPage />}
+            />
           </Route>
         </Routes>
       </div>

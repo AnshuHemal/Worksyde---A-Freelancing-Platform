@@ -5,8 +5,10 @@ import { useUser } from "../../contexts/UserContext";
 import ClientHeader from "../../components/ClientHeader";
 import paypal_logo from "../../assets/paypal.svg";
 import payment_illustration from "../../assets/payment.svg";
+import axios from "axios";
 
 const SIDEBAR_WIDTH = 290;
+const API_URL = "http://localhost:5000/api/auth";
 
 const ClientBillingPage = () => {
   const { userId } = useUser();
@@ -29,14 +31,14 @@ const ClientBillingPage = () => {
   const [city, setCity] = useState("");
   const [postalCode, setPostalCode] = useState("");
   // Payment card states
-  const [paymentCards, setPaymentCards] = useState([]); // Placeholder, no API
-  const [loadingCards] = useState(false); // Placeholder
+  const [paymentCards, setPaymentCards] = useState([]);
+  const [loadingCards, setLoadingCards] = useState(false);
   const [submittingCard, setSubmittingCard] = useState(false);
   const [cardError, setCardError] = useState("");
   const [cardSuccess, setCardSuccess] = useState("");
   // PayPal states
-  const [paypalAccounts, setPaypalAccounts] = useState([]); // Placeholder, no API
-  const [loadingPaypal] = useState(false); // Placeholder
+  const [paypalAccounts, setPaypalAccounts] = useState([]);
+  const [loadingPaypal, setLoadingPaypal] = useState(false);
   const [submittingPaypal, setSubmittingPaypal] = useState(false);
   const [paypalError, setPaypalError] = useState("");
   const [paypalSuccess, setPaypalSuccess] = useState("");
@@ -63,6 +65,53 @@ const ClientBillingPage = () => {
     fetchCountries();
   }, []);
 
+  useEffect(() => {
+    if (userId) {
+      fetchPaymentCards();
+      fetchPaypalAccounts();
+    }
+  }, [userId]);
+
+  // Fetch payment cards
+  const fetchPaymentCards = async () => {
+    if (!userId) return;
+
+    setLoadingCards(true);
+    try {
+      const response = await axios.get(`${API_URL}/payment-cards/`, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setPaymentCards(response.data.cards);
+      }
+    } catch (error) {
+      console.error("Error fetching payment cards:", error);
+    } finally {
+      setLoadingCards(false);
+    }
+  };
+
+  // Fetch PayPal accounts
+  const fetchPaypalAccounts = async () => {
+    if (!userId) return;
+
+    setLoadingPaypal(true);
+    try {
+      const response = await axios.get(`${API_URL}/paypal-accounts/`, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setPaypalAccounts(response.data.accounts);
+      }
+    } catch (error) {
+      console.error("Error fetching PayPal accounts:", error);
+    } finally {
+      setLoadingPaypal(false);
+    }
+  };
+
   // Navigation handler for sidebar
   const handleSidebarNavigate = (key) => {
     switch (key) {
@@ -83,7 +132,17 @@ const ClientBillingPage = () => {
     }
   };
 
-  // Helper functions (no API, just UI logic)
+  // Helper function to determine card type
+  const getCardType = (cardNumber) => {
+    const cleanNumber = cardNumber.replace(/\s/g, '');
+    if (cleanNumber.startsWith('4')) return 'visa';
+    if (cleanNumber.startsWith('5')) return 'mastercard';
+    if (cleanNumber.startsWith('6')) return 'rupay';
+    if (cleanNumber.startsWith('3')) return 'amex';
+    return 'visa'; // default
+  };
+
+  // Reset card form
   const resetCardForm = () => {
     setCardNumber("");
     setFirstName("");
@@ -114,24 +173,182 @@ const ClientBillingPage = () => {
     }
   };
 
-  // Simulate add card (no API)
-  const handleAddPaymentCard = () => {
+  // Add payment card
+  const handleAddPaymentCard = async () => {
+    if (!userId) return;
+
+    // Basic validation
+    if (!cardNumber.replace(/\s/g, '')) {
+      setCardError("Card number is required");
+      return;
+    }
+    if (!firstName.trim()) {
+      setCardError("First name is required");
+      return;
+    }
+    if (!lastName.trim()) {
+      setCardError("Last name is required");
+      return;
+    }
+    if (!expMonth) {
+      setCardError("Expiration month is required");
+      return;
+    }
+    if (!expYear) {
+      setCardError("Expiration year is required");
+      return;
+    }
+    if (!securityCode) {
+      setCardError("Security code is required");
+      return;
+    }
+    if (!address1.trim()) {
+      setCardError("Billing address is required");
+      return;
+    }
+    if (!city.trim()) {
+      setCardError("City is required");
+      return;
+    }
+
     setSubmittingCard(true);
-    setTimeout(() => {
+    setCardError("");
+    setCardSuccess("");
+
+    try {
+      // Determine card type based on card number
+      const cardType = getCardType(cardNumber);
+
+      const cardData = {
+        cardType: cardType,
+        cardNumber: cardNumber.replace(/\s/g, ''),
+        cardholderName: `${firstName} ${lastName}`.trim(),
+        expiryMonth: expMonth,
+        expiryYear: expYear,
+        cvv: securityCode,
+        billingAddress: address1,
+        billingCity: city,
+        billingCountry: selectedCountry,
+        billingPostalCode: postalCode,
+        isDefault: paymentCards.length === 0, // Make default if first card
+      };
+
+      const response = await axios.post(`${API_URL}/payment-cards/add/`, cardData, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setCardSuccess("Payment card added successfully!");
+        setShowAddMethod(false);
+        resetCardForm();
+        fetchPaymentCards(); // Refresh the cards list
+      }
+    } catch (error) {
+      setCardError(error.response?.data?.message || "Failed to add payment card");
+    } finally {
       setSubmittingCard(false);
-      setCardSuccess("Payment card added successfully!");
-      setShowAddMethod(false);
-      resetCardForm();
-    }, 1000);
+    }
   };
-  // Simulate add PayPal (no API)
-  const handleAddPaypalAccount = () => {
+  // Delete payment card
+  const handleDeleteCard = async (cardId) => {
+    if (!confirm("Are you sure you want to delete this payment card?")) return;
+
+    try {
+      const response = await axios.delete(`${API_URL}/payment-cards/${cardId}/delete/`, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        fetchPaymentCards(); // Refresh the cards list
+      }
+    } catch (error) {
+      console.error("Error deleting payment card:", error);
+    }
+  };
+
+  // Set default payment card
+  const handleSetDefaultCard = async (cardId) => {
+    try {
+      const response = await axios.put(`${API_URL}/payment-cards/${cardId}/set-default/`, {}, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        fetchPaymentCards(); // Refresh the cards list
+      }
+    } catch (error) {
+      console.error("Error setting default card:", error);
+    }
+  };
+
+  // Add PayPal account
+  const handleAddPaypalAccount = async () => {
+    if (!userId) return;
+
+    // Basic validation
+    if (!paypalEmail.trim()) {
+      setPaypalError("PayPal email is required");
+      return;
+    }
+    if (!paypalEmail.includes('@')) {
+      setPaypalError("Please enter a valid email address");
+      return;
+    }
+
     setSubmittingPaypal(true);
-    setTimeout(() => {
+    setPaypalError("");
+    setPaypalSuccess("");
+
+    try {
+      const response = await axios.post(`${API_URL}/paypal-accounts/add/`, {
+        paypalEmail: paypalEmail,
+        isDefault: paypalAccounts.length === 0, // Make default if first account
+      }, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setPaypalSuccess("PayPal account added successfully!");
+        setPaypalEmail("");
+        fetchPaypalAccounts(); // Refresh the accounts list
+      }
+    } catch (error) {
+      setPaypalError(error.response?.data?.message || "Failed to add PayPal account");
+    } finally {
       setSubmittingPaypal(false);
-      setPaypalSuccess("PayPal account added successfully!");
-      setPaypalEmail("");
-    }, 1000);
+    }
+  };
+
+  // Delete PayPal account
+  const handleDeletePaypalAccount = async (accountId) => {
+    if (!confirm("Are you sure you want to delete this PayPal account?")) return;
+
+    try {
+      const response = await axios.delete(`${API_URL}/paypal-accounts/${accountId}/delete/`, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        fetchPaypalAccounts(); // Refresh the accounts list
+      }
+    } catch (error) {
+      console.error("Error deleting PayPal account:", error);
+    }
+  };
+
+  // Set default PayPal account
+  const handleSetDefaultPaypalAccount = async (accountId) => {
+    try {
+      const response = await axios.put(`${API_URL}/paypal-accounts/${accountId}/set-default/`, {}, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        fetchPaypalAccounts(); // Refresh the accounts list
+      }
+    } catch (error) {
+      console.error("Error setting default PayPal account:", error);
+    }
   };
 
   return (
@@ -279,7 +496,210 @@ const ClientBillingPage = () => {
                   maxWidth: 700,
                 }}
               >
-It looks like you haven't set up a billing method yet. To ensure you're ready to hire when the time comes, please add a billing method at your convenience. This will help streamline the process and make your experience smoother when you're ready to proceed.              </div>
+                {paymentCards.length === 0 && paypalAccounts.length === 0 ? (
+                  "It looks like you haven't set up a billing method yet. To ensure you're ready to hire when the time comes, please add a billing method at your convenience. This will help streamline the process and make your experience smoother when you're ready to proceed."
+                ) : (
+                  "Manage your billing methods below."
+                )}
+              </div>
+
+              {/* Display existing payment cards */}
+              {loadingCards ? (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 20, fontWeight: 600, color: "#222", marginBottom: 16 }}>
+                    Payment Cards
+                  </div>
+                  <div style={{ color: "#666", fontSize: 16 }}>Loading payment cards...</div>
+                </div>
+              ) : paymentCards.length > 0 && (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 20, fontWeight: 600, color: "#222", marginBottom: 16 }}>
+                    Payment Cards
+                  </div>
+                  {paymentCards.map((card) => (
+                    <div
+                      key={card.id}
+                      style={{
+                        border: "1px solid #e6e6e6",
+                        borderRadius: 8,
+                        padding: 16,
+                        marginBottom: 12,
+                        background: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <div
+                          style={{
+                            width: 40,
+                            height: 25,
+                            background: getCardBrandColor(card.cardBrand),
+                            borderRadius: 4,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#fff",
+                            fontSize: 12,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {card.cardBrand?.toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 600, color: "#222" }}>
+                            •••• •••• •••• {card.lastFourDigits}
+                          </div>
+                          <div style={{ fontSize: 14, color: "#666" }}>
+                            {card.cardholderName} • Expires {card.expiryMonth}/{card.expiryYear}
+                          </div>
+                        </div>
+                        {card.isDefault && (
+                          <span
+                            style={{
+                              background: "#007476",
+                              color: "#fff",
+                              padding: "4px 8px",
+                              borderRadius: 4,
+                              fontSize: 12,
+                              fontWeight: 600,
+                            }}
+                          >
+                            Default
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {!card.isDefault && (
+                          <button
+                            onClick={() => handleSetDefaultCard(card.id)}
+                            style={{
+                              background: "none",
+                              border: "1px solid #007476",
+                              color: "#007476",
+                              padding: "6px 12px",
+                              borderRadius: 4,
+                              fontSize: 12,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Set Default
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteCard(card.id)}
+                          style={{
+                            background: "none",
+                            border: "1px solid #dc3545",
+                            color: "#dc3545",
+                            padding: "6px 12px",
+                            borderRadius: 4,
+                            fontSize: 12,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Display existing PayPal accounts */}
+              {loadingPaypal ? (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 20, fontWeight: 600, color: "#222", marginBottom: 16 }}>
+                    PayPal Accounts
+                  </div>
+                  <div style={{ color: "#666", fontSize: 16 }}>Loading PayPal accounts...</div>
+                </div>
+              ) : paypalAccounts.length > 0 && (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 20, fontWeight: 600, color: "#222", marginBottom: 16 }}>
+                    PayPal Accounts
+                  </div>
+                  {paypalAccounts.map((account) => (
+                    <div
+                      key={account.id}
+                      style={{
+                        border: "1px solid #e6e6e6",
+                        borderRadius: 8,
+                        padding: 16,
+                        marginBottom: 12,
+                        background: "#fff",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                        <img
+                          src={paypal_logo}
+                          alt="PayPal"
+                          style={{ width: 60, height: 20 }}
+                        />
+                        <div>
+                          <div style={{ fontSize: 16, fontWeight: 600, color: "#222" }}>
+                            {account.paypalEmail}
+                          </div>
+                          <div style={{ fontSize: 14, color: "#666" }}>
+                            PayPal Account
+                          </div>
+                        </div>
+                        {account.isDefault && (
+                          <span
+                            style={{
+                              background: "#007476",
+                              color: "#fff",
+                              padding: "4px 8px",
+                              borderRadius: 4,
+                              fontSize: 12,
+                              fontWeight: 600,
+                            }}
+                          >
+                            Default
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        {!account.isDefault && (
+                          <button
+                            onClick={() => handleSetDefaultPaypalAccount(account.id)}
+                            style={{
+                              background: "none",
+                              border: "1px solid #007476",
+                              color: "#007476",
+                              padding: "6px 12px",
+                              borderRadius: 4,
+                              fontSize: 12,
+                              cursor: "pointer",
+                            }}
+                          >
+                            Set Default
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeletePaypalAccount(account.id)}
+                          style={{
+                            background: "none",
+                            border: "1px solid #dc3545",
+                            color: "#dc3545",
+                            padding: "6px 12px",
+                            borderRadius: 4,
+                            fontSize: 12,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <button
                 style={{
                   display: "flex",
@@ -1216,6 +1636,22 @@ It looks like you haven't set up a billing method yet. To ensure you're ready to
       </main>
     </div>
   );
+};
+
+// Helper function to get card brand color
+const getCardBrandColor = (brand) => {
+  switch (brand?.toLowerCase()) {
+    case 'visa':
+      return '#1a1f71';
+    case 'mastercard':
+      return '#eb001b';
+    case 'rupay':
+      return '#0066cc';
+    case 'amex':
+      return '#006fcf';
+    default:
+      return '#666';
+  }
 };
 
 export default ClientBillingPage; 

@@ -310,6 +310,7 @@ class JobProposals(Document):
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
     status = StringField(choices=["submitted", "active", "completed", "hired", "declined"], default="submitted")
+    viewedByClient = BooleanField(default=False)
 
     meta = {"collection": "jobproposals", "strict": False}
 

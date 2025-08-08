@@ -432,7 +432,7 @@ const ClientOverviewPage = () => {
         <Link
           to="#"
           style={{
-            color: verificationStatus.billingMethodAdded ? "#22c55e" : "#000",
+            color: verificationStatus.billingMethodAdded ? "#007476" : "#000",
             fontWeight: 600,
             textDecoration: "underline",
           }}

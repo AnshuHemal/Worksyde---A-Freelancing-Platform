@@ -76,6 +76,17 @@ const ClientJobDetailedPage = () => {
       }
     }
     
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    
     .filter-section-enter {
       animation: slideDown 0.3s ease-out;
     }
@@ -116,6 +127,13 @@ const ClientJobDetailedPage = () => {
   const [proposalActions, setProposalActions] = useState({});
   const [selectedProposal, setSelectedProposal] = useState(null);
   const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
+  // Add new state for billing method modal
+  const [showBillingModal, setShowBillingModal] = useState(false);
+  const [selectedFreelancer, setSelectedFreelancer] = useState(null);
+  const [billingMethods, setBillingMethods] = useState([]);
+  const [checkingBilling, setCheckingBilling] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   const openProposalModal = (proposal) => {
     setSelectedProposal(proposal);
@@ -130,6 +148,7 @@ const ClientJobDetailedPage = () => {
   const ProposalModal = ({ isOpen, onClose, proposal }) => {
     const [showFullBio, setShowFullBio] = useState(false);
     if (!isOpen || !proposal) return null;
+
     return (
       <div
         role="dialog"
@@ -150,266 +169,371 @@ const ClientJobDetailedPage = () => {
         <div
           onClick={(e) => e.stopPropagation()}
           style={{
-            width: "min(1100px, 95vw)",
+            width: "min(1200px, 95vw)",
             maxHeight: "90vh",
             display: "flex",
             flexDirection: "column",
             background: "#fff",
-            borderRadius: 16,
+            borderRadius: 12,
             border: "1px solid #e0e0e0",
             boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
             overflow: "hidden",
           }}
         >
-          {/* Header */}
+          {/* Header Section */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
-              padding: "16px 20px",
-              borderBottom: "1px solid #e0e0e0",
-              background: "#f8f9fa",
+              padding: "24px 32px",
+              borderBottom: "1px solid #ececec",
+              background: "#fff",
             }}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <img
-                src={
-                  proposal.freelancer?.profilePicture ||
-                  `https://via.placeholder.com/40x40/4CAF50/FFFFFF?text=${proposal.freelancer?.name?.charAt(0) || 'F'}`
-                }
-                alt={proposal.freelancer?.name || 'Freelancer'}
-                style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
-              />
+            {/* Applicant Information */}
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <div style={{ position: "relative" }}>
+                <img
+                  src={
+                    proposal.freelancer?.profilePicture ||
+                    `https://via.placeholder.com/56x56/4CAF50/FFFFFF?text=${
+                      proposal.freelancer?.name?.charAt(0) || "F"
+                    }`
+                  }
+                  alt={proposal.freelancer?.name || "Freelancer"}
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                  }}
+                />
+                {/* Online Status Indicator */}
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 2,
+                    left: 2,
+                    width: 12,
+                    height: 12,
+                    backgroundColor: "#4CAF50",
+                    borderRadius: "50%",
+                    border: "2px solid #fff",
+                  }}
+                />
+              </div>
               <div>
-                <div style={{ fontWeight: 700, color: "#121212" }}>{proposal.freelancer?.name || 'User'}</div>
-                <div style={{ fontSize: 13, color: "#666" }}>{proposal.freelancer?.location || ''}</div>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    fontSize: 20,
+                    color: "#121212",
+                    marginBottom: 4,
+                  }}
+                >
+                  {proposal.freelancer?.name || "Hemal K."}
+                </div>
+                <div
+                  style={{
+                    fontSize: 14,
+                    color: "#666",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 4,
+                  }}
+                >
+                  <BsGeoAlt style={{ fontSize: 14, color: "#666" }} />
+                  {proposal.freelancer?.location || "Ahmedabad, India"} –{" "}
+                  {new Date()
+                    .toLocaleTimeString("en-US", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })
+                    .toLowerCase()}{" "}
+                  local time
+                </div>
+                <div
+                  style={{
+                    fontSize: 14,
+                    color: "#007674",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    textDecoration: "underline",
+                  }}
+                >
+                  View profile
+                </div>
               </div>
             </div>
+
+            {/* Action Buttons */}
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button
-                onClick={() => handleProposalAction(proposal.id, 'messaged')}
-                style={{
-                  border: '1.5px solid #007674',
-                  color: '#007674',
-                  background: '#fff',
-                  borderRadius: 10,
-                  padding: '8px 16px',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: 'pointer'
-                }}
-              >Message</button>
-              <button
-                onClick={() => handleProposalAction(proposal.id, 'hired')}
-                style={{
-                  border: 'none',
-                  color: '#fff',
-                  background: '#007674',
-                  borderRadius: 10,
-                  padding: '9px 18px',
-                  fontWeight: 700,
-                  fontSize: 14,
-                  cursor: 'pointer'
-                }}
-              >Hire</button>
-              <button
                 onClick={onClose}
-                aria-label="Close"
                 style={{
-                  border: "none",
-                  background: "transparent",
-                  fontSize: 22,
+                  width: 40,
+                  height: 40,
+                  border: "1px solid #007674",
+                  borderRadius: "50%",
+                  background: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
                   cursor: "pointer",
                   color: "#666",
-                  marginLeft: 8
                 }}
               >
-                ×
+                <span style={{ fontSize: 18 }}>⋯</span>
+              </button>
+              <button
+                onClick={() => handleProposalAction(proposal.id, "dislike")}
+                style={{
+                  width: 40,
+                  height: 40,
+                  border: "1px solid #007674",
+                  borderRadius: "50%",
+                  background: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "#666",
+                }}
+              >
+                <BsHandThumbsDown style={{ fontSize: 16 }} />
+              </button>
+              <button
+                onClick={() => handleProposalAction(proposal.id, "like")}
+                style={{
+                  width: 40,
+                  height: 40,
+                  border: "1px solid #007674",
+                  borderRadius: "50%",
+                  background: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "#666",
+                }}
+              >
+                <BsHandThumbsUp style={{ fontSize: 16 }} />
+              </button>
+              <button
+                onClick={() => handleMessageClick(proposal.freelancer)}
+                style={{
+                  border: "1px solid #007674",
+                  color: "#007674",
+                  background: "#fff",
+                  borderRadius: 8,
+                  padding: "10px 20px",
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Message
+              </button>
+              <button
+                onClick={() => {
+                  navigate(
+                    `/ws/client/offer/job-application/${proposal.freelancer.id}`,
+                    {
+                      state: {
+                        jobId: job?.id,
+                        job: job
+                      }
+                    }
+                  );
+                }}
+                style={{
+                  border: "none",
+                  color: "#fff",
+                  background: "#007674",
+                  borderRadius: 8,
+                  padding: "10px 20px",
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: "pointer",
+                }}
+              >
+                Hire
+              </button>
+              <button
+                onClick={() => handleProposalAction(proposal.id, "favorite")}
+                style={{
+                  width: 40,
+                  height: 40,
+                  border: "1px solid #007674",
+                  borderRadius: "50%",
+                  background: "#fff",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  color: "#666",
+                }}
+              >
+                <span style={{ fontSize: 18 }}>♥</span>
               </button>
             </div>
           </div>
 
-          {/* Body */}
-          <div style={{ padding: 20, overflowY: "auto" }}>
+          {/* Body Section */}
+          <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+            {/* Left Column */}
             <div
               style={{
-                display: "grid",
-                gridTemplateColumns: "320px 1fr",
-                gap: 20,
+                width: "320px",
+                borderRight: "1px solid #ececec",
+                padding: "32px",
               }}
             >
-              {/* Left - Applicant card + invite */}
-              <div>
+              {/* Applicant Section */}
+              <div style={{ marginBottom: 32 }}>
                 <div
                   style={{
-                    border: '1px solid #e0e0e0',
-                    borderRadius: 12,
-                    padding: 16,
-                    background: '#fff',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: "#121212",
+                    marginBottom: 12,
                   }}
                 >
-                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#121212' }}>Applicant</div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-                    <img
-                      src={
-                        proposal.freelancer?.profilePicture ||
-                        `https://via.placeholder.com/56x56/4CAF50/FFFFFF?text=${proposal.freelancer?.name?.charAt(0) || 'F'}`
-                      }
-                      alt={proposal.freelancer?.name || 'Freelancer'}
-                      style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 700, color: '#121212' }}>{proposal.freelancer?.name || 'User'}</div>
-                      <div style={{ fontSize: 13, color: '#666' }}>{proposal.freelancer?.location || ''}</div>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 14, color: '#121212', lineHeight: 1.5 }}>{proposal.freelancer?.specialization || '-'}</div>
+                  Applicant
+                </div>
+                <div
+                  style={{ fontSize: 14, color: "#121212", lineHeight: 1.5 }}
+                >
+                  {proposal.freelancer?.name || "Hemal K."} has applied to or
+                  been invited to your or your company's job{" "}
+                  <strong>
+                    {job?.title || "Freelancing Website Development Project"}
+                  </strong>
                 </div>
               </div>
 
-              {/* Right - Proposal details */}
+              {/* Get a second opinion Section */}
               <div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#121212' }}>Proposal Details</div>
-                  <div style={{ fontSize: 18, color: '#121212', textAlign: 'right' }}>
-                    ₹ {Number(proposal.freelancer?.hourlyRate ?? 0).toFixed(2)}
-                    <span style={{ fontSize: 14, color: '#666' }}>/hr</span>
-                    <div style={{ fontSize: 12, color: '#666' }}>Proposed Bid</div>
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: "#121212",
+                    marginBottom: 12,
+                  }}
+                >
+                  Get a second opinion
+                </div>
+                <div
+                  style={{ fontSize: 14, color: "#121212", marginBottom: 16 }}
+                >
+                  Invite coworkers to help you review freelancers
+                </div>
+                <button
+                  style={{
+                    border: "1px solid #007674",
+                    color: "#007674",
+                    background: "#fff",
+                    borderRadius: 8,
+                    padding: "10px 20px",
+                    fontWeight: 600,
+                    fontSize: 14,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <BsPeople style={{ fontSize: 14 }} />
+                  Invite
+                </button>
+              </div>
+            </div>
+
+            {/* Right Column */}
+            <div style={{ flex: 1, padding: "32px" }}>
+              {/* Proposal Details Header */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  marginBottom: 24,
+                }}
+              >
+                <div
+                  style={{ fontSize: 18, fontWeight: 700, color: "#121212" }}
+                >
+                  Proposal Details
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div
+                    style={{ fontSize: 18, fontWeight: 700, color: "#121212" }}
+                  >
+                    ₹{Number(proposal.freelancer?.hourlyRate ?? 25).toFixed(2)}
+                    /hr
+                  </div>
+                  <div style={{ fontSize: 12, color: "#666" }}>
+                    Proposed Bid
                   </div>
                 </div>
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 14, color: '#666', marginBottom: 6 }}>Cover letter</div>
-                  <div style={{ fontSize: 15, color: '#121212', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                    {proposal.coverLetter || 'No cover letter provided'}
-                  </div>
+              </div>
+
+              {/* Cover Letter */}
+              <div style={{ marginBottom: 24 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "#121212",
+                    marginBottom: 8,
+                  }}
+                >
+                  Cover letter
                 </div>
-                {proposal.attachment && (
-                  <div style={{ marginTop: 16 }}>
-                    <div style={{ fontSize: 14, color: '#666', marginBottom: 6 }}>Attachments</div>
+                <div
+                  style={{ fontSize: 15, color: "#121212", lineHeight: 1.6 }}
+                >
+                  {proposal.coverLetter || "Hello, this is the test message.."}
+                </div>
+              </div>
+
+              {/* Attachments */}
+              {proposal.attachment && (
+                <div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 700,
+                      color: "#121212",
+                      marginBottom: 8,
+                    }}
+                  >
+                    Attachments
+                  </div>
+                  <div
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <BsPaperclip style={{ color: "#007674", fontSize: 16 }} />
                     <a
                       href={proposal.attachment}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: '#1070ca', textDecoration: 'underline', fontWeight: 600 }}
+                      style={{
+                        color: "#007674",
+                        textDecoration: "underline",
+                        fontWeight: 600,
+                        fontSize: 14,
+                      }}
                     >
-                      View attachment
+                      Untitled Project (4).jpg (292 KB)
                     </a>
                   </div>
-                )}
-              </div>
-            </div>
-            {/* Profile overview section below Applicant and Proposal Details */}
-            <div style={{ marginTop: 12, paddingTop: 16, borderTop: '1px solid #e0e0e0' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20 }}>
-                {/* Left sidebar summary */}
-                <div>
-                  {/* Languages */}
-                  {Array.isArray(proposal.freelancer?.languages) && proposal.freelancer.languages.length > 0 && (
-                    <div style={{ marginBottom: 24 }}>
-                      <div style={{ fontSize: 20, fontWeight: 700, color: '#121212', marginBottom: 10 }}>Languages</div>
-                      <div>
-                        {proposal.freelancer.languages.map((lang, idx) => {
-                          const rawName = typeof lang === 'string' ? lang : (lang?.name || lang?.language || 'asdas');
-                          const rawProf = typeof lang === 'string' ? '' : (lang?.proficiency || '');
-                          // If provided as single string like "English - Fluent" or "English: Fluent"
-                          let name = rawName;
-                          let proficiency = rawProf;
-                          if (!proficiency && typeof lang === 'string') {
-                            const parts = lang.split(/-|:/);
-                            name = (parts[0] || '').trim();
-                            proficiency = (parts[1] || '').trim();
-                          }
-                          return (
-                            <div key={idx} style={{ color: '#121212', marginBottom: 8 }}>
-                              <span style={{ fontWeight: 700 }}>{name || '-'}</span>
-                              {proficiency && <span style={{ color: '#666' }}>: {proficiency}</span>}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  {/* Education */}
-                  {Array.isArray(proposal.freelancer?.education) && proposal.freelancer.education.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: 20, fontWeight: 700, color: '#121212', marginBottom: 10 }}>Education</div>
-                      <div>
-                        {proposal.freelancer.education.map((edu, idx) => {
-                          const school = edu?.School || edu?.institution || edu?.university || 'asdas';
-                          const degree = edu?.degree || edu?.qualification || '';
-                          const field = edu?.fieldOfStudy || edu?.field || '';
-                          const startYear = edu?.startYear || edu?.fromYear || '';
-                          const endYear = edu?.endYear || edu?.toYear || '';
-                          const expected = !!edu?.isExpected;
-                          return (
-                            <div key={idx} style={{ color: '#121212', marginBottom: 16 }}>
-                              <div style={{ fontWeight: 700, fontSize: 18 }}>{school || '-'}</div>
-                              {(degree || field) && (
-                                <div style={{ color: '#666', fontSize: 15 }}>
-                                  {degree}
-                                  {degree && field ? ', ' : ''}
-                                  {field}
-                                </div>
-                              )}
-                              {(startYear || endYear) && (
-                                <div style={{ color: '#666', fontSize: 15 }}>
-                                  {startYear || '—'}-{endYear || '—'} {expected ? '(expected)' : ''}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
                 </div>
-
-                {/* Right main profile content */}
-                <div>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <div style={{ fontSize: 28, fontWeight: 700, color: '#121212', lineHeight: 1.2 }}>
-                      {proposal.freelancer?.title || proposal.freelancer?.specialization || '—'}
-                    </div>
-                    <div style={{ fontSize: 18, color: '#121212' }}>
-                      ₹ {Number(proposal.freelancer?.hourlyRate ?? 0).toFixed(2)}
-                      <span style={{ fontSize: 14, color: '#666' }}>/hr</span>
-                    </div>
-                  </div>
-                  {proposal.freelancer?.bio && (
-                    <div style={{ marginTop: 16, color: '#121212', lineHeight: 1.6 }}>
-                      {showFullBio
-                        ? proposal.freelancer.bio
-                        : (proposal.freelancer.bio.length > 260
-                            ? proposal.freelancer.bio.slice(0, 260) + '...'
-                            : proposal.freelancer.bio)}
-                      {proposal.freelancer.bio.length > 260 && (
-                        <button
-                          onClick={() => setShowFullBio((v) => !v)}
-                          style={{
-                            marginLeft: 8,
-                            color: '#1070ca',
-                            background: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            fontWeight: 600,
-                          }}
-                        >
-                          {showFullBio ? 'less' : 'more'}
-                        </button>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Optional Portfolio heading placeholder */}
-                  {(Array.isArray(proposal.freelancer?.portfolio) && proposal.freelancer.portfolio.length > 0) && (
-                    <div style={{ marginTop: 24 }}>
-                      <div style={{ fontSize: 20, fontWeight: 700, color: '#121212', marginBottom: 8 }}>Portfolio</div>
-                      {/* Thumbnails could be rendered here if available */}
-                    </div>
-                  )}
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -777,6 +901,189 @@ const ClientJobDetailedPage = () => {
         setInvitedCount(0);
       });
   }, [jobid]);
+
+  // Function to check if user has billing methods
+  const checkBillingMethods = async () => {
+    setCheckingBilling(true);
+    try {
+      const response = await axios.get(`${API_URL}/payment-cards/`, {
+        withCredentials: true,
+      });
+
+      if (response.data.success) {
+        setBillingMethods(response.data.cards || []);
+        return response.data.cards && response.data.cards.length > 0;
+      }
+      return false;
+    } catch (error) {
+      console.error("Error checking billing methods:", error);
+      return false;
+    } finally {
+      setCheckingBilling(false);
+    }
+  };
+
+  // Function to handle message button click
+  const handleMessageClick = async (freelancer) => {
+    setSelectedFreelancer(freelancer);
+
+    // Check if user has billing methods
+    const hasBillingMethods = await checkBillingMethods();
+
+    if (hasBillingMethods) {
+      // Show toast message
+      setToastMessage("Billing method added.");
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+      // Here you would typically navigate to the messaging page
+      // navigate(`/ws/client/messages/${freelancer.id}`);
+    } else {
+      // Show billing modal
+      setShowBillingModal(true);
+    }
+  };
+
+  // Function to close billing modal
+  const closeBillingModal = () => {
+    setShowBillingModal(false);
+    setSelectedFreelancer(null);
+  };
+
+  // Function to handle adding billing method
+  const handleAddBillingMethod = () => {
+    // Navigate to billing settings page
+    navigate("/ws/client/deposit-method");
+    closeBillingModal();
+  };
+
+  // Billing Method Modal Component
+  const BillingMethodModal = ({
+    isOpen,
+    onClose,
+    freelancer,
+    onAddBilling,
+  }) => {
+    if (!isOpen || !freelancer) return null;
+
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.6)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          padding: 16,
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: "min(500px, 95vw)",
+            background: "#fff",
+            borderRadius: 12,
+            border: "1px solid #e0e0e0",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+            overflow: "hidden",
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "24px 32px",
+              borderBottom: "1px solid #ececec",
+              background: "#fff",
+            }}
+          >
+            <div style={{ fontSize: 20, fontWeight: 700, color: "#121212" }}>
+              Send {freelancer.name || "Hemal K."} a message
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                background: "none",
+                border: "none",
+                fontSize: 24,
+                cursor: "pointer",
+                color: "#666",
+                padding: 0,
+                width: 32,
+                height: 32,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <BsX />
+            </button>
+          </div>
+
+          {/* Body */}
+          <div style={{ padding: "32px" }}>
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 700,
+                  color: "#121212",
+                  marginBottom: 8,
+                }}
+              >
+                Ready to chat with {freelancer.name || "Hemal"}? Add your
+                preferred billing method.
+              </div>
+              <div style={{ fontSize: 14, color: "#666", lineHeight: 1.5 }}>
+                You'll need a verified payment method to chat with freelancers
+                on our platform. Don't worry, you'll only be charged for work
+                you approve.
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                marginTop: 24,
+              }}
+            >
+              <button
+                onClick={onAddBilling}
+                style={{
+                  background: "#007674",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 8,
+                  padding: "12px 24px",
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = "#005a58";
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = "#007674";
+                }}
+              >
+                Add a billing method
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (loading) return <div style={{ padding: 32 }}>Loading job details...</div>;
   if (error) return <div style={{ padding: 32, color: "red" }}>{error}</div>;
@@ -3316,8 +3623,7 @@ const ClientJobDetailedPage = () => {
                                     lineHeight: "1.4",
                                   }}
                                 >
-                                  {proposal.freelancer?.specialization ||
-                                    "-"}
+                                  {proposal.freelancer?.specialization || "-"}
                                 </div>
                               </div>
                             </div>
@@ -3352,7 +3658,7 @@ const ClientJobDetailedPage = () => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleProposalAction(proposal.id, "messaged");
+                                  handleMessageClick(proposal.freelancer);
                                 }}
                                 style={{
                                   border: "2px solid #007674",
@@ -3379,7 +3685,15 @@ const ClientJobDetailedPage = () => {
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleProposalAction(proposal.id, "hired");
+                                  navigate(
+                                    `/ws/client/offer/job-application/${proposal.freelancer.id}`,
+                                    {
+                                      state: {
+                                        jobId: job?.id,
+                                        job: job
+                                      }
+                                    }
+                                  );
                                 }}
                                 style={{
                                   border: "none",
@@ -3445,7 +3759,7 @@ const ClientJobDetailedPage = () => {
                                 <span
                                   style={{ fontSize: "16px", color: "#121212" }}
                                 >
-                                  ₹ {" "}
+                                  ₹{" "}
                                   {Number(
                                     proposal.freelancer?.totalEarned || 0
                                   ).toLocaleString()}{" "}
@@ -3487,15 +3801,21 @@ const ClientJobDetailedPage = () => {
                                 {(proposal.freelancer?.skills || [])
                                   .slice(0, 6)
                                   .map((skill, skillIndex) => (
-                                    <span key={skillIndex} className="skill-tag">
+                                    <span
+                                      key={skillIndex}
+                                      className="skill-tag"
+                                    >
                                       {typeof skill === "string"
                                         ? skill
                                         : skill?.name || skill?.label || ""}
                                     </span>
                                   ))}
-                                {(proposal.freelancer?.skills?.length || 0) > 6 && (
+                                {(proposal.freelancer?.skills?.length || 0) >
+                                  6 && (
                                   <span className="skill-tag">
-                                    +{(proposal.freelancer?.skills?.length || 0) - 6}
+                                    +
+                                    {(proposal.freelancer?.skills?.length ||
+                                      0) - 6}
                                   </span>
                                 )}
                               </div>
@@ -3513,7 +3833,7 @@ const ClientJobDetailedPage = () => {
                                   marginBottom: 4,
                                 }}
                               >
-                                ₹ {" "}
+                                ₹{" "}
                                 {Number(
                                   proposal.freelancer?.hourlyRate ?? 0
                                 ).toFixed(2)}
@@ -3536,7 +3856,7 @@ const ClientJobDetailedPage = () => {
                                 lineHeight: "1.4",
                               }}
                             >
-                              Cover letter -{" "} <br />
+                              Cover letter - <br />
                               {proposal.coverLetter ||
                                 "No cover letter provided"}
                             </div>
@@ -3914,10 +4234,17 @@ const ClientJobDetailedPage = () => {
                             )
                               .slice(0, 6)
                               .map((skill, skillIndex) => (
-                                <span key={skillIndex} className="skill-tag">{skill}</span>
+                                <span key={skillIndex} className="skill-tag">
+                                  {skill}
+                                </span>
                               ))}
-                            {(invitation.freelancer?.skills?.length || 13) > 6 && (
-                              <span className="skill-tag">+{(invitation.freelancer?.skills?.length || 13) - 6}</span>
+                            {(invitation.freelancer?.skills?.length || 13) >
+                              6 && (
+                              <span className="skill-tag">
+                                +
+                                {(invitation.freelancer?.skills?.length || 13) -
+                                  6}
+                              </span>
                             )}
                           </div>
                         </div>
@@ -3966,13 +4293,11 @@ const ClientJobDetailedPage = () => {
                             }}
                           >
                             <strong>Cover letter -</strong>{" "}
-                            {invitation.coverLetter ||
-                              ""}
+                            {invitation.coverLetter || ""}
                           </div>
                         </div>
                       </div>
                     </div>
-
                   ))
                 ) : (
                   // Show empty state when no declined invitations
@@ -5202,6 +5527,37 @@ const ClientJobDetailedPage = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Billing Method Modal */}
+      {showBillingModal && (
+        <BillingMethodModal
+          isOpen={showBillingModal}
+          onClose={closeBillingModal}
+          freelancer={selectedFreelancer}
+          onAddBilling={handleAddBillingMethod}
+        />
+      )}
+
+      {/* Toast Notification */}
+      {showToast && (
+        <div
+          style={{
+            position: "fixed",
+            top: "20px",
+            right: "20px",
+            background: "#4CAF50",
+            color: "white",
+            padding: "12px 24px",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            zIndex: 10000,
+            fontSize: "14px",
+            fontWeight: "600",
+            animation: "slideIn 0.3s ease-out",
+          }}
+        >
+          {toastMessage}
         </div>
       )}
     </div>

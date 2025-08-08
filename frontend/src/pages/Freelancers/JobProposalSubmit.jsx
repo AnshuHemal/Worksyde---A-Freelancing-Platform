@@ -83,7 +83,7 @@ const JobProposalSubmit = () => {
         const response = await axios.post(
           `${API_URL}/jobproposalsbyid/fetch/`,
           {
-            userId: user._id,
+            userId: user.id || user._id,
             jobProposalId: jobProposalId,
           }
         );
