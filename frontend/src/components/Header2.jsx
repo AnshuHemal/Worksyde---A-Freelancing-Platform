@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import logo from "../assets/worksyde.png";
 import { RiChatSmileAiLine } from "react-icons/ri";
-import { BsGlobe, BsBell, BsCircleFill } from "react-icons/bs";
+import { BsGlobe, BsBell, BsCircleFill, BsPeople } from "react-icons/bs";
 import { TfiHelp } from "react-icons/tfi";
 import { LuCircleUser, LuSettings } from "react-icons/lu";
 import { MdOutlineLightMode } from "react-icons/md";
@@ -383,6 +383,13 @@ const Header2 = () => {
                   className="me-2"
                 />{" "}
                 Your Profile
+              </Link>
+              <Link to="/ws/proposals" className="dropdown-item align-items-center" onClick={closeDropdown}>
+                <BsPeople
+                  style={{ width: "20px", height: "18px" }}
+                  className="me-2"
+                />{" "}
+                Proposals
               </Link>
               <div className="dropdown-item d-flex justify-content-between align-items-center">
                 <div>

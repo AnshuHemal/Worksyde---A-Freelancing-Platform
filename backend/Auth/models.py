@@ -285,6 +285,7 @@ class JobPosts(Document):
     applicants = IntField(default=0)
     createdAt = DateTimeField()
     updatedAt = DateTimeField()
+    invites = IntField(default=30)  # <-- Added field
 
     meta = {"collection": "jobposts", "strict": False}
 
@@ -308,6 +309,7 @@ class JobProposals(Document):
     milestones = ListField(EmbeddedDocumentField(Milestone))
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
+    status = StringField(choices=["submitted", "active", "completed", "hired", "declined"], default="submitted")
 
     meta = {"collection": "jobproposals", "strict": False}
 
@@ -422,3 +424,32 @@ class PayPalAccount(Document):
             self.createdAt = timezone.now()
         self.updatedAt = timezone.now()
         return super().save(*args, **kwargs)
+
+
+class JobInvitation(Document):
+    jobId = ReferenceField(JobPosts, required=True)
+    clientId = ReferenceField(User, required=True)
+    freelancerId = ReferenceField(User, required=True)
+    message = StringField()
+    createdAt = DateTimeField(default=timezone.now)
+
+    meta = {
+        "collection": "jobinvitations",
+        "indexes": ["jobId", "clientId", "freelancerId"],
+        "ordering": ["-createdAt"]
+    }
+
+
+class DeclinedJobInvitation(Document):
+    jobId = ReferenceField('JobPosts', required=True)
+    clientId = ReferenceField('User', required=True)
+    freelancerId = ReferenceField('User', required=True)
+    reason = StringField()
+    message = StringField()
+    blockFuture = BooleanField(default=False)
+    createdAt = DateTimeField(default=timezone.now)
+
+    meta = {
+        'collection': 'declinedjobinvitations',
+        'ordering': ['-createdAt']
+    }

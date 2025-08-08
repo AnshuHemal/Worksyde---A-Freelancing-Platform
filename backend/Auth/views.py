@@ -28,12 +28,15 @@ from Auth.models import (
     PaymentCard,
     PayPalAccount,
     Company,
+    JobInvitation,
+    DeclinedJobInvitation,
 )
 from .serializers import (
     EducationSerializer,
     RequestProfileSerializer,
     JobPostSerializer,
     JobProposalSerializer,
+    JobInvitationSerializer,
 )
 from Auth.decorators import verify_token
 from Admin.emails import send_otp_email, send_under_review_email
@@ -52,6 +55,7 @@ import traceback
 import time
 from twilio.rest import Client
 import uuid
+from rest_framework.permissions import IsAuthenticated
 
 
 def send_otp_sms(phone_number, otp_code):
@@ -1577,6 +1581,8 @@ def get_profile_details(request, user_id):
             ],
         }
 
+        
+
         return Response(profile)
 
     except Exception as e:
@@ -2333,10 +2339,143 @@ def fetch_job_posts_for_client(request, user_id):
 def fetch_proposals_for_job(request, job_id):
     try:
         proposals = JobProposals.objects(jobId=job_id)
-        serializer = JobProposalSerializer(proposals, many=True)
-        return Response({"success": True, "data": serializer.data})
+        
+        # Enhanced data with freelancer profile information
+        enhanced_proposals = []
+        
+        for proposal in proposals:
+            # Get basic proposal data
+            proposal_data = {
+                "id": str(proposal.id),
+                "jobId": str(proposal.jobId.id),
+                "userId": str(proposal.userId.id),
+                "projectScope": proposal.projectScope,
+                "bidAmount": float(proposal.bidAmount) if proposal.bidAmount else 0,
+                "serviceFee": float(proposal.serviceFee) if proposal.serviceFee else 0,
+                "youReceive": float(proposal.youReceive) if proposal.youReceive else 0,
+                "projectDuration": proposal.projectDuration,
+                "coverLetter": proposal.coverLetter,
+                "attachment": proposal.attachment,
+                "status": proposal.status,
+                "createdAt": proposal.createdAt,
+                "updatedAt": proposal.updatedAt,
+            }
+            
+            # Get freelancer profile information
+            freelancer_user = proposal.userId
+            freelancer_profile = Requests.objects(userId=freelancer_user).first()
+            
+            if freelancer_profile:
+                # Calculate freelancer stats
+                all_freelancer_proposals = JobProposals.objects(userId=freelancer_user)
+                completed_proposals = all_freelancer_proposals.filter(status='completed')
+                total_earnings = sum([float(p.youReceive or 0) for p in completed_proposals])
+                
+                # Calculate job success rate
+                total_proposals = all_freelancer_proposals.count()
+                completed_count = completed_proposals.count()
+                job_success = int((completed_count / total_proposals) * 100) if total_proposals > 0 else 0
+                
+                # Get skills
+                skills = []
+                if freelancer_profile.skills:
+                    skills = [{"id": str(skill.id), "name": skill.name} for skill in freelancer_profile.skills]
+                
+                # Add freelancer data to proposal
+                proposal_data["freelancer"] = {
+                    "id": str(freelancer_user.id),
+                    "name": freelancer_user.name,
+                    "email": freelancer_user.email,
+                    "location": freelancer_profile.country or "Not specified",
+                    "specialization": freelancer_profile.title or "Freelancer",
+                    "profilePicture": freelancer_profile.photograph or None,
+                    "hourlyRate": float(freelancer_profile.hourlyRate) if freelancer_profile.hourlyRate else 0,
+                    "skills": skills,
+                    "completedJobs": completed_count,
+                    "totalHours": 0,  # This would need to be calculated from actual work data
+                    "totalEarned": total_earnings,
+                    "jobSuccess": job_success,
+                    "bio": freelancer_profile.bio or "",
+                    "onlineStatus": getattr(freelancer_user, "onlineStatus", "offline"),
+                }
+            else:
+                # Fallback data if no profile found
+                proposal_data["freelancer"] = {
+                    "id": str(freelancer_user.id),
+                    "name": freelancer_user.name,
+                    "email": freelancer_user.email,
+                    "location": "Not specified",
+                    "specialization": "Freelancer",
+                    "profilePicture": None,
+                    "hourlyRate": 0,
+                    "skills": [],
+                    "completedJobs": 0,
+                    "totalHours": 0,
+                    "totalEarned": 0,
+                    "jobSuccess": 0,
+                    "bio": "",
+                    "onlineStatus": "offline",
+                }
+            
+            enhanced_proposals.append(proposal_data)
+        
+        return Response({"success": True, "proposals": enhanced_proposals})
     except Exception as e:
         print("Error fetching proposals for job:", e)
+        return Response({"success": False, "message": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def shortlist_proposal(request):
+    """Shortlist a proposal"""
+    try:
+        proposal_id = request.data.get("proposalId")
+        action = request.data.get("action")  # "shortlist" or "unshortlist"
+        
+        if not proposal_id:
+            return Response({"success": False, "message": "Proposal ID is required"}, status=400)
+        
+        proposal = JobProposals.objects(id=proposal_id).first()
+        if not proposal:
+            return Response({"success": False, "message": "Proposal not found"}, status=404)
+        
+        # Update proposal status or add shortlist flag
+        if action == "shortlist":
+            proposal.status = "shortlisted"
+        elif action == "unshortlist":
+            proposal.status = "submitted"
+        
+        proposal.save()
+        
+        return Response({"success": True, "message": f"Proposal {action}ed successfully"})
+        
+    except Exception as e:
+        print("Error shortlisting proposal:", e)
+        return Response({"success": False, "message": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def archive_proposal(request):
+    """Archive a proposal"""
+    try:
+        proposal_id = request.data.get("proposalId")
+        
+        if not proposal_id:
+            return Response({"success": False, "message": "Proposal ID is required"}, status=400)
+        
+        proposal = JobProposals.objects(id=proposal_id).first()
+        if not proposal:
+            return Response({"success": False, "message": "Proposal not found"}, status=404)
+        
+        proposal.status = "archived"
+        proposal.save()
+        
+        return Response({"success": True, "message": "Proposal archived successfully"})
+        
+    except Exception as e:
+        print("Error archiving proposal:", e)
         return Response({"success": False, "message": str(e)}, status=500)
 
 
@@ -2363,7 +2502,7 @@ def get_freelancer_summary(request, user_id):
             "photograph": req.photograph,
             "title": req.title,
             "country": req.country,
-            "hourlyRate": float(req.hourlyRate or 0),
+            "hourlyRate": float(req.hourlyRate) if hasattr(req, 'hourlyRate') and req.hourlyRate else 0,
             "skills": [{"_id": str(s.id), "name": s.name} for s in req.skills],
             "totalEarnings": total_earnings,
             "jobSuccess": job_success,
@@ -2416,7 +2555,23 @@ def get_client_profile(request, user_id):
             "size": user_profile.size if user_profile else None,
             "tagline": user_profile.tagline if user_profile else None,
             "description": user_profile.description if user_profile else None,
+            "phoneVerified": getattr(user, "phoneVerified", False),
         }
+
+        # Calculate hires and spent
+        job_ids = JobPosts.objects(userId=user.id).only('id')
+        proposals = JobProposals.objects(jobId__in=job_ids, status='completed')
+        unique_freelancers = set(str(p.userId.id) for p in proposals if hasattr(p, 'userId'))
+        hires = len(unique_freelancers)
+        spent = sum(float(p.youReceive or 0) for p in proposals)
+        # Add online status, last seen, createdAt, hires, spent
+        profile_data.update({
+            "onlineStatus": getattr(user, "onlineStatus", None),
+            "lastSeen": getattr(user, "lastSeen", None),
+            "createdAt": getattr(user, "createdAt", None),
+            "hires": hires,
+            "spent": spent,
+        })
         
         return Response(profile_data)
     except Exception as e:
@@ -2451,6 +2606,7 @@ def get_client_profile_details(request, user_id):
             "tagline": company_profile.tagline if company_profile else None,
             "description": company_profile.description if company_profile else None,
             "logo": company_profile.logo if company_profile else None,
+            
         }
         
         return Response(profile_data)
@@ -3593,3 +3749,244 @@ def publish_job_post(request, job_id):
         return Response({"success": True, "message": "Job post published successfully."}, status=200)
     except Exception as e:
         return Response({"success": False, "message": str(e)}, status=500)
+
+
+@api_view(["GET"])
+def get_verified_freelancers(request):
+    """
+    Returns a list of freelancers whose Requests.status is 'verified'.
+    """
+    try:
+        # Find all users with role 'freelancer'
+        freelancers = User.objects(role="freelancer")
+        verified_freelancers = []
+        for user in freelancers:
+            req = Requests.objects(userId=user, status="verified").first()
+            if req:
+                # Calculate earnings and job success rate
+                proposals = JobProposals.objects(userId=user)
+                total_earnings = sum([float(p.youReceive or 0) for p in proposals])
+                completed_count = sum(1 for p in proposals if getattr(p, 'status', None) == 'completed')
+                job_success = int((completed_count / proposals.count()) * 100) if proposals.count() > 0 else 0
+                
+                # Format location
+                location_parts = []
+                if hasattr(req, 'city') and req.city:
+                    location_parts.append(req.city)
+                if hasattr(req, 'country') and req.country:
+                    location_parts.append(req.country)
+                location = ", ".join(location_parts) if location_parts else "N/A"
+                
+                # Format earnings
+                if total_earnings > 0:
+                    if total_earnings >= 1000:
+                        earned_display = f"₹{int(total_earnings/1000)}K+ earned"
+                    else:
+                        earned_display = f"₹{int(total_earnings)}+ earned"
+                else:
+                    earned_display = "₹0 earned"
+                
+                verified_freelancers.append({
+                    "id": str(user.id),
+                    "name": user.name,
+                    "email": user.email,
+                    "title": req.title,
+                    "location": location,
+                    "rate": float(req.hourlyRate) if hasattr(req, 'hourlyRate') and req.hourlyRate else 0,
+                    "jobSuccess": job_success,
+                    "earned": earned_display,
+                    "totalEarnings": total_earnings,
+                    "avatar": req.photograph if hasattr(req, 'photograph') else None,
+                    "skills": [{"id": str(s.id), "name": s.name} for s in getattr(req, 'skills', [])],
+                    "bio": req.bio if hasattr(req, 'bio') else None,
+                    "onlineStatus": user.onlineStatus if hasattr(user, 'onlineStatus') else "offline",
+                    "lastSeen": user.lastSeen if hasattr(user, 'lastSeen') else None,
+                })
+        return Response({"success": True, "freelancers": verified_freelancers})
+    except Exception as e:
+        return Response({"success": False, "message": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def create_job_invitation(request):
+    user = request.user  # client
+    job_id = request.data.get("jobId")
+    freelancer_id = request.data.get("freelancerId")
+    message = request.data.get("message", "")
+    if not job_id or not freelancer_id:
+        return Response({"success": False, "message": "Missing jobId or freelancerId"}, status=400)
+    # Check for existing invitation
+    existing = JobInvitation.objects(jobId=job_id, clientId=user.id, freelancerId=freelancer_id).first()
+    if existing:
+        return Response({"success": False, "message": "Already invited"}, status=409)
+    # Check invites left
+    job = JobPosts.objects(id=job_id).first()
+    if not job:
+        return Response({"success": False, "message": "Job not found"}, status=404)
+    if job.invites <= 0:
+        return Response({"success": False, "message": "No invites left"}, status=400)
+    # Create invitation
+    invitation = JobInvitation(
+        jobId=job,
+        clientId=user,
+        freelancerId=freelancer_id,
+        message=message
+    )
+    invitation.save()
+    # Decrement invites
+    job.invites -= 1
+    job.save()
+    return Response({"success": True, "invitation": JobInvitationSerializer(invitation).data, "invites": job.invites})
+
+@api_view(["GET"])
+@verify_token
+def list_job_invitations(request):
+    user = request.user  # client
+    job_id = request.query_params.get("jobId")
+    if not job_id:
+        return Response({"success": False, "message": "Missing jobId"}, status=400)
+    invitations = JobInvitation.objects(jobId=job_id, clientId=user.id)
+    data = JobInvitationSerializer(invitations, many=True).data
+    invited_freelancer_ids = [inv["freelancerId"] for inv in data]
+    return Response({"success": True, "invitations": data, "invitedFreelancerIds": invited_freelancer_ids})
+
+@api_view(["DELETE"])
+@verify_token
+def delete_job_invitation(request):
+    user = request.user  # client
+    job_id = request.data.get("jobId")
+    freelancer_id = request.data.get("freelancerId")
+    if not job_id or not freelancer_id:
+        return Response({"success": False, "message": "Missing jobId or freelancerId"}, status=400)
+    invitation = JobInvitation.objects(jobId=job_id, clientId=user.id, freelancerId=freelancer_id).first()
+    if not invitation:
+        return Response({"success": False, "message": "Invitation not found"}, status=404)
+    invitation.delete()
+    # Increment invites in JobPosts
+    job = JobPosts.objects(id=job_id).first()
+    if job:
+        job.invites += 1
+        job.save()
+    # Return updated invited count
+    invited_count = JobInvitation.objects(jobId=job_id, clientId=user.id).count()
+    return Response({"success": True, "invitedCount": invited_count, "invites": job.invites if job else None})
+
+@api_view(["GET"])
+@verify_token
+def list_freelancer_invitations(request):
+    user = request.user  # freelancer
+    invitations = JobInvitation.objects(freelancerId=user.id)
+    data = JobInvitationSerializer(invitations, many=True).data
+    return Response({"success": True, "invitations": data})
+
+@api_view(["POST"])
+@verify_token
+def decline_job_invitation(request):
+    """
+    Decline a job invitation: delete JobInvitation and create DeclinedJobInvitation
+    Expects: jobId, clientId, reason, message, blockFuture
+    """
+    user = request.user  # freelancer
+    job_id = request.data.get("jobId")
+    client_id = request.data.get("clientId")
+    reason = request.data.get("reason")
+    message = request.data.get("message")
+    block_future = request.data.get("blockFuture", False)
+
+    if not job_id or not client_id or not reason:
+        return Response({"success": False, "message": "Missing required fields."}, status=400)
+
+    # Delete the JobInvitation
+    from Auth.models import JobInvitation, JobPosts, User
+    invitation = JobInvitation.objects(jobId=job_id, freelancerId=str(user.id)).first()
+    if not invitation:
+        return Response({"success": False, "message": "Invitation not found."}, status=404)
+    invitation.delete()
+
+    # Create DeclinedJobInvitation
+    declined = DeclinedJobInvitation(
+        jobId=job_id,
+        clientId=client_id,
+        freelancerId=str(user.id),
+        reason=reason,
+        message=message,
+        blockFuture=block_future
+    )
+    declined.save()
+
+    # Optionally increment job.invites
+    job = JobPosts.objects(id=job_id).first()
+    if job:
+        job.invites += 1
+        job.save()
+
+    return Response({"success": True, "message": "Invitation declined."})
+
+@api_view(["GET"])
+@verify_token
+def get_declined_job_invitations(request, job_id):
+    """
+    Get declined job invitations for a specific job
+    """
+    try:
+        user = request.user  # client
+        
+        # Verify the job belongs to the client
+        job = JobPosts.objects(id=job_id, userId=str(user.id)).first()
+        if not job:
+            return Response({"success": False, "message": "Job not found or access denied"}, status=404)
+        
+        # Get declined invitations for this job
+        declined_invitations = DeclinedJobInvitation.objects(jobId=job_id)
+        
+        # Prepare response data with freelancer details
+        invitations_data = []
+        for invitation in declined_invitations:
+            try:
+                # Since freelancerId is a ReferenceField, it automatically dereferences to the User object
+                freelancer = invitation.freelancerId
+                if freelancer:
+                    # Get freelancer's skills
+                    freelancer_request = Requests.objects(userId=str(freelancer.id)).first()
+                    skills = []
+                    if freelancer_request and freelancer_request.skills:
+                        skills = [skill.name for skill in freelancer_request.skills]
+                    
+                    invitation_data = {
+                        "id": str(invitation.id),
+                        "jobId": str(invitation.jobId),
+                        "clientId": str(invitation.clientId),
+                        "freelancerId": str(freelancer.id),
+                        "reason": invitation.reason,
+                        "message": invitation.message,
+                        "blockFuture": invitation.blockFuture,
+                        "createdAt": invitation.createdAt,
+                        "freelancer": {
+                            "id": str(freelancer.id),
+                            "name": freelancer.name,
+                            "email": freelancer.email,
+                            "location": freelancer_request.city + ", " + freelancer_request.country if freelancer_request and freelancer_request.city and freelancer_request.country else "Not specified",
+                            "specialization": freelancer_request.bio if freelancer_request and freelancer_request.bio else "Freelancer",
+                            "profilePicture": freelancer_request.photograph if freelancer_request and freelancer_request.photograph else None,
+                            "completedJobs": 0,  # You can add logic to count completed jobs
+                            "totalHours": 0,     # You can add logic to calculate total hours
+                            "totalEarned": 0,    # You can add logic to calculate total earnings
+                            "hourlyRate": str(freelancer_request.hourlyRate) if freelancer_request and freelancer_request.hourlyRate else "0.00",
+                            "skills": skills
+                        },
+                        "coverLetter": invitation.message or "No cover letter provided"
+                    }
+                    invitations_data.append(invitation_data)
+            except Exception as e:
+                print(f"Error processing invitation {invitation.id}: {str(e)}")
+                continue
+        
+        return Response({
+            "success": True, 
+            "data": invitations_data,
+            "count": len(invitations_data)
+        })
+    except Exception as e:
+        print(f"Error in get_declined_job_invitations: {str(e)}")
+        return Response({"success": False, "message": "Internal server error"}, status=500)

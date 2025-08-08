@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Education, Requests, WorkExperience, Skill, Speciality, Category, JobPosts, JobProposals, Company
+from .models import Education, Requests, WorkExperience, Skill, Speciality, Category, JobPosts, JobProposals, Company, JobInvitation
 
 
 class CompanySerializer(serializers.ModelSerializer):
@@ -65,11 +65,10 @@ class JobPostSerializer(serializers.Serializer):
     applicants = serializers.IntegerField()
     createdAt = serializers.DateTimeField()
     updatedAt = serializers.DateTimeField()
-    
+    invites = serializers.IntegerField()  # <-- Added field
     # If these are references:
     userId = serializers.CharField(source='userId.id', required=False)
     categoryId = serializers.CharField(source='categoryId.id', required=False)
-    
     # For nested skill references
     skills = serializers.SerializerMethodField()
 
@@ -101,3 +100,65 @@ class JobProposalSerializer(serializers.Serializer):
                 'amount': float(m.amount) if m.amount is not None else None
             })
         return result
+
+class JobInvitationSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    jobId = serializers.CharField(source='jobId.id')
+    clientId = serializers.CharField(source='clientId.id')
+    freelancerId = serializers.CharField(source='freelancerId.id')
+    message = serializers.CharField()
+    createdAt = serializers.DateTimeField()
+    jobTitle = serializers.SerializerMethodField()
+    jobDescription = serializers.SerializerMethodField()
+    clientHires = serializers.SerializerMethodField()
+    clientSpent = serializers.SerializerMethodField()
+    jobSkills = serializers.SerializerMethodField()
+    jobHourlyFrom = serializers.SerializerMethodField()
+    jobHourlyTo = serializers.SerializerMethodField()
+    jobExperienceLevel = serializers.SerializerMethodField()
+    jobDuration = serializers.SerializerMethodField()
+    jobCategory = serializers.SerializerMethodField()
+    jobPostedTime = serializers.SerializerMethodField()
+    jobScope = serializers.SerializerMethodField()
+
+    def get_jobTitle(self, obj):
+        return getattr(obj.jobId, 'title', None)
+    def get_jobDescription(self, obj):
+        return getattr(obj.jobId, 'description', None)
+    def get_clientHires(self, obj):
+        from Auth.models import JobPosts, JobProposals
+        client_id = getattr(obj.clientId, 'id', None)
+        if not client_id:
+            return 0
+        job_ids = JobPosts.objects(userId=client_id).only('id')
+        proposals = JobProposals.objects(jobId__in=job_ids, status='completed')
+        unique_freelancers = set(str(p.userId.id) for p in proposals if hasattr(p, 'userId'))
+        return len(unique_freelancers)
+    def get_clientSpent(self, obj):
+        from Auth.models import JobPosts, JobProposals
+        client_id = getattr(obj.clientId, 'id', None)
+        if not client_id:
+            return 0
+        job_ids = JobPosts.objects(userId=client_id).only('id')
+        proposals = JobProposals.objects(jobId__in=job_ids, status='completed')
+        total_spent = sum(float(p.youReceive or 0) for p in proposals)
+        return total_spent
+
+    def get_jobSkills(self, obj):
+        if hasattr(obj.jobId, 'skills'):
+            return [getattr(skill, 'name', str(skill)) for skill in getattr(obj.jobId, 'skills', [])]
+        return []
+    def get_jobHourlyFrom(self, obj):
+        return str(getattr(obj.jobId, 'hourlyRateFrom', ''))
+    def get_jobHourlyTo(self, obj):
+        return str(getattr(obj.jobId, 'hourlyRateTo', ''))
+    def get_jobExperienceLevel(self, obj):
+        return getattr(obj.jobId, 'experienceLevel', None)
+    def get_jobDuration(self, obj):
+        return getattr(obj.jobId, 'duration', None)
+    def get_jobCategory(self, obj):
+        return getattr(obj.jobId.categoryId, 'name', None) if hasattr(obj.jobId, 'categoryId') and obj.jobId.categoryId else None
+    def get_jobPostedTime(self, obj):
+        return getattr(obj.jobId, 'createdAt', None)
+    def get_jobScope(self, obj):
+        return getattr(obj.jobId, 'scopeOfWork', None)

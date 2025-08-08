@@ -16,9 +16,13 @@ import {
   BsQuestionCircle,
   BsPaperclip,
   BsInfoCircle,
+  BsHandThumbsUp,
+  BsHandThumbsDown,
 } from "react-icons/bs";
 import { MdEdit } from "react-icons/md";
 import { FaStar, FaBolt } from "react-icons/fa";
+import { motion, AnimatePresence } from "framer-motion";
+
 const API_URL = "http://localhost:5000/api/auth";
 
 const steps = [
@@ -94,6 +98,324 @@ const ClientJobDetailedPage = () => {
   const [activeInviteTab, setActiveInviteTab] = useState("search");
   const [activeProposalTab, setActiveProposalTab] = useState("all");
   const [activeHireTab, setActiveHireTab] = useState("hired");
+  const [freelancers, setFreelancers] = useState([]);
+  const [freelancersLoading, setFreelancersLoading] = useState(false);
+  const [freelancersError, setFreelancersError] = useState(null);
+  const [inviteModalData, setInviteModalData] = useState(null);
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [clientName, setClientName] = useState("User");
+  const [invitedFreelancerIds, setInvitedFreelancerIds] = useState([]);
+  const [expandedBios, setExpandedBios] = useState({});
+  const [invitedCount, setInvitedCount] = useState(0);
+  const [declinedInvitations, setDeclinedInvitations] = useState([]);
+  const [declinedInvitationsLoading, setDeclinedInvitationsLoading] =
+    useState(false);
+  const [proposals, setProposals] = useState([]);
+  const [proposalsLoading, setProposalsLoading] = useState(false);
+  const [proposalsError, setProposalsError] = useState(null);
+  const [proposalActions, setProposalActions] = useState({});
+  const [selectedProposal, setSelectedProposal] = useState(null);
+  const [isProposalModalOpen, setIsProposalModalOpen] = useState(false);
+
+  const openProposalModal = (proposal) => {
+    setSelectedProposal(proposal);
+    setIsProposalModalOpen(true);
+  };
+
+  const closeProposalModal = () => {
+    setIsProposalModalOpen(false);
+    setSelectedProposal(null);
+  };
+
+  const ProposalModal = ({ isOpen, onClose, proposal }) => {
+    const [showFullBio, setShowFullBio] = useState(false);
+    if (!isOpen || !proposal) return null;
+    return (
+      <div
+        role="dialog"
+        aria-modal="true"
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.6)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 1000,
+          padding: 16,
+        }}
+      >
+        <div
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            width: "min(1100px, 95vw)",
+            maxHeight: "90vh",
+            display: "flex",
+            flexDirection: "column",
+            background: "#fff",
+            borderRadius: 16,
+            border: "1px solid #e0e0e0",
+            boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+            overflow: "hidden",
+          }}
+        >
+          {/* Header */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "16px 20px",
+              borderBottom: "1px solid #e0e0e0",
+              background: "#f8f9fa",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <img
+                src={
+                  proposal.freelancer?.profilePicture ||
+                  `https://via.placeholder.com/40x40/4CAF50/FFFFFF?text=${proposal.freelancer?.name?.charAt(0) || 'F'}`
+                }
+                alt={proposal.freelancer?.name || 'Freelancer'}
+                style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover" }}
+              />
+              <div>
+                <div style={{ fontWeight: 700, color: "#121212" }}>{proposal.freelancer?.name || 'User'}</div>
+                <div style={{ fontSize: 13, color: "#666" }}>{proposal.freelancer?.location || ''}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                onClick={() => handleProposalAction(proposal.id, 'messaged')}
+                style={{
+                  border: '1.5px solid #007674',
+                  color: '#007674',
+                  background: '#fff',
+                  borderRadius: 10,
+                  padding: '8px 16px',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: 'pointer'
+                }}
+              >Message</button>
+              <button
+                onClick={() => handleProposalAction(proposal.id, 'hired')}
+                style={{
+                  border: 'none',
+                  color: '#fff',
+                  background: '#007674',
+                  borderRadius: 10,
+                  padding: '9px 18px',
+                  fontWeight: 700,
+                  fontSize: 14,
+                  cursor: 'pointer'
+                }}
+              >Hire</button>
+              <button
+                onClick={onClose}
+                aria-label="Close"
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  fontSize: 22,
+                  cursor: "pointer",
+                  color: "#666",
+                  marginLeft: 8
+                }}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div style={{ padding: 20, overflowY: "auto" }}>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "320px 1fr",
+                gap: 20,
+              }}
+            >
+              {/* Left - Applicant card + invite */}
+              <div>
+                <div
+                  style={{
+                    border: '1px solid #e0e0e0',
+                    borderRadius: 12,
+                    padding: 16,
+                    background: '#fff',
+                  }}
+                >
+                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: '#121212' }}>Applicant</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <img
+                      src={
+                        proposal.freelancer?.profilePicture ||
+                        `https://via.placeholder.com/56x56/4CAF50/FFFFFF?text=${proposal.freelancer?.name?.charAt(0) || 'F'}`
+                      }
+                      alt={proposal.freelancer?.name || 'Freelancer'}
+                      style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover' }}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 700, color: '#121212' }}>{proposal.freelancer?.name || 'User'}</div>
+                      <div style={{ fontSize: 13, color: '#666' }}>{proposal.freelancer?.location || ''}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 14, color: '#121212', lineHeight: 1.5 }}>{proposal.freelancer?.specialization || '-'}</div>
+                </div>
+              </div>
+
+              {/* Right - Proposal details */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: '#121212' }}>Proposal Details</div>
+                  <div style={{ fontSize: 18, color: '#121212', textAlign: 'right' }}>
+                    ₹ {Number(proposal.freelancer?.hourlyRate ?? 0).toFixed(2)}
+                    <span style={{ fontSize: 14, color: '#666' }}>/hr</span>
+                    <div style={{ fontSize: 12, color: '#666' }}>Proposed Bid</div>
+                  </div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 14, color: '#666', marginBottom: 6 }}>Cover letter</div>
+                  <div style={{ fontSize: 15, color: '#121212', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                    {proposal.coverLetter || 'No cover letter provided'}
+                  </div>
+                </div>
+                {proposal.attachment && (
+                  <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: 14, color: '#666', marginBottom: 6 }}>Attachments</div>
+                    <a
+                      href={proposal.attachment}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#1070ca', textDecoration: 'underline', fontWeight: 600 }}
+                    >
+                      View attachment
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Profile overview section below Applicant and Proposal Details */}
+            <div style={{ marginTop: 12, paddingTop: 16, borderTop: '1px solid #e0e0e0' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20 }}>
+                {/* Left sidebar summary */}
+                <div>
+                  {/* Languages */}
+                  {Array.isArray(proposal.freelancer?.languages) && proposal.freelancer.languages.length > 0 && (
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: '#121212', marginBottom: 10 }}>Languages</div>
+                      <div>
+                        {proposal.freelancer.languages.map((lang, idx) => {
+                          const rawName = typeof lang === 'string' ? lang : (lang?.name || lang?.language || 'asdas');
+                          const rawProf = typeof lang === 'string' ? '' : (lang?.proficiency || '');
+                          // If provided as single string like "English - Fluent" or "English: Fluent"
+                          let name = rawName;
+                          let proficiency = rawProf;
+                          if (!proficiency && typeof lang === 'string') {
+                            const parts = lang.split(/-|:/);
+                            name = (parts[0] || '').trim();
+                            proficiency = (parts[1] || '').trim();
+                          }
+                          return (
+                            <div key={idx} style={{ color: '#121212', marginBottom: 8 }}>
+                              <span style={{ fontWeight: 700 }}>{name || '-'}</span>
+                              {proficiency && <span style={{ color: '#666' }}>: {proficiency}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  {/* Education */}
+                  {Array.isArray(proposal.freelancer?.education) && proposal.freelancer.education.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: '#121212', marginBottom: 10 }}>Education</div>
+                      <div>
+                        {proposal.freelancer.education.map((edu, idx) => {
+                          const school = edu?.School || edu?.institution || edu?.university || 'asdas';
+                          const degree = edu?.degree || edu?.qualification || '';
+                          const field = edu?.fieldOfStudy || edu?.field || '';
+                          const startYear = edu?.startYear || edu?.fromYear || '';
+                          const endYear = edu?.endYear || edu?.toYear || '';
+                          const expected = !!edu?.isExpected;
+                          return (
+                            <div key={idx} style={{ color: '#121212', marginBottom: 16 }}>
+                              <div style={{ fontWeight: 700, fontSize: 18 }}>{school || '-'}</div>
+                              {(degree || field) && (
+                                <div style={{ color: '#666', fontSize: 15 }}>
+                                  {degree}
+                                  {degree && field ? ', ' : ''}
+                                  {field}
+                                </div>
+                              )}
+                              {(startYear || endYear) && (
+                                <div style={{ color: '#666', fontSize: 15 }}>
+                                  {startYear || '—'}-{endYear || '—'} {expected ? '(expected)' : ''}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right main profile content */}
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 28, fontWeight: 700, color: '#121212', lineHeight: 1.2 }}>
+                      {proposal.freelancer?.title || proposal.freelancer?.specialization || '—'}
+                    </div>
+                    <div style={{ fontSize: 18, color: '#121212' }}>
+                      ₹ {Number(proposal.freelancer?.hourlyRate ?? 0).toFixed(2)}
+                      <span style={{ fontSize: 14, color: '#666' }}>/hr</span>
+                    </div>
+                  </div>
+                  {proposal.freelancer?.bio && (
+                    <div style={{ marginTop: 16, color: '#121212', lineHeight: 1.6 }}>
+                      {showFullBio
+                        ? proposal.freelancer.bio
+                        : (proposal.freelancer.bio.length > 260
+                            ? proposal.freelancer.bio.slice(0, 260) + '...'
+                            : proposal.freelancer.bio)}
+                      {proposal.freelancer.bio.length > 260 && (
+                        <button
+                          onClick={() => setShowFullBio((v) => !v)}
+                          style={{
+                            marginLeft: 8,
+                            color: '#1070ca',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                          }}
+                        >
+                          {showFullBio ? 'less' : 'more'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Optional Portfolio heading placeholder */}
+                  {(Array.isArray(proposal.freelancer?.portfolio) && proposal.freelancer.portfolio.length > 0) && (
+                    <div style={{ marginTop: 24 }}>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: '#121212', marginBottom: 8 }}>Portfolio</div>
+                      {/* Thumbnails could be rendered here if available */}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Get invite tab from URL path
   useEffect(() => {
@@ -159,7 +481,9 @@ const ClientJobDetailedPage = () => {
       case "messaged":
         newPath = `/ws/client/applicants/${jobid}/messaged`;
         break;
-
+      case "archived":
+        newPath = `/ws/client/applicants/${jobid}/archived`;
+        break;
       default:
         newPath = `/ws/client/applicants/${jobid}/proposals`;
     }
@@ -245,12 +569,124 @@ const ClientJobDetailedPage = () => {
       setActiveProposalTab("shortlisted");
     } else if (path.includes("/messaged")) {
       setActiveProposalTab("messaged");
+    } else if (path.includes("/archived")) {
+      setActiveProposalTab("archived");
     } else if (path.includes("/proposals")) {
       setActiveProposalTab("all");
     } else {
       setActiveProposalTab("all");
     }
   }, [location.pathname]);
+
+  const fetchDeclinedInvitations = async () => {
+    if (!jobid) return;
+
+    setDeclinedInvitationsLoading(true);
+    try {
+      const response = await axios.get(
+        `${API_URL}/client/declined-job-invitations/${jobid}/`,
+        {
+          withCredentials: true,
+        }
+      );
+
+      setDeclinedInvitations(response.data.data || []);
+    } catch (error) {
+      console.error("Error fetching declined invitations:", error);
+      setDeclinedInvitations([]);
+    } finally {
+      setDeclinedInvitationsLoading(false);
+    }
+  };
+
+  const handleProposalAction = async (proposalId, action) => {
+    try {
+      if (action === "shortlist" || action === "unshortlist") {
+        const response = await axios.post(
+          `${API_URL}/jobproposals/shortlist/`,
+          {
+            proposalId: proposalId,
+            action: action,
+          },
+          {
+            withCredentials: true,
+          }
+        );
+
+        if (response.data.success) {
+          // Update the proposal status in the local state
+          setProposals((prev) =>
+            prev.map((proposal) =>
+              proposal.id === proposalId
+                ? {
+                    ...proposal,
+                    status:
+                      action === "shortlist" ? "shortlisted" : "submitted",
+                  }
+                : proposal
+            )
+          );
+        }
+      } else if (action === "archive") {
+        const response = await axios.post(
+          `${API_URL}/jobproposals/archive/`,
+          {
+            proposalId: proposalId,
+          },
+          {
+            withCredentials: true,
+          }
+        );
+
+        if (response.data.success) {
+          // Remove the proposal from the current list
+          setProposals((prev) =>
+            prev.filter((proposal) => proposal.id !== proposalId)
+          );
+        }
+      } else {
+        // For other actions like like/dislike, just update local state
+        setProposalActions((prev) => ({
+          ...prev,
+          [proposalId]: {
+            ...prev[proposalId],
+            [action]: !prev[proposalId]?.[action],
+          },
+        }));
+      }
+    } catch (error) {
+      console.error(`Error performing ${action} action:`, error);
+      alert(`Failed to ${action} proposal`);
+    }
+  };
+
+  const fetchProposals = async () => {
+    if (!jobid) return;
+
+    setProposalsLoading(true);
+    setProposalsError(null);
+    try {
+      const response = await axios.get(
+        `${API_URL}/jobproposals/job/${jobid}/`,
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (response.data.success) {
+        setProposals(response.data.proposals || []);
+      } else {
+        setProposalsError(response.data.message || "Failed to fetch proposals");
+        setProposals([]);
+      }
+    } catch (error) {
+      console.error("Error fetching proposals:", error);
+      setProposalsError("Failed to fetch proposals");
+      setProposals([]);
+    } finally {
+      setProposalsLoading(false);
+    }
+  };
 
   useEffect(() => {
     const fetchJob = async () => {
@@ -270,6 +706,76 @@ const ClientJobDetailedPage = () => {
       }
     };
     fetchJob();
+  }, [jobid]);
+
+  // Fetch declined job invitations when archived tab is active
+  useEffect(() => {
+    if (activeProposalTab === "archived") {
+      fetchDeclinedInvitations();
+    }
+  }, [activeProposalTab, jobid]);
+
+  // Fetch proposals when proposals tab is active
+  useEffect(() => {
+    if (currentStep === 2 && activeProposalTab === "all") {
+      fetchProposals();
+    }
+  }, [currentStep, activeProposalTab, jobid]);
+
+  // Fetch verified freelancers when Invite Freelancers > Search tab is active
+  useEffect(() => {
+    if (currentStep === 1 && activeInviteTab === "search") {
+      setFreelancersLoading(true);
+      setFreelancersError(null);
+      axios
+        .get("http://localhost:5000/api/auth/freelancers/verified/")
+        .then((res) => {
+          if (res.data && res.data.freelancers) {
+            setFreelancers(res.data.freelancers);
+          } else {
+            setFreelancers([]);
+          }
+        })
+        .catch((err) => {
+          setFreelancersError("Failed to fetch freelancers");
+          setFreelancers([]);
+        })
+        .finally(() => {
+          setFreelancersLoading(false);
+        });
+    }
+  }, [currentStep, activeInviteTab]);
+
+  useEffect(() => {
+    axios
+      .get("http://localhost:5000/api/auth/current-user/", {
+        withCredentials: true,
+      })
+      .then((res) => {
+        if (res.data && res.data.user && res.data.user.name) {
+          setClientName(res.data.user.name);
+        }
+      })
+      .catch(() => setClientName("White T."));
+  }, []);
+
+  // Fetch invited freelancer IDs for this job and client
+  useEffect(() => {
+    if (!jobid) return;
+    axios
+      .get(`${API_URL}/job-invite/list/?jobId=${jobid}`, {
+        withCredentials: true,
+      })
+      .then((res) => {
+        if (res.data && Array.isArray(res.data.invitedFreelancerIds)) {
+          setInvitedFreelancerIds(res.data.invitedFreelancerIds);
+          setInvitedCount(res.data.invitedFreelancerIds.length);
+        }
+      })
+      .catch(() => {
+        setInvitedFreelancerIds([]);
+        setInvitedCount(0);
+      });
   }, [jobid]);
 
   if (loading) return <div style={{ padding: 32 }}>Loading job details...</div>;
@@ -323,411 +829,22 @@ const ClientJobDetailedPage = () => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  // Mock freelancers data for the Invite Freelancers tab
-  const mockFreelancers = [
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      title: "Senior Full Stack Developer",
-      location: "New York, United States",
-      rate: 45.0,
-      jobSuccess: 98,
-      earned: "$50K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: ["React", "Node.js", "TypeScript", "MongoDB", "AWS"],
-    },
-    {
-      id: 2,
-      name: "Michael Chen",
-      title: "UI/UX Designer & Frontend Developer",
-      location: "San Francisco, United States",
-      rate: 38.5,
-      jobSuccess: 95,
-      earned: "$25K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: ["Figma", "React", "CSS", "JavaScript", "Adobe XD"],
-    },
-    {
-      id: 3,
-      name: "Emily Rodriguez",
-      title: "WordPress Developer & SEO Specialist",
-      location: "Miami, United States",
-      rate: 32.0,
-      jobSuccess: 92,
-      earned: "$15K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: ["WordPress", "PHP", "SEO", "CSS", "JavaScript"],
-    },
-    {
-      id: 4,
-      name: "David Kim",
-      title: "Backend Developer & Database Expert",
-      location: "Seattle, United States",
-      rate: 42.0,
-      jobSuccess: 97,
-      earned: "$35K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: ["Python", "Django", "PostgreSQL", "Docker", "Redis"],
-    },
-    {
-      id: 5,
-      name: "Alexandra Thompson",
-      title: "Mobile App Developer",
-      location: "Austin, United States",
-      rate: 48.0,
-      jobSuccess: 96,
-      earned: "$75K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: ["React Native", "Swift", "Kotlin", "Firebase", "Git"],
-    },
-    {
-      id: 6,
-      name: "James Wilson",
-      title: "DevOps Engineer & Cloud Specialist",
-      location: "Denver, United States",
-      rate: 52.0,
-      jobSuccess: 99,
-      earned: "$90K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: ["AWS", "Docker", "Kubernetes", "Terraform", "Jenkins"],
-    },
-    {
-      id: 7,
-      name: "Maria Garcia",
-      title: "Data Scientist & ML Engineer",
-      location: "Boston, United States",
-      rate: 55.0,
-      jobSuccess: 94,
-      earned: "$65K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: ["Python", "TensorFlow", "Pandas", "SQL", "Scikit-learn"],
-    },
-    {
-      id: 8,
-      name: "Robert Taylor",
-      title: "Frontend Developer & Vue.js Expert",
-      location: "Portland, United States",
-      rate: 36.0,
-      jobSuccess: 91,
-      earned: "$30K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: ["Vue.js", "JavaScript", "CSS3", "Webpack", "Git"],
-    },
-    {
-      id: 9,
-      name: "Lisa Anderson",
-      title: "Product Manager & UX Strategist",
-      location: "Chicago, United States",
-      rate: 44.0,
-      jobSuccess: 93,
-      earned: "$55K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: [
-        "Product Strategy",
-        "User Research",
-        "Figma",
-        "Agile",
-        "Analytics",
-      ],
-    },
-    {
-      id: 10,
-      name: "Kevin Martinez",
-      title: "Full Stack Developer & System Architect",
-      location: "Los Angeles, United States",
-      rate: 50.0,
-      jobSuccess: 98,
-      earned: "$80K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: [
-        "Java",
-        "Spring Boot",
-        "React",
-        "PostgreSQL",
-        "Microservices",
-      ],
-    },
-    {
-      id: 11,
-      name: "Jennifer Lee",
-      title: "Graphic Designer & Brand Specialist",
-      location: "Nashville, United States",
-      rate: 28.0,
-      jobSuccess: 89,
-      earned: "$20K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: [
-        "Adobe Creative Suite",
-        "Branding",
-        "Illustration",
-        "Typography",
-        "Print Design",
-      ],
-    },
-    {
-      id: 12,
-      name: "Christopher Brown",
-      title: "Cybersecurity Specialist & Penetration Tester",
-      location: "Washington DC, United States",
-      rate: 58.0,
-      jobSuccess: 97,
-      earned: "$70K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: [
-        "Ethical Hacking",
-        "Network Security",
-        "Python",
-        "Linux",
-        "Wireshark",
-      ],
-    },
-    {
-      id: 13,
-      name: "Amanda Davis",
-      title: "Content Writer & SEO Specialist",
-      location: "Orlando, United States",
-      rate: 25.0,
-      jobSuccess: 88,
-      earned: "$18K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: [
-        "Content Writing",
-        "SEO",
-        "WordPress",
-        "Social Media",
-        "Copywriting",
-      ],
-    },
-    {
-      id: 14,
-      name: "Daniel White",
-      title: "Blockchain Developer & Smart Contract Expert",
-      location: "Las Vegas, United States",
-      rate: 62.0,
-      jobSuccess: 95,
-      earned: "$85K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: ["Solidity", "Ethereum", "Web3.js", "Smart Contracts", "DeFi"],
-    },
-    {
-      id: 15,
-      name: "Rachel Green",
-      title: "QA Engineer & Test Automation Specialist",
-      location: "Phoenix, United States",
-      rate: 34.0,
-      jobSuccess: 90,
-      earned: "$28K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: [
-        "Selenium",
-        "JUnit",
-        "Cypress",
-        "API Testing",
-        "Test Planning",
-      ],
-    },
-    {
-      id: 16,
-      name: "Thomas Miller",
-      title: "Game Developer & Unity Expert",
-      location: "San Diego, United States",
-      rate: 40.0,
-      jobSuccess: 92,
-      earned: "$45K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: ["Unity", "C#", "Game Design", "3D Modeling", "Animation"],
-    },
-    {
-      id: 17,
-      name: "Nicole Johnson",
-      title: "Digital Marketing Manager & Growth Hacker",
-      location: "Atlanta, United States",
-      rate: 38.0,
-      jobSuccess: 87,
-      earned: "$35K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: [
-        "Google Ads",
-        "Facebook Ads",
-        "Analytics",
-        "Email Marketing",
-        "Conversion Optimization",
-      ],
-    },
-    {
-      id: 18,
-      name: "Steven Clark",
-      title: "AI/ML Engineer & Deep Learning Specialist",
-      location: "Pittsburgh, United States",
-      rate: 65.0,
-      jobSuccess: 96,
-      earned: "$95K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: [
-        "PyTorch",
-        "TensorFlow",
-        "Computer Vision",
-        "NLP",
-        "Deep Learning",
-      ],
-    },
-    {
-      id: 19,
-      name: "Hannah Lewis",
-      title: "E-commerce Developer & Shopify Expert",
-      location: "Dallas, United States",
-      rate: 32.0,
-      jobSuccess: 89,
-      earned: "$25K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: ["Shopify", "Liquid", "JavaScript", "CSS", "E-commerce"],
-    },
-    {
-      id: 20,
-      name: "Ryan Hall",
-      title: "System Administrator & IT Infrastructure Specialist",
-      location: "Houston, United States",
-      rate: 35.0,
-      jobSuccess: 91,
-      earned: "$40K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: [
-        "Linux",
-        "Windows Server",
-        "VMware",
-        "Networking",
-        "Backup Solutions",
-      ],
-    },
-    {
-      id: 21,
-      name: "Samantha Turner",
-      title: "Video Editor & Motion Graphics Designer",
-      location: "Minneapolis, United States",
-      rate: 30.0,
-      jobSuccess: 86,
-      earned: "$22K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: [
-        "Adobe Premiere",
-        "After Effects",
-        "Motion Graphics",
-        "Video Editing",
-        "Color Grading",
-      ],
-    },
-    {
-      id: 22,
-      name: "Andrew Moore",
-      title: "Database Administrator & SQL Expert",
-      location: "Kansas City, United States",
-      rate: 42.0,
-      jobSuccess: 94,
-      earned: "$50K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: [
-        "SQL Server",
-        "MySQL",
-        "PostgreSQL",
-        "Database Design",
-        "Performance Tuning",
-      ],
-    },
-    {
-      id: 23,
-      name: "Victoria Scott",
-      title: "Social Media Manager & Community Builder",
-      location: "Salt Lake City, United States",
-      rate: 26.0,
-      jobSuccess: 85,
-      earned: "$19K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=150&h=150&fit=crop&crop=face",
-      boosted: true,
-      topSkills: [
-        "Social Media Strategy",
-        "Content Creation",
-        "Community Management",
-        "Analytics",
-        "Influencer Marketing",
-      ],
-    },
-    {
-      id: 24,
-      name: "Jonathan Adams",
-      title: "Technical Writer & Documentation Specialist",
-      location: "Raleigh, United States",
-      rate: 28.0,
-      jobSuccess: 88,
-      earned: "$23K+ earned",
-      avatar:
-        "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
-      boosted: false,
-      topSkills: [
-        "Technical Writing",
-        "API Documentation",
-        "Markdown",
-        "GitBook",
-        "User Guides",
-      ],
-    },
-  ];
-
   // Filter freelancers based on search term
-  const filteredFreelancers = mockFreelancers.filter((freelancer) => {
+  const filteredFreelancers = freelancers.filter((freelancer) => {
     if (!searchTerm) return true;
     const searchLower = searchTerm.toLowerCase();
     return (
-      freelancer.name.toLowerCase().includes(searchLower) ||
-      freelancer.title.toLowerCase().includes(searchLower) ||
-      freelancer.location.toLowerCase().includes(searchLower) ||
-      freelancer.topSkills.some((skill) =>
-        skill.toLowerCase().includes(searchLower)
-      )
+      (freelancer.name &&
+        freelancer.name.toLowerCase().includes(searchLower)) ||
+      (freelancer.title &&
+        freelancer.title.toLowerCase().includes(searchLower)) ||
+      (freelancer.location &&
+        freelancer.location.toLowerCase().includes(searchLower)) ||
+      (freelancer.skills &&
+        freelancer.skills.some(
+          (skill) =>
+            skill.name && skill.name.toLowerCase().includes(searchLower)
+        ))
     );
   });
 
@@ -937,10 +1054,10 @@ const ClientJobDetailedPage = () => {
                   }}
                 >
                   {job.hourlyRateFrom && job.hourlyRateTo
-                    ? `$${parseFloat(job.hourlyRateFrom).toFixed(
+                    ? `₹${parseFloat(job.hourlyRateFrom).toFixed(
                         2
-                      )} - $${parseFloat(job.hourlyRateTo).toFixed(2)}`
-                    : "$15.00 - $35.00"}
+                      )} - ₹${parseFloat(job.hourlyRateTo).toFixed(2)}`
+                    : "₹15.00 - ₹35.00"}
                 </div>
                 <div style={{ color: "#888", fontSize: 18 }}>Hourly</div>
               </div>
@@ -1128,7 +1245,7 @@ const ClientJobDetailedPage = () => {
       case 1:
         // Invite Freelancers tab
         return (
-          <div style={{ width: "100%", padding: "0 24px" }}>
+          <div style={{ width: "100%", padding: "0 0px" }}>
             {/* Tabs */}
             <div
               style={{
@@ -1174,7 +1291,7 @@ const ClientJobDetailedPage = () => {
                   position: "relative",
                 }}
               >
-                Invited Freelancers
+                Invited Freelancers ({invitedCount})
               </span>
               <span
                 onClick={() => handleInviteTabChange("hires")}
@@ -1247,19 +1364,19 @@ const ClientJobDetailedPage = () => {
 
                   <button
                     onClick={() => {
-                    if (showFilters) {
-                      // Start closing animation
-                      setIsClosing(true);
-                      // Wait for animation to complete before hiding
-                      setTimeout(() => {
-                        setShowFilters(false);
+                      if (showFilters) {
+                        // Start closing animation
+                        setIsClosing(true);
+                        // Wait for animation to complete before hiding
+                        setTimeout(() => {
+                          setShowFilters(false);
+                          setIsClosing(false);
+                        }, 300); // Match animation duration
+                      } else {
+                        setShowFilters(true);
                         setIsClosing(false);
-                      }, 300); // Match animation duration
-                    } else {
-                      setShowFilters(true);
-                      setIsClosing(false);
-                    }
-                  }}
+                      }
+                    }}
                     style={{
                       border: "1.5px solid #007476",
                       color: "#007476",
@@ -1287,13 +1404,15 @@ const ClientJobDetailedPage = () => {
                 </div>
 
                 {/* Inline Filter Section */}
-                {showFilters && (
+                {showFilters && !inviteModalData && (
                   <div
                     style={{
                       background: "#fff",
                       marginBottom: 24,
-                      animation: isClosing ? 'slideUp 0.3s ease-out' : 'slideDown 0.3s ease-out',
-                      overflow: 'hidden'
+                      animation: isClosing
+                        ? "slideUp 0.3s ease-out"
+                        : "slideDown 0.3s ease-out",
+                      overflow: "hidden",
                     }}
                   >
                     {/* Filter Categories in 4 Columns */}
@@ -1326,10 +1445,10 @@ const ClientJobDetailedPage = () => {
                         >
                           {[
                             "Any amount earned",
-                            "$1+ earned",
-                            "$100+ earned",
-                            "$1K+ earned",
-                            "$10K+ earned",
+                            "₹1+ earned",
+                            "₹100+ earned",
+                            "₹1K+ earned",
+                            "₹10K+ earned",
                             "No earnings yet",
                           ].map((option, index) => (
                             <label
@@ -1346,7 +1465,11 @@ const ClientJobDetailedPage = () => {
                                 type="radio"
                                 name="earnedAmount"
                                 defaultChecked={index === 0}
-                                style={{ accentColor: "#007476", width: "20px", height: "20px" }}
+                                style={{
+                                  accentColor: "#007476",
+                                  width: "20px",
+                                  height: "20px",
+                                }}
                               />
                               <span>{option}</span>
                             </label>
@@ -1389,7 +1512,11 @@ const ClientJobDetailedPage = () => {
                                   type="radio"
                                   name="jobSuccess"
                                   defaultChecked={index === 0}
-                                  style={{ accentColor: "#007476", width: "20px", height: "20px" }}
+                                  style={{
+                                    accentColor: "#007476",
+                                    width: "20px",
+                                    height: "20px",
+                                  }}
                                 />
                                 <span>{option}</span>
                               </label>
@@ -1407,7 +1534,11 @@ const ClientJobDetailedPage = () => {
                             <input
                               type="radio"
                               name="jobSuccess"
-                              style={{ accentColor: "#007476", width: "20px", height: "20px" }}
+                              style={{
+                                accentColor: "#007476",
+                                width: "20px",
+                                height: "20px",
+                              }}
                             />
                             <span
                               style={{
@@ -1434,7 +1565,11 @@ const ClientJobDetailedPage = () => {
                             <input
                               type="radio"
                               name="jobSuccess"
-                              style={{ accentColor: "#007476", width: "20px", height: "20px" }}
+                              style={{
+                                accentColor: "#007476",
+                                width: "20px",
+                                height: "20px",
+                              }}
                             />
                             <span
                               style={{
@@ -1460,7 +1595,11 @@ const ClientJobDetailedPage = () => {
                           >
                             <input
                               type="checkbox"
-                              style={{ accentColor: "#007476", width: "20px", height: "20px" }}
+                              style={{
+                                accentColor: "#007476",
+                                width: "20px",
+                                height: "20px",
+                              }}
                             />
                             <span
                               style={{
@@ -1499,10 +1638,10 @@ const ClientJobDetailedPage = () => {
                         >
                           {[
                             "Any hourly rate",
-                            "$10 and below",
-                            "$10 - $30",
-                            "$30 - $60",
-                            "$60 & above",
+                            "₹10 and below",
+                            "₹10 - ₹30",
+                            "₹30 - ₹60",
+                            "₹60 & above",
                           ].map((option, index) => (
                             <label
                               key={index}
@@ -1518,7 +1657,11 @@ const ClientJobDetailedPage = () => {
                                 type="radio"
                                 name="hourlyRate"
                                 defaultChecked={index === 0}
-                                style={{ accentColor: "#007476", width: "20px", height: "20px" }}
+                                style={{
+                                  accentColor: "#007476",
+                                  width: "20px",
+                                  height: "20px",
+                                }}
                               />
                               <span>{option}</span>
                             </label>
@@ -1565,7 +1708,11 @@ const ClientJobDetailedPage = () => {
                                 type="radio"
                                 name="category"
                                 defaultChecked={index === 0}
-                                style={{ accentColor: "#007476", width: "20px", height: "20px" }}
+                                style={{
+                                  accentColor: "#007476",
+                                  width: "20px",
+                                  height: "20px",
+                                }}
                               />
                               <span>{option}</span>
                             </label>
@@ -1624,255 +1771,307 @@ const ClientJobDetailedPage = () => {
                 )}
 
                 {/* Freelancer cards */}
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 0 }}
-                >
-                  {filteredFreelancers.length === 0 ? (
-                    <div
-                      style={{
-                        textAlign: "center",
-                        padding: "40px 20px",
-                        color: "#888",
-                        fontSize: 18,
-                        background: "#fff",
-                        borderRadius: 10,
-                        border: "1px solid #eee",
-                      }}
-                    >
-                      {searchTerm
-                        ? `No freelancers found matching "${searchTerm}"`
-                        : "No freelancers available"}
-                    </div>
-                  ) : (
-                    <>
-                      {paginatedFreelancers.map((freelancer, index) => (
-                        <div
-                          key={freelancer.id}
-                          style={{
-                            background: "#fff",
-                            borderRadius: 10,
-                            padding: 24,
-                            marginBottom:
-                              index < mockFreelancers.length - 1 ? 0 : 0,
-                            boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-                            border: "1px solid #eee",
-                            display: "flex",
-                            alignItems: "flex-start",
-                            gap: 20,
-                          }}
-                        >
-                          {/* Avatar and star badge */}
-                          <div style={{ position: "relative", flexShrink: 0 }}>
-                            <img
-                              src={freelancer.avatar}
-                              alt={freelancer.name}
-                              style={{
-                                width: 64,
-                                height: 64,
-                                borderRadius: "50%",
-                                objectFit: "cover",
-                                border: "3px solid #fff",
-                                boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
-                              }}
+                {freelancersLoading ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "40px 20px",
+                      color: "#888",
+                      fontSize: 18,
+                      background: "#fff",
+                      borderRadius: 10,
+                      border: "1px solid #eee",
+                    }}
+                  >
+                    Loading freelancers...
+                  </div>
+                ) : freelancersError ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "40px 20px",
+                      color: "red",
+                      fontSize: 18,
+                      background: "#fff",
+                      borderRadius: 10,
+                      border: "1px solid #eee",
+                    }}
+                  >
+                    {freelancersError}
+                  </div>
+                ) : filteredFreelancers.length === 0 ? (
+                  <div
+                    style={{
+                      textAlign: "center",
+                      padding: "40px 20px",
+                      color: "#888",
+                      fontSize: 18,
+                      background: "#fff",
+                      borderRadius: 10,
+                      border: "1px solid #eee",
+                    }}
+                  >
+                    {searchTerm
+                      ? `No freelancers found matching "${searchTerm}"`
+                      : "No freelancers available"}
+                  </div>
+                ) : (
+                  <>
+                    {paginatedFreelancers.map((freelancer, index) => (
+                      <div
+                        key={freelancer.id}
+                        style={{
+                          background: "#fff",
+                          borderRadius: 10,
+                          padding: 24,
+                          marginBottom: index < freelancers.length - 1 ? 0 : 0,
+                          boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+                          border: "1px solid #eee",
+                          display: "flex",
+                          alignItems: "flex-start",
+                          gap: 20,
+                        }}
+                      >
+                        {/* Avatar and star badge */}
+                        <div style={{ position: "relative", flexShrink: 0 }}>
+                          <img
+                            src={freelancer.avatar}
+                            alt={freelancer.name}
+                            style={{
+                              width: 64,
+                              height: 64,
+                              borderRadius: "50%",
+                              objectFit: "cover",
+                              border: "3px solid #fff",
+                              boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+                            }}
+                          />
+                          <div
+                            style={{
+                              position: "absolute",
+                              bottom: -4,
+                              right: -4,
+                              background: "#fff",
+                              borderRadius: "50%",
+                              padding: 2,
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                            }}
+                          >
+                            <FaStar
+                              style={{ color: "#007bff", fontSize: 18 }}
                             />
-                            <div
-                              style={{
-                                position: "absolute",
-                                bottom: -4,
-                                right: -4,
-                                background: "#fff",
-                                borderRadius: "50%",
-                                padding: 2,
-                                boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              <FaStar
-                                style={{ color: "#007bff", fontSize: 18 }}
-                              />
-                            </div>
                           </div>
+                        </div>
 
-                          {/* Main content */}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div
+                        {/* Main content */}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              marginBottom: 4,
+                            }}
+                          >
+                            <span
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 10,
-                                marginBottom: 4,
-                              }}
-                            >
-                              <span
-                                style={{
-                                  fontWeight: 700,
-                                  fontSize: 18,
-                                  color: "#222",
-                                }}
-                              >
-                                {freelancer.name}
-                              </span>
-                              {freelancer.boosted && (
-                                <span
-                                  style={{
-                                    color: "#6f42c1",
-                                    fontWeight: 600,
-                                    fontSize: 13,
-                                    background: "#f3f0fa",
-                                    borderRadius: 6,
-                                    padding: "2px 8px",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 4,
-                                  }}
-                                >
-                                  <FaBolt
-                                    style={{ color: "#6f42c1", fontSize: 12 }}
-                                  />
-                                  Boosted
-                                </span>
-                              )}
-                            </div>
-                            <div
-                              style={{
+                                fontWeight: 700,
                                 fontSize: 18,
                                 color: "#222",
-                                fontWeight: 500,
-                                marginBottom: 4,
-                                lineHeight: 1.4,
                               }}
                             >
-                              {freelancer.title}
-                            </div>
-                            <div
-                              style={{
-                                color: "#888",
-                                fontSize: 15,
-                                marginBottom: 8,
-                              }}
-                            >
-                              {freelancer.location}
-                            </div>
-
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 24,
-                                marginBottom: 8,
-                              }}
-                            >
+                              {freelancer.name}
+                            </span>
+                            {freelancer.boosted && (
                               <span
                                 style={{
-                                  color: "#222",
+                                  color: "#6f42c1",
                                   fontWeight: 600,
-                                  fontSize: 18,
+                                  fontSize: 13,
+                                  background: "#f3f0fa",
+                                  borderRadius: 6,
+                                  padding: "2px 8px",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
                                 }}
                               >
-                                ${freelancer.rate.toFixed(2)}/hr
+                                <FaBolt
+                                  style={{ color: "#6f42c1", fontSize: 12 }}
+                                />
+                                Boosted
                               </span>
+                            )}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: 18,
+                              color: "#222",
+                              fontWeight: 500,
+                              marginBottom: 4,
+                              lineHeight: 1.4,
+                            }}
+                          >
+                            {freelancer.title}
+                          </div>
+                          <div
+                            style={{
+                              color: "#888",
+                              fontSize: 15,
+                              marginBottom: 8,
+                            }}
+                          >
+                            {freelancer.location}
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 24,
+                              marginBottom: 8,
+                            }}
+                          >
+                            <span
+                              style={{
+                                color: "#222",
+                                fontWeight: 600,
+                                fontSize: 18,
+                              }}
+                            >
+                              ₹
+                              {freelancer.rate
+                                ? freelancer.rate.toFixed(2)
+                                : "-"}
+                              /hr
+                            </span>
+                            {freelancer.jobSuccess > 0 && (
                               <span
                                 style={{
-                                  color: "#007bff",
+                                  color: "#28a745",
                                   fontWeight: 600,
-                                  fontSize: 15,
+                                  fontSize: 16,
                                   display: "flex",
                                   alignItems: "center",
                                   gap: 4,
                                 }}
                               >
                                 <BsCheckCircle
-                                  style={{ color: "#007bff", fontSize: 18 }}
+                                  style={{
+                                    color: "#28a745",
+                                    fontSize: 18,
+                                    marginRight: 4,
+                                  }}
                                 />
                                 {freelancer.jobSuccess}% Job Success
                               </span>
-                              <span
-                                style={{
-                                  color: "#888",
-                                  fontWeight: 600,
-                                  fontSize: 15,
-                                }}
-                              >
-                                {freelancer.earned} earned
-                              </span>
-                            </div>
-
-                            {freelancer.topSkills &&
-                              freelancer.topSkills.length > 0 && (
-                                <div style={{ marginTop: 12 }}>
-                                  <div
-                                    style={{
-                                      color: "#222",
-                                      fontSize: 15,
-                                      marginBottom: 8,
-                                      fontWeight: 500,
-                                    }}
-                                  >
-                                    Here are their top{" "}
-                                    {freelancer.topSkills.length} relevant
-                                    skills to your job
-                                  </div>
-                                  <div
-                                    style={{
-                                      display: "flex",
-                                      gap: 8,
-                                      flexWrap: "wrap",
-                                    }}
-                                  >
-                                    {freelancer.topSkills.map((skill, i) => (
-                                      <span
-                                        key={i}
-                                        style={{
-                                          background: "#ededed",
-                                          color: "#222",
-                                          borderRadius: 16,
-                                          padding: "6px 16px",
-                                          fontWeight: 600,
-                                          fontSize: 15,
-                                        }}
-                                      >
-                                        {skill}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
+                            )}
+                            <span
+                              style={{
+                                color: "#888",
+                                fontWeight: 600,
+                                fontSize: 16,
+                              }}
+                            >
+                              {freelancer.earned}
+                            </span>
                           </div>
 
-                          {/* Action buttons */}
-                          <div
+                          {freelancer.topSkills &&
+                            freelancer.topSkills.length > 0 && (
+                              <div style={{ marginTop: 12 }}>
+                                <div
+                                  style={{
+                                    color: "#222",
+                                    fontSize: 15,
+                                    marginBottom: 8,
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  Here are their top{" "}
+                                  {freelancer.topSkills.length} relevant skills
+                                  to your job
+                                </div>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 8,
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  {freelancer.topSkills.map((skill, i) => (
+                                    <span
+                                      key={i}
+                                      style={{
+                                        background: "#ededed",
+                                        color: "#222",
+                                        borderRadius: 16,
+                                        padding: "6px 16px",
+                                        fontWeight: 600,
+                                        fontSize: 15,
+                                      }}
+                                    >
+                                      {skill}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                        </div>
+
+                        {/* Action buttons */}
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "row",
+                            alignItems: "flex-end",
+                            gap: 12,
+                            minWidth: 120,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <button
                             style={{
-                              display: "flex",
-                              flexDirection: "row",
-                              alignItems: "flex-end",
-                              gap: 12,
-                              minWidth: 120,
-                              flexShrink: 0,
+                              border: "1.5px solid #007476",
+                              color: "#007476",
+                              background: "#fff",
+                              borderRadius: 8,
+                              padding: "8px 22px",
+                              fontWeight: 700,
+                              fontSize: 18,
+                              cursor: "pointer",
+                              transition: "background 0.2s",
+                              minWidth: 80,
                             }}
                           >
+                            Hire
+                          </button>
+                          {invitedFreelancerIds.includes(freelancer.id) ? (
                             <button
                               style={{
-                                border: "1.5px solid #007476",
-                                color: "#007476",
-                                background: "#fff",
+                                border: "1.5px solid #bbb",
+                                color: "#bbb",
+                                background: "#eee",
                                 borderRadius: 8,
                                 padding: "8px 22px",
                                 fontWeight: 700,
                                 fontSize: 18,
-                                cursor: "pointer",
-                                transition: "background 0.2s",
-                                minWidth: 80,
+                                minWidth: 120,
+                                cursor: "not-allowed",
                               }}
+                              disabled
                             >
-                              Hire
+                              Invited
                             </button>
+                          ) : (
                             <button
                               style={{
-                                background: "#007476",
+                                border: "1.5px solid #007476",
                                 color: "#fff",
-                                border: "none",
+                                background: "#007476",
                                 borderRadius: 8,
                                 padding: "8px 22px",
                                 fontWeight: 700,
@@ -1881,15 +2080,25 @@ const ClientJobDetailedPage = () => {
                                 transition: "background 0.2s",
                                 minWidth: 120,
                               }}
+                              onClick={() => {
+                                if (showFilters) {
+                                  setShowFilters(false);
+                                  setIsClosing(false);
+                                }
+                                setInviteModalData(freelancer);
+                                setInviteMessage(
+                                  `Hey there! 👋!\n\nI'd love for you to check out the job I've posted. If it sounds like a good fit for you, feel free to send in a proposal — I'd be excited to hear from you!\n\n${clientName}.`
+                                );
+                              }}
                             >
                               Invite to Job
                             </button>
-                          </div>
+                          )}
                         </div>
-                      ))}
-                    </>
-                  )}
-                </div>
+                      </div>
+                    ))}
+                  </>
+                )}
 
                 {/* Pagination - Right aligned */}
                 <div
@@ -1907,292 +2116,479 @@ const ClientJobDetailedPage = () => {
 
             {/* Invited Freelancers Tab */}
             {activeInviteTab === "invited" && (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "80px 20px",
-                  color: "#888",
-                  fontSize: 18,
-                  background: "#fff",
-                  borderRadius: 10,
-                  border: "1px solid #eee",
-                }}
-              >
-                {/* Overlapping Profile Cards Graphic */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    marginBottom: 40,
-                    position: "relative",
-                    height: 120,
-                  }}
-                >
-                  {/* Left Card (faded) */}
+              <>
+                {invitedFreelancerIds.length === 0 ? (
                   <div
                     style={{
-                      position: "absolute",
-                      left: "25%",
-                      transform: "translateX(-50%)",
-                      background: "#f8f9fa",
-                      borderRadius: "12px 12px 8px 8px",
-                      padding: "16px 12px",
-                      width: 80,
-                      height: 100,
-                      opacity: 0.6,
-                      zIndex: 1,
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        background: "#e9ecef",
-                        margin: "0 auto 8px auto",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 16,
-                          height: 16,
-                          background: "#6c757d",
-                          borderRadius: "50%",
-                        }}
-                      ></div>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: 1,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {[1, 2, 3, 4, 5].map((star, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: i < 3 ? "#ffc107" : "#e9ecef",
-                          }}
-                        ></div>
-                      ))}
-                    </div>
-                    <div
-                      style={{
-                        height: 4,
-                        background: "linear-gradient(90deg, #e91e63, #9c27b0)",
-                        borderRadius: 2,
-                        marginTop: 4,
-                      }}
-                    ></div>
-                  </div>
-
-                  {/* Center Card (prominent) */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "50%",
-                      transform: "translateX(-50%)",
+                      textAlign: "center",
+                      padding: "80px 20px",
+                      color: "#888",
+                      fontSize: 18,
                       background: "#fff",
-                      borderRadius: "12px 12px 8px 8px",
-                      padding: "20px 16px",
-                      width: 90,
-                      height: 110,
-                      zIndex: 3,
-                      boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-                      border: "1px solid #e9ecef",
+                      borderRadius: 10,
+                      border: "1px solid #eee",
                     }}
                   >
                     <div
                       style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        background: "#28a745",
-                        margin: "0 auto 10px auto",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                        fontSize: 26,
+                        fontWeight: 600,
+                        color: "#495057",
+                        marginBottom: 12,
                       }}
                     >
-                      <div
+                      No invited freelancers yet
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 18,
+                        color: "#6c757d",
+                        marginBottom: 30,
+                        textAlign: "center",
+                      }}
+                    >
+                      Invite top talent before they're booked.
+                    </div>
+
+                    {/* Invite Button */}
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      <button
+                        onClick={() => handleInviteTabChange("search")}
                         style={{
-                          width: 20,
-                          height: 20,
-                          background: "#fff",
-                          borderRadius: "50%",
+                          background:
+                            "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                          color: "#ffffff",
+                          border: "none",
+                          borderRadius: 15,
+                          padding: "12px 24px",
+                          fontSize: "1rem",
+                          fontWeight: 600,
+                          transition: "all 0.3s ease",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 8,
+                          cursor: "pointer",
+                          boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
                         }}
-                      ></div>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: 1,
-                        marginBottom: 8,
-                      }}
-                    >
-                      {[1, 2, 3, 4, 5].map((star, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            background: "#ffc107",
-                          }}
-                        ></div>
-                      ))}
-                    </div>
-                    <div
-                      style={{
-                        height: 6,
-                        background: "linear-gradient(90deg, #e91e63, #9c27b0)",
-                        borderRadius: 3,
-                        marginTop: 6,
-                      }}
-                    ></div>
-                  </div>
-
-                  {/* Right Card (faded) */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "75%",
-                      transform: "translateX(-50%)",
-                      background: "#f8f9fa",
-                      borderRadius: "12px 12px 8px 8px",
-                      padding: "16px 12px",
-                      width: 80,
-                      height: 100,
-                      opacity: 0.6,
-                      zIndex: 1,
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        background: "#e9ecef",
-                        margin: "0 auto 8px auto",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 16,
-                          height: 16,
-                          background: "#6c757d",
-                          borderRadius: "50%",
+                        onMouseEnter={(e) => {
+                          e.target.style.background =
+                            "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
+                          e.target.style.transform = "translateY(-2px)";
+                          e.target.style.boxShadow =
+                            "0 8px 25px rgba(18, 18, 18, 0.4)";
                         }}
-                      ></div>
+                        onMouseLeave={(e) => {
+                          e.target.style.background =
+                            "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                          e.target.style.transform = "translateY(0)";
+                          e.target.style.boxShadow =
+                            "0 6px 20px rgba(0, 118, 116, 0.3)";
+                        }}
+                      >
+                        Invite Freelancers
+                      </button>
                     </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: 1,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {[1, 2, 3, 4, 5].map((star, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: i < 2 ? "#ffc107" : "#e9ecef",
-                          }}
-                        ></div>
-                      ))}
-                    </div>
-                    <div
-                      style={{
-                        height: 4,
-                        background: "linear-gradient(90deg, #e91e63, #9c27b0)",
-                        borderRadius: 2,
-                        marginTop: 4,
-                      }}
-                    ></div>
                   </div>
-                </div>
+                ) : (
+                  <div style={{ padding: "20px 0" }}>
+                    {freelancers
+                      .filter((freelancer) =>
+                        invitedFreelancerIds.includes(freelancer.id)
+                      )
+                      .map((freelancer) => (
+                        <div
+                          key={freelancer.id}
+                          style={{
+                            background: "#fff",
+                            borderRadius: 12,
+                            padding: 24,
+                            marginBottom: 20,
+                            border: "1px solid #e9ecef",
+                            boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 16,
+                            }}
+                          >
+                            {/* Profile Picture */}
+                            <div style={{ position: "relative" }}>
+                              <img
+                                src={
+                                  freelancer.avatar ||
+                                  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
+                                }
+                                alt={freelancer.name}
+                                style={{
+                                  width: 80,
+                                  height: 80,
+                                  borderRadius: "50%",
+                                  objectFit: "cover",
+                                }}
+                              />
+                              {/* Online Status */}
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: 4,
+                                  left: 4,
+                                  width: 16,
+                                  height: 16,
+                                  background:
+                                    freelancer.onlineStatus === "online"
+                                      ? "#28a745"
+                                      : "#6c757d",
+                                  borderRadius: "50%",
+                                  border: "2px solid #fff",
+                                }}
+                              ></div>
+                            </div>
 
-                {/* Text Content */}
-                <div
-                  style={{
-                    fontSize: 26,
-                    fontWeight: 600,
-                    color: "#495057",
-                    marginBottom: 12,
-                  }}
-                >
-                  No invited freelancers yet
-                </div>
-                <div
-                  style={{
-                    fontSize: 18,
-                    color: "#6c757d",
-                    marginBottom: 30,
-                    textAlign: "center",
-                  }}
-                >
-                  Invite top talent before they're booked.
-                </div>
+                            {/* Freelancer Info */}
+                            <div style={{ flex: 1 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "flex-start",
+                                }}
+                              >
+                                <div>
+                                  <h3
+                                    style={{
+                                      margin: "0 0 10px 0",
+                                      fontSize: 24,
+                                      fontWeight: 600,
+                                      color: "#333",
+                                      cursor: "pointer",
+                                      letterSpacing: 0.3,
+                                    }}
+                                    onClick={() =>
+                                      navigate(
+                                        `/ws/freelancers/${freelancer.id}`
+                                      )
+                                    }
+                                  >
+                                    {freelancer.name}
+                                  </h3>
+                                  <p
+                                    style={{
+                                      margin: "0 0 8px 0",
+                                      fontSize: 18,
+                                      color: "#121212",
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    {freelancer.title}
+                                  </p>
+                                  <p
+                                    style={{
+                                      margin: "0 0 8px 0",
+                                      fontSize: 18,
+                                      color: "#121212",
+                                    }}
+                                  >
+                                    {freelancer.location}
+                                  </p>
+                                  <div
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 16,
+                                      marginBottom: 12,
+                                    }}
+                                  >
+                                    <span
+                                      style={{
+                                        fontSize: 16,
+                                        color: "#333",
+                                        fontWeight: 600,
+                                      }}
+                                    >
+                                      ₹{freelancer.rate}/hr
+                                    </span>
+                                    <span
+                                      style={{ fontSize: 16, color: "#121212" }}
+                                    >
+                                      {freelancer.earned}
+                                    </span>
+                                    {freelancer.jobSuccess > 0 && (
+                                      <span
+                                        style={{
+                                          fontSize: 14,
+                                          color: "#28a745",
+                                          fontWeight: 600,
+                                        }}
+                                      >
+                                        {freelancer.jobSuccess}% Job Success
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
 
-                {/* Invite Button */}
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <button
-                    onClick={() => handleInviteTabChange("search")}
-                    style={{
-                      background:
-                        "linear-gradient(135deg, #007674 0%, #005a58 100%)",
-                      color: "#ffffff",
-                      border: "none",
-                      borderRadius: 15,
-                      padding: "12px 24px",
-                      fontSize: "1rem",
-                      fontWeight: 600,
-                      transition: "all 0.3s ease",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 8,
-                      cursor: "pointer",
-                      boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.target.style.background =
-                        "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
-                      e.target.style.transform = "translateY(-2px)";
-                      e.target.style.boxShadow =
-                        "0 8px 25px rgba(18, 18, 18, 0.4)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.target.style.background =
-                        "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                      e.target.style.transform = "translateY(0)";
-                      e.target.style.boxShadow =
-                        "0 6px 20px rgba(0, 118, 116, 0.3)";
-                    }}
-                  >
-                    Invite Freelancers
-                  </button>
-                </div>
-              </div>
+                                {/* Action Buttons */}
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: 15,
+                                    alignItems: "center",
+                                  }}
+                                >
+                                  {/* Decline Button */}
+                                  <button
+                                    style={{
+                                      border: "1px solid #007476",
+                                      color: "#007476",
+                                      background: "#fff",
+                                      borderRadius: 8,
+                                      padding: "8px 16px",
+                                      fontWeight: 600,
+                                      fontSize: 18,
+                                      cursor: "pointer",
+                                      transition: "all 0.2s",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.target.style.background = "#007476";
+                                      e.target.style.color = "#fff";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.background = "#fff";
+                                      e.target.style.color = "#007476";
+                                    }}
+                                    onClick={async () => {
+                                      try {
+                                        const res = await axios.delete(
+                                          `${API_URL}/job-invite/delete/`,
+                                          {
+                                            data: {
+                                              jobId: jobid,
+                                              freelancerId: freelancer.id,
+                                            },
+                                            withCredentials: true,
+                                          }
+                                        );
+                                        if (res.data && res.data.success) {
+                                          setInvitedFreelancerIds((prev) =>
+                                            prev.filter(
+                                              (id) => id !== freelancer.id
+                                            )
+                                          );
+                                          setInvitedCount(
+                                            res.data.invitedCount
+                                          );
+                                        } else {
+                                          alert(
+                                            res.data && res.data.message
+                                              ? res.data.message
+                                              : "Failed to decline invitation"
+                                          );
+                                        }
+                                      } catch (err) {
+                                        alert("Failed to decline invitation");
+                                      }
+                                    }}
+                                  >
+                                    Decline
+                                  </button>
+
+                                  {/* Hire Button */}
+                                  <button
+                                    style={{
+                                      border: "1px solid #007476",
+                                      color: "#fff",
+                                      background: "#007476",
+                                      borderRadius: 8,
+                                      padding: "8px 16px",
+                                      fontWeight: 600,
+                                      fontSize: 18,
+                                      cursor: "pointer",
+                                      transition: "all 0.2s",
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.target.style.background = "#005a58";
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.target.style.background = "#007476";
+                                    }}
+                                  >
+                                    Hire
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Invited Status Tag */}
+                              <div
+                                style={{
+                                  display: "inline-block",
+                                  background: "#e3f2fd",
+                                  color: "#1976d2",
+                                  padding: "4px 12px",
+                                  borderRadius: 16,
+                                  fontSize: 16,
+                                  fontWeight: 600,
+                                  marginBottom: 15,
+                                }}
+                              >
+                                Invited
+                              </div>
+
+                              {/* Bio/Description */}
+                              <p
+                                style={{
+                                  margin: "0 0 20px 0",
+                                  fontSize: 18,
+                                  color: "#121212",
+                                  lineHeight: 1.5,
+                                }}
+                              >
+                                {freelancer.bio &&
+                                freelancer.bio.length > 180 ? (
+                                  <>
+                                    {expandedBios[freelancer.id]
+                                      ? freelancer.bio
+                                      : freelancer.bio.slice(0, 180) + "..."}
+                                    <span
+                                      style={{
+                                        color: "#007674",
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                        marginLeft: 8,
+                                        fontSize: 16,
+                                      }}
+                                      onClick={() =>
+                                        setExpandedBios((prev) => ({
+                                          ...prev,
+                                          [freelancer.id]: !prev[freelancer.id],
+                                        }))
+                                      }
+                                    >
+                                      {expandedBios[freelancer.id]
+                                        ? "Show less"
+                                        : "Read more"}
+                                    </span>
+                                  </>
+                                ) : (
+                                  freelancer.bio || ""
+                                )}
+                              </p>
+
+                              {/* Skills */}
+                              {freelancer.skills &&
+                                freelancer.skills.length > 0 && (
+                                  <div style={{ marginTop: 16 }}>
+                                    <h6
+                                      style={{
+                                        color: "#121212",
+                                        fontSize: "1rem",
+                                        fontWeight: 600,
+                                        marginBottom: 12,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                      }}
+                                    >
+                                      <FaStar
+                                        style={{ color: "#007674" }}
+                                        size={14}
+                                      />
+                                      Top Skills
+                                    </h6>
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        flexWrap: "wrap",
+                                        gap: 8,
+                                      }}
+                                    >
+                                      {freelancer.skills
+                                        .slice(0, 5)
+                                        .map((skill, index) => (
+                                          <span
+                                            key={skill.id || index}
+                                            style={{
+                                              background:
+                                                "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
+                                              color: "#007674",
+                                              border:
+                                                "1px solid rgba(0, 118, 116, 0.2)",
+                                              borderRadius: 20,
+                                              padding: "6px 12px",
+                                              fontSize: "1rem",
+                                              fontWeight: 600,
+                                              transition: "all 0.3s ease",
+                                              cursor: "pointer",
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.target.style.background =
+                                                "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                                              e.target.style.color = "white";
+                                              e.target.style.transform =
+                                                "translateY(-1px)";
+                                              e.target.style.boxShadow =
+                                                "0 4px 12px rgba(0, 118, 116, 0.3)";
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.target.style.background =
+                                                "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)";
+                                              e.target.style.color = "#007674";
+                                              e.target.style.transform =
+                                                "translateY(0)";
+                                              e.target.style.boxShadow = "none";
+                                            }}
+                                          >
+                                            {skill.name}
+                                          </span>
+                                        ))}
+                                      {freelancer.skills.length > 5 && (
+                                        <span
+                                          style={{
+                                            background:
+                                              "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
+                                            color: "#007674",
+                                            border:
+                                              "1px solid rgba(0, 118, 116, 0.2)",
+                                            borderRadius: 20,
+                                            padding: "6px 12px",
+                                            fontSize: "0.85rem",
+                                            fontWeight: 600,
+                                            transition: "all 0.3s ease",
+                                            cursor: "pointer",
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            e.target.style.background =
+                                              "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                                            e.target.style.color = "white";
+                                            e.target.style.transform =
+                                              "translateY(-1px)";
+                                            e.target.style.boxShadow =
+                                              "0 4px 12px rgba(0, 118, 116, 0.3)";
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.target.style.background =
+                                              "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)";
+                                            e.target.style.color = "#007674";
+                                            e.target.style.transform =
+                                              "translateY(0)";
+                                            e.target.style.boxShadow = "none";
+                                          }}
+                                        >
+                                          +{freelancer.skills.length - 5} more
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </>
             )}
 
             {/* My Hires Tab */}
@@ -2488,7 +2884,27 @@ const ClientJobDetailedPage = () => {
         );
       case 2:
         return (
-          <div style={{ width: "100%", padding: "0 24px" }}>
+          <div style={{ width: "100%", padding: "0 0px" }}>
+            <style>{`
+              .skill-tag {
+                background: linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%);
+                color: #007674;
+                border: 1px solid rgba(0, 118, 116, 0.2);
+                border-radius: 20px;
+                padding: 6px 12px;
+                font-size: 0.85rem;
+                font-weight: 600;
+                transition: all 0.3s ease;
+                cursor: pointer;
+                display: inline-block;
+              }
+              .skill-tag:hover {
+                background: linear-gradient(135deg, #007674 0%, #005a58 100%);
+                color: white;
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(0, 118, 116, 0.3);
+              }
+            `}</style>
             {/* Tabs */}
             <div
               style={{
@@ -2554,145 +2970,587 @@ const ClientJobDetailedPage = () => {
               >
                 Messaged
               </span>
+              <span
+                onClick={() => handleProposalTabChange("archived")}
+                style={{
+                  fontWeight: activeProposalTab === "archived" ? 600 : 600,
+                  fontSize: activeProposalTab === "archived" ? 20 : 20,
+                  color: activeProposalTab === "archived" ? "#222" : "#888",
+                  borderBottom:
+                    activeProposalTab === "archived"
+                      ? "2.5px solid #222"
+                      : "2.5px solid transparent",
+                  paddingBottom: 6,
+                  cursor: "pointer",
+                  transition: "all 0.3s ease",
+                  position: "relative",
+                }}
+              >
+                Archived
+              </span>
             </div>
 
             {/* Tab Content */}
             {activeProposalTab === "all" && (
-              <div style={{ maxWidth: 400, margin: "0 auto" }}>
-                {/* Briefcase Icon */}
-                <div
-                  style={{
-                    width: 80,
-                    height: 80,
-                    margin: "0 auto 32px auto",
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {/* Main briefcase body */}
-                  <div
-                    style={{
-                      width: 60,
-                      height: 45,
-                      background: "#8B4513",
-                      borderRadius: "8px 8px 12px 12px",
-                      position: "relative",
-                      boxShadow: "0 4px 12px rgba(139, 69, 19, 0.3)",
-                    }}
-                  >
-                    {/* Briefcase handle */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: -8,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: 20,
-                        height: 8,
-                        background: "#A0522D",
-                        borderRadius: "4px 4px 0 0",
-                        border: "2px solid #8B4513",
-                      }}
-                    ></div>
-
-                    {/* Briefcase opening with glow */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: 8,
-                        background: "linear-gradient(90deg, #87CEEB, #98FB98)",
-                        borderRadius: "8px 8px 0 0",
-                        opacity: 0.8,
-                      }}
-                    ></div>
-
-                    {/* Small tag on the right */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 8,
-                        right: -4,
-                        width: 8,
-                        height: 12,
-                        background: "#D2B48C",
-                        borderRadius: "2px 0 0 2px",
-                        transform: "rotate(15deg)",
-                      }}
-                    ></div>
+              <div style={{ width: "100%" }}>
+                {proposalsLoading ? (
+                  <div style={{ textAlign: "center", padding: "40px" }}>
+                    <div style={{ fontSize: "18px", color: "#666" }}>
+                      Loading proposals...
+                    </div>
                   </div>
-                </div>
+                ) : proposalsError ? (
+                  <div style={{ textAlign: "center", padding: "40px" }}>
+                    <div style={{ fontSize: "18px", color: "#dc3545" }}>
+                      {proposalsError}
+                    </div>
+                  </div>
+                ) : proposals.length === 0 ? (
+                  <div style={{ maxWidth: 400, margin: "0 auto" }}>
+                    {/* Briefcase Icon */}
+                    <div
+                      style={{
+                        width: 80,
+                        height: 80,
+                        margin: "0 auto 32px auto",
+                        position: "relative",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {/* Main briefcase body */}
+                      <div
+                        style={{
+                          width: 60,
+                          height: 45,
+                          background: "#8B4513",
+                          borderRadius: "8px 8px 12px 12px",
+                          position: "relative",
+                          boxShadow: "0 4px 12px rgba(139, 69, 19, 0.3)",
+                        }}
+                      >
+                        {/* Briefcase handle */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: -8,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            width: 20,
+                            height: 8,
+                            background: "#A0522D",
+                            borderRadius: "4px 4px 0 0",
+                            border: "2px solid #8B4513",
+                          }}
+                        ></div>
 
-                {/* Primary Message */}
-                <div
-                  style={{
-                    fontSize: 26,
-                    fontWeight: 700,
-                    color: "#000",
-                    textAlign: "center",
-                    marginBottom: 16,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  No qualified proposals yet
-                </div>
+                        {/* Briefcase opening with glow */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: 8,
+                            background:
+                              "linear-gradient(90deg, #87CEEB, #98FB98)",
+                            borderRadius: "8px 8px 0 0",
+                            opacity: 0.8,
+                          }}
+                        ></div>
 
-                {/* Secondary Call to Action */}
-                <div
-                  style={{
-                    fontSize: 18,
-                    color: "#666",
-                    marginBottom: 40,
-                    textAlign: "center",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Feature this job post to get proposals faster and attract top
-                  freelancers.
-                </div>
+                        {/* Small tag on the right */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 8,
+                            right: -4,
+                            width: 8,
+                            height: 12,
+                            background: "#D2B48C",
+                            borderRadius: "2px 0 0 2px",
+                            transform: "rotate(15deg)",
+                          }}
+                        ></div>
+                      </div>
+                    </div>
 
-                {/* Invite Freelancers Button */}
-                <button
-                  onClick={() => handleStepClick(1)}
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #007674 0%, #005a58 100%)",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: 15,
-                    padding: "14px 32px",
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                    transition: "all 0.3s ease",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    cursor: "pointer",
-                    boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
-                    margin: "0 auto",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background =
-                      "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
-                    e.target.style.transform = "translateY(-2px)";
-                    e.target.style.boxShadow =
-                      "0 8px 25px rgba(18, 18, 18, 0.4)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background =
-                      "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                    e.target.style.transform = "translateY(0)";
-                    e.target.style.boxShadow =
-                      "0 6px 20px rgba(0, 118, 116, 0.3)";
-                  }}
-                >
-                  Invite Freelancers
-                </button>
+                    {/* Primary Message */}
+                    <div
+                      style={{
+                        fontSize: 26,
+                        fontWeight: 700,
+                        color: "#000",
+                        textAlign: "center",
+                        marginBottom: 16,
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      No qualified proposals yet
+                    </div>
+
+                    {/* Secondary Call to Action */}
+                    <div
+                      style={{
+                        fontSize: 18,
+                        color: "#666",
+                        marginBottom: 40,
+                        textAlign: "center",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Feature this job post to get proposals faster and attract
+                      top freelancers.
+                    </div>
+
+                    {/* Invite Freelancers Button */}
+                    <button
+                      onClick={() => handleStepClick(1)}
+                      style={{
+                        background:
+                          "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: 15,
+                        padding: "14px 32px",
+                        fontSize: "1rem",
+                        fontWeight: 600,
+                        transition: "all 0.3s ease",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        cursor: "pointer",
+                        boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
+                        margin: "0 auto",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background =
+                          "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
+                        e.target.style.transform = "translateY(-2px)";
+                        e.target.style.boxShadow =
+                          "0 8px 25px rgba(18, 18, 18, 0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background =
+                          "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                        e.target.style.transform = "translateY(0)";
+                        e.target.style.boxShadow =
+                          "0 6px 20px rgba(0, 118, 116, 0.3)";
+                      }}
+                    >
+                      Invite Freelancers
+                    </button>
+                  </div>
+                ) : (
+                  // Proposals List with the new layout
+                  <div style={{ padding: "20px 0" }}>
+                    {proposals.map((proposal, index) => (
+                      <div
+                        key={proposal.id || index}
+                        style={{
+                          background: "#ffffff",
+                          borderRadius: "12px",
+                          padding: "0",
+                          marginBottom: "16px",
+                          boxShadow: "0 1px 2px rgba(0, 0, 0, 0.06)",
+                          border: "1px solid #e0e0e0",
+                          overflow: "hidden",
+                          cursor: "pointer",
+                        }}
+                        onClick={() => openProposalModal(proposal)}
+                      >
+                        {/* Header with Stats, Qualifications, Details */}
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "2fr 1.5fr 1fr",
+                            gap: 0,
+                            padding: "12px 20px",
+                            background: "#f8f9fa",
+                            borderBottom: "1px solid #e0e0e0",
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: 16,
+                              fontWeight: 600,
+                              color: "#121212",
+                            }}
+                          >
+                            {" "}
+                          </div>
+                          <div
+                            style={{
+                              textAlign: "center",
+                              fontSize: 16,
+                              fontWeight: 600,
+                              color: "#121212",
+                            }}
+                          >
+                            Stats
+                          </div>
+                          <div
+                            style={{
+                              textAlign: "center",
+                              fontSize: 16,
+                              fontWeight: 600,
+                              color: "#121212",
+                            }}
+                          >
+                            Details
+                          </div>
+                        </div>
+
+                        {/* Main Content */}
+                        <div
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "2fr 1.5fr 1fr",
+                            gap: "0",
+                            padding: "16px 20px",
+                          }}
+                        >
+                          {/* Left Column - Profile Information & Actions */}
+                          <div style={{ paddingRight: "20px" }}>
+                            {/* Profile Picture and Info */}
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "flex-start",
+                                marginBottom: "16px",
+                                gap: 20,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  position: "relative",
+                                  marginRight: "12px",
+                                }}
+                              >
+                                <img
+                                  src={
+                                    proposal.freelancer?.profilePicture ||
+                                    `https://via.placeholder.com/60x60/4CAF50/FFFFFF?text=${
+                                      proposal.freelancer?.name?.charAt(0) ||
+                                      "F"
+                                    }`
+                                  }
+                                  alt={
+                                    proposal.freelancer?.name || "Freelancer"
+                                  }
+                                  style={{
+                                    width: "60px",
+                                    height: "60px",
+                                    borderRadius: "50%",
+                                    objectFit: "cover",
+                                  }}
+                                />
+                                {/* Online Status Dot */}
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: "2px",
+                                    left: "2px",
+                                    width: "12px",
+                                    height: "12px",
+                                    backgroundColor:
+                                      proposal.freelancer?.onlineStatus ===
+                                      "online"
+                                        ? "#4CAF50"
+                                        : "#6c757d",
+                                    borderRadius: "50%",
+                                    border: "2px solid #ffffff",
+                                  }}
+                                />
+                              </div>
+
+                              <div style={{ flex: 1 }}>
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: 10,
+                                    marginBottom: 4,
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      fontSize: "18px",
+                                      fontWeight: 600,
+                                      color: "#222",
+                                    }}
+                                  >
+                                    {proposal.freelancer?.name || "User"}
+                                  </div>
+                                  <span
+                                    style={{
+                                      display: "inline-block",
+                                      background: "#e9f2ff",
+                                      color: "#1070ca",
+                                      borderRadius: 999,
+                                      padding: "4px 10px",
+                                      fontSize: 14,
+                                      fontWeight: 600,
+                                      lineHeight: 1,
+                                    }}
+                                  >
+                                    Best match
+                                  </span>
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "16px",
+                                    color: "#666",
+                                    marginBottom: "8px",
+                                  }}
+                                >
+                                  {proposal.freelancer?.location || ""}
+                                </div>
+                                <div
+                                  style={{
+                                    fontSize: "16px",
+                                    color: "#121212",
+                                    marginBottom: "8px",
+                                    lineHeight: "1.4",
+                                  }}
+                                >
+                                  {proposal.freelancer?.specialization ||
+                                    "-"}
+                                </div>
+                              </div>
+                            </div>
+                            {/* NEW badge under avatar (if applicable) */}
+                            {proposal.freelancer?.completedJobs === 0 && (
+                              <div style={{ marginBottom: 16 }}>
+                                <span
+                                  style={{
+                                    display: "inline-block",
+                                    background: "#007bff",
+                                    color: "#ffffff",
+                                    padding: "6px 12px",
+                                    borderRadius: 999,
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  NEW
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "8px",
+                                flexWrap: "wrap",
+                                alignItems: "center",
+                              }}
+                            >
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleProposalAction(proposal.id, "messaged");
+                                }}
+                                style={{
+                                  border: "2px solid #007674",
+                                  color: "#007674",
+                                  background: "#ffffff",
+                                  borderRadius: 8,
+                                  padding: "10px 20px",
+                                  fontWeight: "600",
+                                  fontSize: "14px",
+                                  cursor: "pointer",
+                                  transition: "all 0.2s ease",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.target.style.background = "#007674";
+                                  e.target.style.color = "#ffffff";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.background = "#ffffff";
+                                  e.target.style.color = "#007674";
+                                }}
+                              >
+                                Message
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleProposalAction(proposal.id, "hired");
+                                }}
+                                style={{
+                                  border: "none",
+                                  color: "#ffffff",
+                                  background: "#007674",
+                                  borderRadius: 8,
+                                  padding: "10px 24px",
+                                  fontWeight: "600",
+                                  fontSize: "14px",
+                                  cursor: "pointer",
+                                  transition: "all 0.2s ease",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.target.style.background = "#005a58";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.background = "#007674";
+                                }}
+                              >
+                                Hire
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Middle Column - Stats & Qualifications */}
+                          <div
+                            style={{
+                              paddingLeft: 20,
+                              paddingRight: 20,
+                              borderLeft: "1px solid #e0e0e0",
+                              borderRight: "1px solid #e0e0e0",
+                            }}
+                          >
+                            {/* Stats */}
+                            <div style={{ marginBottom: 12 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  marginBottom: 8,
+                                }}
+                              >
+                                <BsCreditCard
+                                  style={{
+                                    marginRight: "8px",
+                                    color: "#121212",
+                                    fontSize: "16px",
+                                  }}
+                                />
+                                <span
+                                  style={{ fontSize: "16px", color: "#121212" }}
+                                >
+                                  {proposal.freelancer?.completedJobs || 0}{" "}
+                                  completed jobs
+                                </span>
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                }}
+                              >
+                                <span
+                                  style={{ fontSize: "16px", color: "#121212" }}
+                                >
+                                  ₹ {" "}
+                                  {Number(
+                                    proposal.freelancer?.totalEarned || 0
+                                  ).toLocaleString()}{" "}
+                                  earned
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Qualifications */}
+                            <div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  marginBottom: 12,
+                                }}
+                              >
+                                <BsQuestionCircle
+                                  style={{
+                                    marginRight: "8px",
+                                    color: "#121212",
+                                    fontSize: "16px",
+                                  }}
+                                />
+                                <span
+                                  style={{ fontSize: "16px", color: "#121212" }}
+                                >
+                                  {proposal.freelancer?.skills?.length || 0}{" "}
+                                  skills on their profile
+                                </span>
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexWrap: "wrap",
+                                  gap: "8px",
+                                }}
+                              >
+                                {(proposal.freelancer?.skills || [])
+                                  .slice(0, 6)
+                                  .map((skill, skillIndex) => (
+                                    <span key={skillIndex} className="skill-tag">
+                                      {typeof skill === "string"
+                                        ? skill
+                                        : skill?.name || skill?.label || ""}
+                                    </span>
+                                  ))}
+                                {(proposal.freelancer?.skills?.length || 0) > 6 && (
+                                  <span className="skill-tag">
+                                    +{(proposal.freelancer?.skills?.length || 0) - 6}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right Column - Details */}
+                          <div style={{ paddingLeft: "20px" }}>
+                            <div style={{ marginBottom: 12 }}>
+                              <div
+                                style={{
+                                  fontSize: 18,
+                                  fontWeight: 700,
+                                  color: "#121212",
+                                  marginBottom: 4,
+                                }}
+                              >
+                                ₹ {" "}
+                                {Number(
+                                  proposal.freelancer?.hourlyRate ?? 0
+                                ).toFixed(2)}
+                                <span
+                                  style={{
+                                    marginLeft: 4,
+                                    fontSize: 16,
+                                    color: "#121212",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  /hr
+                                </span>
+                              </div>
+                            </div>
+                            <div
+                              style={{
+                                fontSize: "16px",
+                                color: "#121212",
+                                lineHeight: "1.4",
+                              }}
+                            >
+                              Cover letter -{" "} <br />
+                              {proposal.coverLetter ||
+                                "No cover letter provided"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <ProposalModal
+                  isOpen={isProposalModalOpen}
+                  onClose={closeProposalModal}
+                  proposal={selectedProposal}
+                />
               </div>
             )}
 
@@ -2833,6 +3691,433 @@ const ClientJobDetailedPage = () => {
                 >
                   View all proposals
                 </button>
+              </div>
+            )}
+
+            {activeProposalTab === "archived" && (
+              <div style={{ padding: "20px" }}>
+                {declinedInvitationsLoading ? (
+                  <div style={{ textAlign: "center", padding: "40px" }}>
+                    <div style={{ fontSize: "18px", color: "#666" }}>
+                      Loading archived proposals...
+                    </div>
+                  </div>
+                ) : declinedInvitations.length > 0 ? (
+                  // Show declined invitations with the layout from the image
+                  declinedInvitations.map((invitation, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        background: "#ffffff",
+                        borderRadius: "12px",
+                        padding: "24px",
+                        marginBottom: "20px",
+                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
+                        border: "1px solid #e0e0e0",
+                      }}
+                    >
+                      {/* Freelancer Info Section */}
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "flex-start",
+                          marginBottom: "20px",
+                        }}
+                      >
+                        {/* Profile Picture */}
+                        <div
+                          style={{ position: "relative", marginRight: "16px" }}
+                        >
+                          <img
+                            src={
+                              invitation.freelancer?.profilePicture ||
+                              "https://via.placeholder.com/60x60/4CAF50/FFFFFF?text=HK"
+                            }
+                            alt={invitation.freelancer?.name || "Freelancer"}
+                            style={{
+                              width: "60px",
+                              height: "60px",
+                              borderRadius: "50%",
+                              objectFit: "cover",
+                            }}
+                          />
+                          {/* Online Status Dot */}
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: "2px",
+                              left: "2px",
+                              width: "12px",
+                              height: "12px",
+                              backgroundColor: "#4CAF50",
+                              borderRadius: "50%",
+                              border: "2px solid #ffffff",
+                            }}
+                          />
+                        </div>
+
+                        {/* Freelancer Details */}
+                        <div style={{ flex: 1 }}>
+                          <div
+                            style={{
+                              fontSize: "18px",
+                              fontWeight: "600",
+                              color: "#333",
+                              marginBottom: "4px",
+                            }}
+                          >
+                            {invitation.freelancer?.name || "Hemal K."}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "14px",
+                              color: "#666",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            {invitation.freelancer?.location || "India"}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "14px",
+                              color: "#333",
+                              marginBottom: "8px",
+                              lineHeight: "1.4",
+                            }}
+                          >
+                            {invitation.freelancer?.specialization ||
+                              "Web Developer | Front-End & Back-End Development | Custom Solutions"}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "12px",
+                              color: "#dc3545",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            Proposal withdrawn by freelancer.
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Three Column Layout */}
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "1fr 1fr 1fr",
+                          gap: "20px",
+                        }}
+                      >
+                        {/* Stats Column */}
+                        <div>
+                          <div
+                            style={{
+                              fontSize: "14px",
+                              fontWeight: "600",
+                              color: "#333",
+                              marginBottom: "12px",
+                            }}
+                          >
+                            Stats
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            <BsCreditCard
+                              style={{ marginRight: "8px", color: "#666" }}
+                            />
+                            <span style={{ fontSize: "14px", color: "#666" }}>
+                              {invitation.freelancer?.completedJobs || 0}{" "}
+                              completed jobs
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              marginBottom: "8px",
+                            }}
+                          >
+                            <BsClock
+                              style={{ marginRight: "8px", color: "#666" }}
+                            />
+                            <span style={{ fontSize: "14px", color: "#666" }}>
+                              {invitation.freelancer?.totalHours || 0} total
+                              hours
+                            </span>
+                          </div>
+                          <div
+                            style={{ display: "flex", alignItems: "center" }}
+                          >
+                            <span
+                              style={{
+                                marginRight: "8px",
+                                color: "#666",
+                                fontSize: "16px",
+                              }}
+                            >
+                              $
+                            </span>
+                            <span style={{ fontSize: "14px", color: "#666" }}>
+                              {invitation.freelancer?.totalEarned || 0} earned
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Qualifications Column */}
+                        <div>
+                          <div
+                            style={{
+                              fontSize: "14px",
+                              fontWeight: "600",
+                              color: "#333",
+                              marginBottom: "12px",
+                            }}
+                          >
+                            Qualifications
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              marginBottom: "12px",
+                            }}
+                          >
+                            <BsQuestionCircle
+                              style={{ marginRight: "8px", color: "#666" }}
+                            />
+                            <span style={{ fontSize: "14px", color: "#666" }}>
+                              {invitation.freelancer?.skills?.length || 13}{" "}
+                              skills on their profile
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              display: "flex",
+                              flexWrap: "wrap",
+                              gap: "8px",
+                            }}
+                          >
+                            {(
+                              invitation.freelancer?.skills || [
+                                "Ecommerce",
+                                "Ecommerce Website",
+                                "Web Development",
+                                "React",
+                                "Node.js",
+                                "MongoDB",
+                              ]
+                            )
+                              .slice(0, 6)
+                              .map((skill, skillIndex) => (
+                                <span key={skillIndex} className="skill-tag">{skill}</span>
+                              ))}
+                            {(invitation.freelancer?.skills?.length || 13) > 6 && (
+                              <span className="skill-tag">+{(invitation.freelancer?.skills?.length || 13) - 6}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Details Column */}
+                        <div>
+                          <div
+                            style={{
+                              fontSize: "14px",
+                              fontWeight: "600",
+                              color: "#333",
+                              marginBottom: "12px",
+                            }}
+                          >
+                            Details
+                          </div>
+                          <div style={{ marginBottom: "12px" }}>
+                            <div
+                              style={{
+                                fontSize: "16px",
+                                fontWeight: "600",
+                                color: "#333",
+                                marginBottom: "4px",
+                              }}
+                            >
+                              ${invitation.freelancer?.hourlyRate || "25.00"}/hr
+                            </div>
+                            <span
+                              style={{
+                                background: "#007bff",
+                                color: "#ffffff",
+                                padding: "2px 8px",
+                                borderRadius: "12px",
+                                fontSize: "12px",
+                                fontWeight: "500",
+                              }}
+                            >
+                              Invited
+                            </span>
+                          </div>
+                          <div
+                            style={{
+                              fontSize: "14px",
+                              color: "#666",
+                              lineHeight: "1.4",
+                            }}
+                          >
+                            <strong>Cover letter -</strong>{" "}
+                            {invitation.coverLetter ||
+                              ""}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                  ))
+                ) : (
+                  // Show empty state when no declined invitations
+                  <div
+                    style={{
+                      maxWidth: 400,
+                      margin: "0 auto",
+                      textAlign: "center",
+                    }}
+                  >
+                    {/* Archive Icon */}
+                    <div
+                      style={{
+                        width: 80,
+                        height: 80,
+                        margin: "0 auto 32px auto",
+                        position: "relative",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {/* Archive box */}
+                      <div
+                        style={{
+                          width: 60,
+                          height: 45,
+                          background: "#6c757d",
+                          borderRadius: "8px 8px 12px 12px",
+                          position: "relative",
+                          boxShadow: "0 4px 12px rgba(108, 117, 125, 0.3)",
+                        }}
+                      >
+                        {/* Archive lid */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: -8,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            width: 50,
+                            height: 12,
+                            background: "#6c757d",
+                            borderRadius: "8px 8px 0 0",
+                            borderBottom: "2px solid #495057",
+                          }}
+                        ></div>
+
+                        {/* Archive handle */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: -4,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            width: 20,
+                            height: 6,
+                            background: "#495057",
+                            borderRadius: "3px",
+                          }}
+                        ></div>
+
+                        {/* Archive lock */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 8,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            width: 8,
+                            height: 8,
+                            background: "#495057",
+                            borderRadius: "50%",
+                          }}
+                        ></div>
+                      </div>
+                    </div>
+
+                    {/* Heading */}
+                    <div
+                      style={{
+                        fontSize: 26,
+                        fontWeight: 700,
+                        color: "#000",
+                        marginBottom: 16,
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      No archived proposals
+                    </div>
+
+                    {/* Descriptive Text */}
+                    <div
+                      style={{
+                        fontSize: 18,
+                        color: "#666",
+                        marginBottom: 40,
+                        textAlign: "center",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Archived proposals will appear here when you archive them
+                      from other tabs.
+                    </div>
+
+                    {/* View all proposals Button */}
+                    <button
+                      onClick={() => handleProposalTabChange("all")}
+                      style={{
+                        background:
+                          "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: 15,
+                        padding: "14px 32px",
+                        fontSize: "1rem",
+                        fontWeight: 600,
+                        transition: "all 0.3s ease",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 8,
+                        cursor: "pointer",
+                        boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
+                        margin: "0 auto",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.target.style.background =
+                          "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
+                        e.target.style.transform = "translateY(-2px)";
+                        e.target.style.boxShadow =
+                          "0 8px 25px rgba(18, 18, 18, 0.4)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.background =
+                          "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                        e.target.style.transform = "translateY(0)";
+                        e.target.style.boxShadow =
+                          "0 6px 20px rgba(0, 118, 116, 0.3)";
+                      }}
+                    >
+                      View all proposals
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -2979,7 +4264,7 @@ const ClientJobDetailedPage = () => {
         );
       case 3:
         return (
-          <div style={{ width: "100%", padding: "0 24px" }}>
+          <div style={{ width: "100%", padding: "0 0px" }}>
             {/* Tabs */}
             <div
               style={{
@@ -3470,7 +4755,8 @@ const ClientJobDetailedPage = () => {
             margin: "0 0 24px 0",
           }}
         >
-          30 invites left
+          {job && typeof job.invites === "number" ? job.invites : 30} invites
+          left
         </div>
         {/* Meta Row below the title */}
         <div
@@ -3550,7 +4836,12 @@ const ClientJobDetailedPage = () => {
                 {step}
                 {idx < steps.length - 1 && (
                   <span
-                    style={{ margin: "0 12px", color: "#afafaf", fontWeight: 400, scale: 2.0 }}
+                    style={{
+                      margin: "0 12px",
+                      color: "#afafaf",
+                      fontWeight: 400,
+                      scale: 2.0,
+                    }}
                   >
                     &#8250;
                   </span>
@@ -3695,6 +4986,224 @@ const ClientJobDetailedPage = () => {
           <div style={{ marginTop: 40 }}>{renderTabContent()}</div>
         )}
       </div>
+      {/* Invite to Job Modal */}
+      {inviteModalData && (
+        <div
+          className="modal-backdrop"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            backdropFilter: "blur(8px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+            fontFamily: "Urbanist, sans-serif",
+          }}
+          onClick={() => setInviteModalData(null)}
+        >
+          <div
+            className="modal-content"
+            style={{
+              width: "100%",
+              maxWidth: "800px",
+              maxHeight: "90vh",
+              backgroundColor: "#fff",
+              borderRadius: "22px",
+              overflow: "hidden",
+              boxShadow: "0 25px 50px rgba(0, 0, 0, 0.3)",
+              border: "1px solid rgba(0, 118, 116, 0.1)",
+              padding: 0,
+              display: "flex",
+              flexDirection: "column",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div
+              style={{
+                padding: "22px 30px 18px 30px",
+                borderBottom: "1px solid #e3e3e3",
+                background: "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div
+                style={{ fontWeight: 700, fontSize: "1.3rem", color: "#222" }}
+              >
+                Invite to job
+              </div>
+              <button
+                onClick={() => setInviteModalData(null)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: 28,
+                  color: "#888",
+                  cursor: "pointer",
+                  borderRadius: "50%",
+                  width: 40,
+                  height: 40,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "background 0.2s",
+                }}
+                onMouseEnter={(e) => (e.target.style.background = "#f2f7f7")}
+                onMouseLeave={(e) => (e.target.style.background = "none")}
+                aria-label="Close"
+              >
+                <BsX />
+              </button>
+            </div>
+            {/* Content */}
+            <div style={{ padding: 30, overflowY: "auto", flex: 1 }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 18,
+                  marginBottom: 18,
+                }}
+              >
+                <img
+                  src={inviteModalData.avatar}
+                  alt={inviteModalData.name}
+                  style={{
+                    width: 64,
+                    height: 64,
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    border: "2px solid #e3e3e3",
+                  }}
+                />
+                <div>
+                  <div
+                    style={{
+                      fontWeight: 700,
+                      fontSize: 20,
+                      color: "#007674",
+                      marginBottom: 2,
+                    }}
+                  >
+                    <a
+                      href="#"
+                      style={{ color: "#007674", textDecoration: "underline" }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        navigate(`/ws/freelancers/${inviteModalData.id}`);
+                      }}
+                    >
+                      {inviteModalData.name}
+                    </a>
+                  </div>
+                  <div
+                    style={{
+                      color: "#222",
+                      fontSize: 18,
+                      fontWeight: 500,
+                      marginBottom: 2,
+                    }}
+                  >
+                    {inviteModalData.title}
+                  </div>
+                  <div style={{ color: "#121212", fontSize: 16 }}>
+                    {inviteModalData.location}
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 8 }}>
+                Message
+              </div>
+              <textarea
+                value={inviteMessage}
+                onChange={(e) => setInviteMessage(e.target.value)}
+                rows={6}
+                style={{
+                  width: "100%",
+                  border: "1.5px solid #bbb",
+                  borderRadius: 8,
+                  fontSize: 16,
+                  padding: 16,
+                  resize: "vertical",
+                  fontFamily: "inherit",
+                }}
+              />
+            </div>
+            {/* Footer */}
+            <div
+              style={{
+                padding: "0 30px 24px 30px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <div style={{ color: "#222", fontSize: 16 }}>
+                You have{" "}
+                {job && typeof job.invites === "number" ? job.invites : 30}{" "}
+                invites left.
+              </div>
+              <button
+                style={{
+                  background: "#007476",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 10,
+                  fontWeight: 700,
+                  fontSize: 18,
+                  padding: "10px 32px",
+                  cursor: "pointer",
+                  transition: "background 0.2s",
+                }}
+                onClick={async () => {
+                  if (!inviteModalData) return;
+                  try {
+                    const res = await axios.post(
+                      `${API_URL}/job-invite/`,
+                      {
+                        jobId: jobid,
+                        freelancerId: inviteModalData.id,
+                        message: inviteMessage,
+                      },
+                      { withCredentials: true }
+                    );
+                    if (res.data && res.data.success) {
+                      setInviteModalData(null);
+                      setJob((prev) =>
+                        prev ? { ...prev, invites: res.data.invites } : prev
+                      );
+                      setInvitedFreelancerIds((prev) => [
+                        ...prev,
+                        inviteModalData.id,
+                      ]);
+                      window.location.reload(); // Refresh the page after successful invite
+                    } else {
+                      alert(
+                        res.data && res.data.message
+                          ? res.data.message
+                          : "Failed to send invitation"
+                      );
+                    }
+                  } catch (err) {
+                    alert("Failed to send invitation");
+                  }
+                }}
+              >
+                Send Invitation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

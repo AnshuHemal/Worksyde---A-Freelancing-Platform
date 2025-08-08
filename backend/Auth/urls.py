@@ -73,11 +73,14 @@ urlpatterns = [
     path('jobproposals/create/', views.create_job_proposal, name='create_job_proposal'),
     path('jobproposals/job/<str:job_id>/', views.fetch_proposals_for_job, name='fetch_proposals_for_job'),
     path('jobproposalsbyid/fetch/', views.get_job_proposal_details_by_id, name='get_job_proposal_details_by_id'),
+    path('jobproposals/shortlist/', views.shortlist_proposal, name='shortlist_proposal'),
+    path('jobproposals/archive/', views.archive_proposal, name='archive_proposal'),
     path('jobproposals/attachments/<str:id>/', views.get_job_proposal_attachment, name='get_job_proposal_attachment'),
     path('freelancer/summary/<str:user_id>/', views.get_freelancer_summary, name='get_freelancer_summary'),
     path('freelancer/profile/<str:user_id>/', views.get_freelancer_profile),
     path('client/profile/<str:user_id>/', views.get_client_profile),
     path('client/profile-details/<str:user_id>/', views.get_client_profile_details, name='get_client_profile_details'),
+    path('freelancers/verified/', views.get_verified_freelancers, name='get_verified_freelancers'),
     
     # Password Management
     path('change-password/', views.change_password, name='change_password'),
@@ -107,4 +110,10 @@ urlpatterns = [
     path('paypal/payment/complete/', views.complete_paypal_payment, name='complete_paypal_payment'),
     
     path('jobpost/publish/<str:job_id>/', views.publish_job_post, name='publish_job_post'),
+    path('job-invite/', views.create_job_invitation, name='create_job_invitation'),
+    path('job-invite/list/', views.list_job_invitations, name='list_job_invitations'),
+    path('job-invite/delete/', views.delete_job_invitation, name='delete_job_invitation'),
+    path('job-invite/freelancer/', views.list_freelancer_invitations, name='list_freelancer_invitations'),
+    path('job-invite/decline/', views.decline_job_invitation, name='decline_job_invitation'),
+    path('client/declined-job-invitations/<str:job_id>/', views.get_declined_job_invitations, name='get_declined_job_invitations'),
 ]
