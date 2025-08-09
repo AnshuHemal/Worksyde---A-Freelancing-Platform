@@ -156,16 +156,18 @@ const ClientJobOfferCheckout = () => {
   const createPayPalOrder = async (data, actions) => {
     try {
       setProcessing(true);
-      
+
       const paymentAmount = fees.total || 0;
-            
+
       // Call your backend to create PayPal order
       const response = await axios.post(
         `${API_URL}/paypal/payment/initiate/`,
         {
           amount: paymentAmount,
           currency: "INR",
-          description: `Payment for ${jobOffer?.contractTitle || "Freelancing Project"}`,
+          description: `Payment for ${
+            jobOffer?.contractTitle || "Freelancing Project"
+          }`,
           jobOfferId: jobOffer?.id || null,
         },
         {
@@ -175,10 +177,12 @@ const ClientJobOfferCheckout = () => {
 
       if (response.data.success) {
         setPaypalOrderId(response.data.paypalOrderId);
-        
+
         return response.data.paypalOrderId;
       } else {
-        throw new Error(response.data.message || "Failed to create PayPal order");
+        throw new Error(
+          response.data.message || "Failed to create PayPal order"
+        );
       }
     } catch (error) {
       console.error("Error creating PayPal order:", error);
@@ -192,7 +196,7 @@ const ClientJobOfferCheckout = () => {
   const onPayPalApprove = async (data, actions) => {
     try {
       setProcessing(true);
-            
+
       // Call your backend to capture the payment
       const response = await axios.post(
         `${API_URL}/paypal/payment/complete/`,
@@ -206,7 +210,9 @@ const ClientJobOfferCheckout = () => {
 
       if (response.data.success) {
         setPaymentSuccess(true);
-        toast.success(`Payment completed successfully! Transaction ID: ${response.data.transactionId}`);
+        toast.success(
+          `Payment completed successfully! Transaction ID: ${response.data.transactionId}`
+        );
       } else {
         throw new Error(response.data.message || "Payment capture failed");
       }
@@ -341,7 +347,7 @@ const ClientJobOfferCheckout = () => {
             Back to Offer Details
           </button>
 
-          <div style={{ display: "flex", alignItems: "center"}}> 
+          <div style={{ display: "flex", alignItems: "center" }}>
             <h1
               style={{
                 fontSize: 36,
@@ -563,17 +569,17 @@ const ClientJobOfferCheckout = () => {
                           onChange={(e) =>
                             handleAddressChange("city", e.target.value)
                           }
-                                                  style={{
-                          width: "100%",
-                          padding: "12px 16px",
-                          border: "1px solid #e0e0e0",
-                          borderRadius: "6px",
-                          fontSize: 16,
-                          outline: "none",
-                          fontFamily: "inherit",
-                          backgroundColor: "#fff",
-                        }}
-                      />
+                          style={{
+                            width: "100%",
+                            padding: "12px 16px",
+                            border: "1px solid #e0e0e0",
+                            borderRadius: "6px",
+                            fontSize: 16,
+                            outline: "none",
+                            fontFamily: "inherit",
+                            backgroundColor: "#fff",
+                          }}
+                        />
                       </div>
 
                       <div>
@@ -613,17 +619,17 @@ const ClientJobOfferCheckout = () => {
                       disabled={processing || !isFormValid()}
                       style={{
                         padding: "16px 32px",
-                        backgroundColor: processing || !isFormValid() 
-                          ? "#ccc" 
-                          : "#007674",
+                        backgroundColor:
+                          processing || !isFormValid() ? "#ccc" : "#007674",
                         color: "#fff",
                         border: "none",
                         borderRadius: "6px",
                         fontSize: 16,
                         fontWeight: 600,
-                        cursor: processing || !isFormValid() 
-                          ? "not-allowed" 
-                          : "pointer",
+                        cursor:
+                          processing || !isFormValid()
+                            ? "not-allowed"
+                            : "pointer",
                         transition: "all 0.3s ease",
                       }}
                     >
@@ -724,7 +730,7 @@ const ClientJobOfferCheckout = () => {
                         <img
                           src={paypalLogo}
                           alt="PayPal"
-                          style={{ width: "90px", objectFit: "contain"}}
+                          style={{ width: "90px", objectFit: "contain" }}
                         />
                       </div>
                     </label>
@@ -758,7 +764,11 @@ const ClientJobOfferCheckout = () => {
                         <img
                           src={worksydeLogo}
                           alt="Worksyde"
-                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain",
+                          }}
                         />
                       </div>
                       <div
@@ -794,7 +804,11 @@ const ClientJobOfferCheckout = () => {
                         <img
                           src={paypalLogo}
                           alt="PayPal"
-                          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "contain",
+                          }}
                         />
                       </div>
                     </div>
@@ -822,26 +836,28 @@ const ClientJobOfferCheckout = () => {
                   </div>
                 )}
 
-                                  {/* PayPal Payment Button */}
-                  {paymentMethod === "paypal" && (
-                    <div style={{ 
-                      marginTop: 24, 
-                      width: "100%", 
-                      display: "flex", 
-                      justifyContent: "center" 
-                    }}>
-                      <div style={{ width: "100%", maxWidth: "400px" }}>
-                        <PayPalButtons 
-                          createOrder={createPayPalOrder}
-                          onApprove={onPayPalApprove}
-                          onError={onPayPalError}
-                          onCancel={onPayPalCancel}
-                          style={PAYPAL_BUTTON_STYLES}
-                          disabled={processing}
-                        />
-                      </div>
+                {/* PayPal Payment Button */}
+                {paymentMethod === "paypal" && (
+                  <div
+                    style={{
+                      marginTop: 24,
+                      width: "100%",
+                      display: "flex",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <div style={{ width: "100%", maxWidth: "400px" }}>
+                      <PayPalButtons
+                        createOrder={createPayPalOrder}
+                        onApprove={onPayPalApprove}
+                        onError={onPayPalError}
+                        onCancel={onPayPalCancel}
+                        style={PAYPAL_BUTTON_STYLES}
+                        disabled={processing}
+                      />
                     </div>
-                  )}
+                  </div>
+                )}
 
                 {/* Currency Conversion Notice */}
                 {paymentMethod === "paypal" && (
@@ -854,7 +870,11 @@ const ClientJobOfferCheckout = () => {
                       marginTop: "26px",
                       marginBottom: "26px",
                     }}
-                  ><strong style={{fontSize: "20 px", fontWeight: "600"}}>Payment Info:</strong> <br />
+                  >
+                    <strong style={{ fontSize: "20 px", fontWeight: "600" }}>
+                      Payment Info:
+                    </strong>{" "}
+                    <br />
                     <div
                       style={{
                         fontSize: "16px",
@@ -864,8 +884,11 @@ const ClientJobOfferCheckout = () => {
                         marginBottom: "10px",
                       }}
                     >
-                      PayPal will process your payment in USD (approximately ${(fees.total / 83).toFixed(2)}) 
-                      for international compatibility. Your original amount of ₹{fees.total.toLocaleString()} will be displayed in your transaction history.
+                      PayPal will process your payment in USD (approximately $
+                      {(fees.total / 83).toFixed(2)}) for international
+                      compatibility. Your original amount of ₹
+                      {fees.total.toLocaleString()} will be displayed in your
+                      transaction history.
                     </div>
                   </div>
                 )}
@@ -1027,15 +1050,7 @@ const ClientJobOfferCheckout = () => {
             }}
           >
             <div style={{ padding: "24px" }}>
-              {/* Worksyde Logo */}
-              <div style={{ marginBottom: 24, textAlign: "center" }}>
-                <img 
-                  src={worksydeLogo} 
-                  alt="Worksyde Logo" 
-                  style={{ height: "32px" }}
-                />
-              </div>
-              
+
               {/* Freelancer Profile Card */}
               <div style={{ marginBottom: 24 }}>
                 <div
@@ -1232,11 +1247,7 @@ const ClientJobOfferCheckout = () => {
                     </span>
                   </a>
                 </div>
-                
-
               </div>
-
-
 
               <button
                 disabled={currentStep < 2 || isEditing}

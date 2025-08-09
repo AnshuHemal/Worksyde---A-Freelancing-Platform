@@ -3,3 +3,6 @@ Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 API KEY = "AIzaSyD84wWosXQyqzedoKGIbQbMzGP0wcPj5zE"
 
 // Used useMemo to prevent infinite re-renders
+
+Sandbox Account: Email - sb-whiteturtle@personal.example.com
+                 Password - )xc5M@L(
