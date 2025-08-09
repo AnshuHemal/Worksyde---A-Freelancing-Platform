@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import Header2 from "../../components/Header2";
+import ClientHeader from "../../components/ClientHeader";
 import { BsArrowLeft, BsQuestionCircle, BsShield } from "react-icons/bs";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { PAYPAL_CONFIG, PAYPAL_BUTTON_STYLES } from "../../config/paypal";
@@ -322,7 +322,7 @@ const ClientJobOfferCheckout = () => {
 
   return (
     <PayPalScriptProvider options={paypalOptions}>
-      <Header2 />
+      <ClientHeader />
       <div
         className="section-container"
         style={{ maxWidth: 1400, margin: "60px auto 0 auto", padding: 24 }}

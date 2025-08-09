@@ -68,6 +68,7 @@ import FreelancersProposals from "./pages/Freelancers/FreelancersProposals";
 import FreelancersProposalDetails from "./pages/Freelancers/FreelancersProposalDetails";
 import OfferSendingPage from "./pages/Clients/OfferSendingPage";
 import ClientJobOfferCheckout from "./pages/Clients/ClientJobOfferCheckout";
+import ContactPage from "./pages/ContactPage";
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -103,6 +104,7 @@ const App = () => {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/home" element={<HomePage />} />
+          <Route path="/contact" element={<ContactPage />} />
 
           <Route
             path="/"

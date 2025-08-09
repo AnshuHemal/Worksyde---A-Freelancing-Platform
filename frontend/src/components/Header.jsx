@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import logo from "../assets/worksyde.png";
 
-const Header = () => {
+const Header = ({ activeTab = "home" }) => {
   return (
     <nav className="navbar navbar-expand-lg fixed-top">
       <div className="container-fluid">
@@ -31,35 +31,35 @@ const Header = () => {
             <ul className="navbar-nav justify-content-center flex-grow-1 pe-3">
               <li className="nav-item" >
                 <Link
-                  className="nav-link active mx-lg-2"
-                  aria-current="page"
+                  className={`nav-link mx-lg-2 ${activeTab === "home" ? "active" : ""}`}
+                  aria-current={activeTab === "home" ? "page" : undefined}
                   to={"/"}
                 >
                   Home
                 </Link>
               </li>
               <li className="nav-item">
-                <Link className="nav-link mx-lg-2" to={"/login"}>
+                <Link className={`nav-link mx-lg-2 ${activeTab === "find-work" ? "active" : ""}`} to={"/login"}>
                   Find Work
                 </Link>
               </li>
               <li className="nav-item">
-                <a className="nav-link mx-lg-2" href="#">
+                <a className={`nav-link mx-lg-2 ${activeTab === "find-talent" ? "active" : ""}`} href="#">
                   Find Talent
                 </a>
               </li>
               <li className="nav-item">
-                <a className="nav-link mx-lg-2" href="#">
+                <a className={`nav-link mx-lg-2 ${activeTab === "categories" ? "active" : ""}`} href="#">
                   Categories
                 </a>
               </li>
               <li className="nav-item">
-                <Link className="nav-link mx-lg-2" to={"/about"}>
+                <Link className={`nav-link mx-lg-2 ${activeTab === "about" ? "active" : ""}`} to={"/about"}>
                   About
                 </Link>
               </li>
               <li className="nav-item">
-                <Link className="nav-link mx-lg-2" to={"/about/contact"}>
+                <Link className={`nav-link mx-lg-2 ${activeTab === "contact" ? "active" : ""}`} to={"/contact"}>
                   Contact
                 </Link>
               </li>

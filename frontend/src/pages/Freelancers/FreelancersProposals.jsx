@@ -292,8 +292,7 @@ const FreelancersProposals = () => {
               <div
                 style={{
                   background: "#fff",
-                  borderRadius: 12,
-                  border: "1px solid #eee",
+                  borderTop: "1px solid #eee",
                   margin: "18px 0 0 0",
                   padding: 0,
                 }}

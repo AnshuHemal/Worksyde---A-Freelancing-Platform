@@ -72,7 +72,7 @@ const HomePage = () => {
         height: "100vh",
       }}
     >
-      <Header />
+      <Header activeTab="home" />
 
       <section className="home-one-hero">
         <div className="w-layout-container container w-container">
