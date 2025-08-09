@@ -427,6 +427,56 @@ class PayPalAccount(Document):
         return super().save(*args, **kwargs)
 
 
+class PaymentTransaction(Document):
+    """Model to track all payment transactions"""
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('cancelled', 'Cancelled'),
+        ('refunded', 'Refunded'),
+    ]
+    
+    PAYMENT_METHOD_CHOICES = [
+        ('paypal', 'PayPal'),
+        ('card', 'Credit Card'),
+        ('bank', 'Bank Transfer'),
+    ]
+    
+    transactionId = StringField(required=True, unique=True)  # Our internal transaction ID
+    paypalOrderId = StringField()  # PayPal order ID
+    paypalPaymentId = StringField()  # PayPal payment ID
+    userId = ReferenceField(User, required=True)  # User making the payment
+    jobOfferId = StringField()  # Related job offer
+    
+    amount = DecimalField(required=True, min_value=0)
+    currency = StringField(required=True, default='INR')
+    description = StringField()
+    
+    paymentMethod = StringField(choices=PAYMENT_METHOD_CHOICES, default='paypal')
+    status = StringField(choices=PAYMENT_STATUS_CHOICES, default='pending')
+    
+    # PayPal specific fields
+    paypalResponse = DictField()  # Store PayPal API responses
+    
+    # Timestamps
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+    completedAt = DateTimeField()
+    
+    meta = {
+        "collection": "payment_transactions",
+        "indexes": ["transactionId", "userId", "status", "paypalOrderId"],
+        "ordering": ["-createdAt"]
+    }
+    
+    def save(self, *args, **kwargs):
+        if not self.createdAt:
+            self.createdAt = timezone.now()
+        self.updatedAt = timezone.now()
+        return super().save(*args, **kwargs)
+
+
 class JobInvitation(Document):
     jobId = ReferenceField(JobPosts, required=True)
     clientId = ReferenceField(User, required=True)
@@ -454,3 +504,31 @@ class DeclinedJobInvitation(Document):
         'collection': 'declinedjobinvitations',
         'ordering': ['-createdAt']
     }
+
+
+class JobOffer(Document):
+    clientId = ReferenceField(User, required=True)
+    freelancerId = ReferenceField(User, required=True)
+    jobId = ReferenceField(JobPosts, required=True)
+    contractTitle = StringField(required=True)
+    workDescription = StringField()
+    projectAmount = StringField(required=True)
+    paymentSchedule = StringField(choices=["fixed_price", "hourly", "milestone"], default="fixed_price")
+    dueDate = DateTimeField()
+    milestones = ListField(EmbeddedDocumentField(Milestone))
+    attachments = StringField()  # URL to attachment
+    status = StringField(choices=["pending", "accepted", "declined", "expired"], default="pending")
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+    
+    meta = {
+        "collection": "joboffers",
+        "indexes": ["clientId", "freelancerId", "jobId", "status"],
+        "ordering": ["-createdAt"]
+    }
+    
+    def save(self, *args, **kwargs):
+        if not self.createdAt:
+            self.createdAt = timezone.now()
+        self.updatedAt = timezone.now()
+        return super().save(*args, **kwargs)

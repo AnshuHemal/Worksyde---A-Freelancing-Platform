@@ -163,4 +163,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Twilio SMS Configuration
 TWILIO_ACCOUNT_SID = "ACafec1fba446ceb9e4e50e2620c49313b"
 TWILIO_AUTH_TOKEN = "d9e0e21d4aef53c2d9c18d3d296d60c1"
-TWILIO_PHONE_NUMBER = "+12342629032" 
+TWILIO_PHONE_NUMBER = "+12342629032"
+
+# PayPal Configuration - Using working sandbox credentials
+PAYPAL_CLIENT_ID = os.environ.get('PAYPAL_CLIENT_ID', 'Afups2A6AknaMzjVclJQDgcwt16OMXewOpQ71Jwswp54zNi2vpe8-84jGj2at_WmMnn_knmzR4SHwl4Y')
+PAYPAL_CLIENT_SECRET = os.environ.get('PAYPAL_CLIENT_SECRET', 'EMoubdh7J-MX2s5xOgMFpLieWtA3XRdJ5bef5_6YeuriFN9HD8rUSeQfolzSsq-zZui29IY8rkFs-hjy')
+PAYPAL_MODE = os.environ.get('PAYPAL_MODE', 'sandbox')  # 'sandbox' for testing, 'live' for production
+
+# Currency Exchange API Configuration (optional)
+EXCHANGE_RATE_API_KEY = os.environ.get('EXCHANGE_RATE_API_KEY', 'f83ae214f566ebc767b97868')  # Get free key from exchangerate-api.com 

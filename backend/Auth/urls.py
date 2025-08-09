@@ -111,6 +111,7 @@ urlpatterns = [
     path('paypal-accounts/<str:account_id>/set-default/', views.set_default_paypal_account, name='set_default_paypal_account'),
     path('paypal/payment/initiate/', views.initiate_paypal_payment, name='initiate_paypal_payment'),
     path('paypal/payment/complete/', views.complete_paypal_payment, name='complete_paypal_payment'),
+    path('payment/transactions/', views.get_payment_transactions, name='get_payment_transactions'),
     
     path('jobpost/publish/<str:job_id>/', views.publish_job_post, name='publish_job_post'),
     path('job-invite/', views.create_job_invitation, name='create_job_invitation'),
@@ -119,4 +120,12 @@ urlpatterns = [
     path('job-invite/freelancer/', views.list_freelancer_invitations, name='list_freelancer_invitations'),
     path('job-invite/decline/', views.decline_job_invitation, name='decline_job_invitation'),
     path('client/declined-job-invitations/<str:job_id>/', views.get_declined_job_invitations, name='get_declined_job_invitations'),
+    
+    # Job Offers
+    path('job-offers/create/', views.create_job_offer, name='create_job_offer'),
+    path('job-offers/<str:offer_id>/', views.get_job_offer, name='get_job_offer'),
+    path('job-offers/client/<str:client_id>/', views.get_client_job_offers, name='get_client_job_offers'),
+    path('job-offers/freelancer/<str:freelancer_id>/', views.get_freelancer_job_offers, name='get_freelancer_job_offers'),
+    path('job-offers/<str:offer_id>/update/', views.update_job_offer, name='update_job_offer'),
+    path('job-offers/<str:offer_id>/delete/', views.delete_job_offer, name='delete_job_offer'),
 ]

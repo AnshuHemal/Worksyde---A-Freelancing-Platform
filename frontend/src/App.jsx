@@ -67,6 +67,7 @@ import ClientJobDetailedPage from "./pages/Clients/ClientJobDetailedPage";
 import FreelancersProposals from "./pages/Freelancers/FreelancersProposals";
 import FreelancersProposalDetails from "./pages/Freelancers/FreelancersProposalDetails";
 import OfferSendingPage from "./pages/Clients/OfferSendingPage";
+import ClientJobOfferCheckout from "./pages/Clients/ClientJobOfferCheckout";
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -297,7 +298,11 @@ const App = () => {
               path="offer/job-application/:freelancerId"
               element={<OfferSendingPage />}
             />
-          </Route>
+            <Route
+              path="payments/checkout/:jobofferid"
+              element={<ClientJobOfferCheckout />}
+            />
+          </Route>          
         </Routes>
       </div>
     </UserProvider>

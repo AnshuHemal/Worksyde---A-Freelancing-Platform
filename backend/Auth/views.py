@@ -27,9 +27,11 @@ from Auth.models import (
     Language,
     PaymentCard,
     PayPalAccount,
+    PaymentTransaction,
     Company,
     JobInvitation,
     DeclinedJobInvitation,
+    JobOffer,
 )
 from .serializers import (
     EducationSerializer,
@@ -56,6 +58,8 @@ import time
 from twilio.rest import Client
 import uuid
 from rest_framework.permissions import IsAuthenticated
+import requests
+import base64
 
 
 def send_otp_sms(phone_number, otp_code):
@@ -3232,12 +3236,23 @@ def set_default_paypal_account(request, account_id):
 @api_view(["POST"])
 @verify_token
 def initiate_paypal_payment(request):
-    """Initiate a PayPal payment"""
+    """Initiate a PayPal payment using Orders API v2"""
+    import requests
+    import base64
+    import uuid
+    from django.conf import settings
+    from .models import PaymentTransaction
+    from django.utils import timezone
+    
     try:
         user_id = request.user.id
         amount = request.data.get('amount')
-        currency = request.data.get('currency', 'USD')
+        original_currency = request.data.get('currency', 'INR')
         description = request.data.get('description', 'Worksyde Payment')
+        job_offer_id = request.data.get('jobOfferId')
+        
+        print(f"PayPal payment initiation started for user: {request.user}")
+        print(f"Request data: {request.data}")
         
         if not amount:
             return Response(
@@ -3245,27 +3260,128 @@ def initiate_paypal_payment(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         
-        # In a real implementation, you would:
-        # 1. Create a PayPal order using PayPal SDK
-        # 2. Store the order details in your database
-        # 3. Return the PayPal order ID for frontend to complete payment
+        # Convert INR to USD for PayPal (PayPal doesn't support INR directly)
+        if original_currency == 'INR':
+            # Simple conversion rate (you can use real-time rates)
+            usd_amount = round(float(amount) / 83, 2)
+            if usd_amount < 1.00:
+                usd_amount = 1.00  # PayPal minimum
+            paypal_currency = 'USD'
+            print(f"Currency conversion: ₹{amount} → ${usd_amount} USD")
+        else:
+            usd_amount = float(amount)
+            paypal_currency = original_currency
         
-        # For now, we'll simulate the PayPal order creation
-        paypal_order_id = f"PAYPAL_ORDER_{user_id}_{int(time.time())}"
+        # Generate unique transaction ID
+        transaction_id = str(uuid.uuid4())
         
-        return Response(
-            {
-                "success": True,
-                "message": "PayPal payment initiated successfully.",
-                "paypalOrderId": paypal_order_id,
-                "redirectUrl": f"https://www.paypal.com/checkoutnow?token={paypal_order_id}"
-            },
-            status=status.HTTP_200_OK,
-        )
+        # Get PayPal access token
+        auth_url = "https://api.sandbox.paypal.com/v1/oauth2/token"
+        
+        auth_string = f"{settings.PAYPAL_CLIENT_ID}:{settings.PAYPAL_CLIENT_SECRET}"
+        auth_bytes = auth_string.encode('ascii')
+        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+        
+        auth_headers = {
+            'Authorization': f'Basic {auth_b64}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        
+        auth_data = 'grant_type=client_credentials'
+        auth_response = requests.post(auth_url, headers=auth_headers, data=auth_data)
+        
+        if auth_response.status_code != 200:
+            print(f"PayPal authentication failed: {auth_response.status_code} - {auth_response.text}")
+            return Response(
+                {"success": False, "message": "Failed to authenticate with PayPal."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        access_token = auth_response.json()['access_token']
+        print(f"PayPal access token obtained successfully")
+        
+        # Create PayPal order using Orders API v2
+        orders_url = "https://api.sandbox.paypal.com/v2/checkout/orders"
+        
+        order_data = {
+            "intent": "CAPTURE",
+            "purchase_units": [{
+                "amount": {
+                    "currency_code": paypal_currency,
+                    "value": f"{usd_amount:.2f}"
+                },
+                "description": description
+            }],
+            "application_context": {
+                "return_url": f"http://localhost:3000/payment/success?transactionId={transaction_id}",
+                "cancel_url": f"http://localhost:3000/payment/cancel?transactionId={transaction_id}",
+                "shipping_preference": "NO_SHIPPING"
+            }
+        }
+        
+        order_headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json',
+            'PayPal-Request-Id': transaction_id
+        }
+        
+        print(f"Sending order data to PayPal: {order_data}")
+        
+        order_response = requests.post(orders_url, headers=order_headers, json=order_data)
+        
+        print(f"PayPal API response status: {order_response.status_code}")
+        print(f"PayPal API response: {order_response.text}")
+        
+        if order_response.status_code == 201:
+            order = order_response.json()
+            order_id = order['id']
+            
+            # Create transaction record in database
+            transaction = PaymentTransaction(
+                transactionId=transaction_id,
+                paypalOrderId=order_id,
+                userId=request.user,
+                jobOfferId=job_offer_id,
+                amount=float(amount),  # Store original INR amount
+                currency=original_currency,  # Store original currency
+                description=f"{description} (PayPal: ${usd_amount} USD)",
+                paymentMethod='paypal',
+                status='pending',
+                paypalResponse=order
+            )
+            transaction.save()
+            
+            return Response(
+                {
+                    "success": True,
+                    "message": "PayPal order created successfully.",
+                    "paypalOrderId": order_id,
+                    "transactionId": transaction_id,
+                    "originalAmount": amount,
+                    "originalCurrency": original_currency,
+                    "paypalAmount": usd_amount,
+                    "paypalCurrency": paypal_currency
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            print("Error while creating PayPal order:")
+            print(order_response.text)
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to create PayPal order.",
+                    "error": order_response.text
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         
     except Exception as e:
+        import traceback
+        print(f"PayPal payment initiation error: {str(e)}")
+        print(f"Full traceback: {traceback.format_exc()}")
         return Response(
-            {"success": False, "message": str(e)},
+            {"success": False, "message": f"Error initiating payment: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -3273,29 +3389,157 @@ def initiate_paypal_payment(request):
 @api_view(["POST"])
 @verify_token
 def complete_paypal_payment(request):
-    """Complete a PayPal payment"""
+    """Complete a PayPal payment using Orders API v2"""
+    import requests
+    import base64
+    from django.conf import settings
+    from .models import PaymentTransaction
+    from django.utils import timezone
+    
     try:
         user_id = request.user.id
         paypal_order_id = request.data.get('paypalOrderId')
-        payment_id = request.data.get('paymentId')
         
-        if not paypal_order_id or not payment_id:
+        if not paypal_order_id:
             return Response(
-                {"success": False, "message": "PayPal order ID and payment ID are required."},
+                {"success": False, "message": "PayPal order ID is required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         
-        # In a real implementation, you would:
-        # 1. Verify the payment with PayPal
-        # 2. Update your database with payment confirmation
-        # 3. Send confirmation emails
+        print(f"Completing PayPal payment for order: {paypal_order_id}")
+        
+        # Get PayPal access token
+        auth_url = "https://api.sandbox.paypal.com/v1/oauth2/token"
+        
+        auth_string = f"{settings.PAYPAL_CLIENT_ID}:{settings.PAYPAL_CLIENT_SECRET}"
+        auth_bytes = auth_string.encode('ascii')
+        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+        
+        auth_headers = {
+            'Authorization': f'Basic {auth_b64}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        
+        auth_data = 'grant_type=client_credentials'
+        auth_response = requests.post(auth_url, headers=auth_headers, data=auth_data)
+        
+        if auth_response.status_code != 200:
+            print(f"PayPal authentication failed: {auth_response.status_code} - {auth_response.text}")
+            return Response(
+                {"success": False, "message": "Failed to authenticate with PayPal."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        access_token = auth_response.json()['access_token']
+        
+        # Capture the PayPal order
+        capture_url = f"https://api.sandbox.paypal.com/v2/checkout/orders/{paypal_order_id}/capture"
+        
+        capture_headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json'
+        }
+        
+        print(f"Capturing PayPal order: {paypal_order_id}")
+        capture_response = requests.post(capture_url, headers=capture_headers, json={})
+        
+        print(f"PayPal capture response status: {capture_response.status_code}")
+        print(f"PayPal capture response: {capture_response.text}")
+        
+        if capture_response.status_code == 201:
+            capture_data = capture_response.json()
+            
+            # Update transaction status
+            try:
+                transaction = PaymentTransaction.objects.get(paypalOrderId=paypal_order_id)
+                transaction.status = 'completed'
+                transaction.paypalPaymentId = capture_data.get('id')
+                transaction.completedAt = timezone.now()
+                transaction.paypalResponse = capture_data
+                transaction.save()
+                
+                print(f"Payment completed successfully for transaction: {transaction.transactionId}")
+                
+                return Response(
+                    {
+                        "success": True,
+                        "message": "PayPal payment completed successfully.",
+                        "orderId": paypal_order_id,
+                        "captureId": capture_data.get('id'),
+                        "transactionId": transaction.transactionId,
+                        "amount": transaction.amount,
+                        "currency": transaction.currency,
+                        "status": capture_data.get('status')
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            except PaymentTransaction.DoesNotExist:
+                print(f"Transaction record not found for order: {paypal_order_id}")
+                return Response(
+                    {"success": False, "message": "Transaction record not found."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            print("Error while capturing PayPal order:")
+            print(capture_response.text)
+            
+            # Update transaction status to failed
+            try:
+                transaction = PaymentTransaction.objects.get(paypalOrderId=paypal_order_id)
+                transaction.status = 'failed'
+                transaction.paypalResponse = capture_response.json() if capture_response.text else {}
+                transaction.save()
+            except PaymentTransaction.DoesNotExist:
+                pass
+            
+            return Response(
+                {
+                    "success": False,
+                    "message": "PayPal order capture failed.",
+                    "error": capture_response.text
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+    except Exception as e:
+        import traceback
+        print(f"PayPal payment completion error: {str(e)}")
+        print(f"Full traceback: {traceback.format_exc()}")
+        return Response(
+            {"success": False, "message": f"Error completing payment: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@verify_token
+def get_payment_transactions(request):
+    """Get payment transactions for a user"""
+    try:
+        user_id = request.user.id
+        
+        # Get all transactions for the user
+        transactions = PaymentTransaction.objects.filter(userId=user_id).order_by('-createdAt')
+        
+        transaction_list = []
+        for transaction in transactions:
+            transaction_list.append({
+                "transactionId": transaction.transactionId,
+                "paypalOrderId": transaction.paypalOrderId,
+                "amount": transaction.amount,
+                "currency": transaction.currency,
+                "description": transaction.description,
+                "status": transaction.status,
+                "paymentMethod": transaction.paymentMethod,
+                "createdAt": transaction.createdAt,
+                "completedAt": transaction.completedAt,
+                "jobOfferId": transaction.jobOfferId
+            })
         
         return Response(
             {
                 "success": True,
-                "message": "PayPal payment completed successfully.",
-                "paymentId": payment_id,
-                "orderId": paypal_order_id
+                "transactions": transaction_list
             },
             status=status.HTTP_200_OK,
         )
@@ -4221,4 +4465,327 @@ def get_freelancer_complete_profile(request, user_id):
         
     except Exception as e:
         print("Error in get_freelancer_complete_profile:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+# Job Offer Views
+@api_view(["POST"])
+@verify_token
+def create_job_offer(request):
+    """Create a new job offer"""
+    try:
+        data = request.data
+        user_id = request.user.id
+        
+        print("Debug - Received data:", data)
+        print("Debug - User ID:", user_id)
+        
+        # Validate required fields
+        required_fields = ['freelancerId', 'jobId', 'contractTitle', 'projectAmount']
+        for field in required_fields:
+            if field not in data:
+                return Response({"success": False, "message": f"Missing required field: {field}"}, status=400)
+        
+        # Get the client (current user)
+        try:
+            client = User.objects.get(id=user_id)
+            print("Debug - Client found:", client.name)
+        except User.DoesNotExist:
+            return Response({"success": False, "message": "Client not found"}, status=404)
+        
+        # Get the freelancer
+        try:
+            freelancer = User.objects.get(id=data['freelancerId'])
+            print("Debug - Freelancer found:", freelancer.name)
+        except User.DoesNotExist:
+            return Response({"success": False, "message": "Freelancer not found"}, status=404)
+        
+        # Get the job
+        try:
+            job = JobPosts.objects.get(id=data['jobId'])
+            print("Debug - Job found:", job.title)
+        except JobPosts.DoesNotExist:
+            return Response({"success": False, "message": "Job not found"}, status=404)
+        
+        # Parse due date if provided
+        due_date = None
+        if data.get('dueDate'):
+            try:
+                due_date = datetime.fromisoformat(data['dueDate'].replace('Z', '+00:00'))
+                print("Debug - Due date parsed:", due_date)
+            except ValueError:
+                return Response({"success": False, "message": "Invalid due date format"}, status=400)
+        
+        # Process milestones if provided
+        milestones_data = data.get('milestones', [])
+        print("Debug - Milestones data:", milestones_data)
+        
+        # Transform milestones to match Milestone model structure
+        transformed_milestones = []
+        for milestone in milestones_data:
+            print(f"Debug - Processing milestone: {milestone}")
+            
+            # Parse amount (remove ₹ symbol and convert to decimal)
+            amount_str = milestone.get('amount', '₹0').replace('₹', '').strip()
+            try:
+                amount_decimal = float(amount_str) if amount_str else 0.0
+            except ValueError:
+                amount_decimal = 0.0
+            
+            # Parse due date if provided
+            milestone_due_date = None
+            if milestone.get('dueDate'):
+                try:
+                    # Parse date string like "Jan, 15 2024"
+                    date_str = milestone['dueDate']
+                    # Convert to datetime object
+                    from datetime import datetime
+                    milestone_due_date = datetime.strptime(date_str, "%b, %d %Y")
+                except ValueError:
+                    print(f"Warning: Could not parse milestone due date: {milestone['dueDate']}")
+            
+            # Create Milestone object with only the fields that exist in the model
+            from Auth.models import Milestone
+            milestone_data = {
+                'title': milestone.get('description', ''),  # Frontend sends 'description', model expects 'title'
+                'dueDate': milestone_due_date,
+                'amount': amount_decimal
+            }
+            print(f"Debug - Milestone data to create: {milestone_data}")
+            
+            transformed_milestone = Milestone(**milestone_data)
+            transformed_milestones.append(transformed_milestone)
+        
+        print("Debug - Transformed milestones:", transformed_milestones)
+        
+        # Transform payment schedule to match model choices
+        payment_schedule = data.get('paymentSchedule', 'fixed_price')
+        print(f"Debug - Original payment schedule: {payment_schedule}")
+        
+        # Map frontend payment schedule values to backend model choices
+        payment_schedule_mapping = {
+            'whole-project': 'fixed_price',
+            'milestones': 'milestone',
+            'hourly': 'hourly'
+        }
+        
+        if payment_schedule in payment_schedule_mapping:
+            payment_schedule = payment_schedule_mapping[payment_schedule]
+            print(f"Debug - Transformed payment schedule: {payment_schedule}")
+        
+        # Create the job offer
+        job_offer_data = {
+            'clientId': client,
+            'freelancerId': freelancer,
+            'jobId': job,
+            'contractTitle': data['contractTitle'],
+            'workDescription': data.get('workDescription', ''),
+            'projectAmount': data['projectAmount'],
+            'paymentSchedule': payment_schedule,
+            'dueDate': due_date,
+            'attachments': data.get('attachments', ''),
+            'milestones': transformed_milestones
+        }
+        print("Debug - Job offer data:", job_offer_data)
+        
+        job_offer = JobOffer(**job_offer_data)
+        
+        print("Debug - About to save job offer")
+        job_offer.save()
+        print("Debug - Job offer saved successfully")
+        
+        return Response({
+            "success": True, 
+            "message": "Job offer created successfully",
+            "jobOfferId": str(job_offer.id)
+        }, status=201)
+        
+    except Exception as e:
+        print("Error in create_job_offer:", e)
+        import traceback
+        print("Full traceback:", traceback.format_exc())
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@verify_token
+def get_job_offer(request, offer_id):
+    """Get a specific job offer by ID"""
+    try:
+        # Get the job offer
+        try:
+            job_offer = JobOffer.objects.get(id=offer_id)
+        except JobOffer.DoesNotExist:
+            return Response({"success": False, "message": "Job offer not found"}, status=404)
+        
+        # Prepare response data
+        data = {
+            "id": str(job_offer.id),
+            "clientId": str(job_offer.clientId.id),
+            "freelancerId": str(job_offer.freelancerId.id),
+            "jobId": str(job_offer.jobId.id),
+            "contractTitle": job_offer.contractTitle,
+            "workDescription": job_offer.workDescription,
+            "projectAmount": job_offer.projectAmount,
+            "paymentSchedule": job_offer.paymentSchedule,
+            "dueDate": job_offer.dueDate.isoformat() if job_offer.dueDate else None,
+            "attachments": job_offer.attachments,
+            "status": job_offer.status,
+            "milestones": [
+                {
+                    "title": milestone.title,
+                    "dueDate": milestone.dueDate.isoformat() if milestone.dueDate else None,
+                    "amount": str(milestone.amount) if milestone.amount else "0"
+                } for milestone in job_offer.milestones
+            ],
+            "createdAt": job_offer.createdAt.isoformat() if job_offer.createdAt else None,
+            "updatedAt": job_offer.updatedAt.isoformat() if job_offer.updatedAt else None
+        }
+        
+        return Response({"success": True, "jobOffer": data})
+        
+    except Exception as e:
+        print("Error in get_job_offer:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@verify_token
+def get_client_job_offers(request, client_id):
+    """Get all job offers created by a client"""
+    try:
+        # Verify the client exists
+        try:
+            client = User.objects.get(id=client_id)
+        except User.DoesNotExist:
+            return Response({"success": False, "message": "Client not found"}, status=404)
+        
+        # Get job offers
+        job_offers = JobOffer.objects(clientId=client).order_by('-createdAt')
+        
+        # Prepare response data
+        offers_data = []
+        for offer in job_offers:
+            offer_data = {
+                "id": str(offer.id),
+                "freelancerId": str(offer.freelancerId.id),
+                "freelancerName": offer.freelancerId.name,
+                "jobId": str(offer.jobId.id),
+                "jobTitle": offer.jobId.title,
+                "contractTitle": offer.contractTitle,
+                "projectAmount": offer.projectAmount,
+                "status": offer.status,
+                "createdAt": offer.createdAt.isoformat() if offer.createdAt else None
+            }
+            offers_data.append(offer_data)
+        
+        return Response({"success": True, "jobOffers": offers_data})
+        
+    except Exception as e:
+        print("Error in get_client_job_offers:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@verify_token
+def get_freelancer_job_offers(request, freelancer_id):
+    """Get all job offers received by a freelancer"""
+    try:
+        # Verify the freelancer exists
+        try:
+            freelancer = User.objects.get(id=freelancer_id)
+        except User.DoesNotExist:
+            return Response({"success": False, "message": "Freelancer not found"}, status=404)
+        
+        # Get job offers
+        job_offers = JobOffer.objects(freelancerId=freelancer).order_by('-createdAt')
+        
+        # Prepare response data
+        offers_data = []
+        for offer in job_offers:
+            offer_data = {
+                "id": str(offer.id),
+                "clientId": str(offer.clientId.id),
+                "clientName": offer.clientId.name,
+                "jobId": str(offer.jobId.id),
+                "jobTitle": offer.jobId.title,
+                "contractTitle": offer.contractTitle,
+                "projectAmount": offer.projectAmount,
+                "status": offer.status,
+                "createdAt": offer.createdAt.isoformat() if offer.createdAt else None
+            }
+            offers_data.append(offer_data)
+        
+        return Response({"success": True, "jobOffers": offers_data})
+        
+    except Exception as e:
+        print("Error in get_freelancer_job_offers:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["PUT"])
+@verify_token
+def update_job_offer(request, offer_id):
+    """Update a job offer"""
+    try:
+        data = request.data
+        
+        # Get the job offer
+        try:
+            job_offer = JobOffer.objects.get(id=offer_id)
+        except JobOffer.DoesNotExist:
+            return Response({"success": False, "message": "Job offer not found"}, status=404)
+        
+        # Update fields if provided
+        if 'contractTitle' in data:
+            job_offer.contractTitle = data['contractTitle']
+        if 'workDescription' in data:
+            job_offer.workDescription = data['workDescription']
+        if 'projectAmount' in data:
+            job_offer.projectAmount = data['projectAmount']
+        if 'paymentSchedule' in data:
+            job_offer.paymentSchedule = data['paymentSchedule']
+        if 'attachments' in data:
+            job_offer.attachments = data['attachments']
+        if 'status' in data:
+            job_offer.status = data['status']
+        if 'milestones' in data:
+            job_offer.milestones = data['milestones']
+        
+        # Parse due date if provided
+        if 'dueDate' in data:
+            if data['dueDate']:
+                try:
+                    job_offer.dueDate = datetime.fromisoformat(data['dueDate'].replace('Z', '+00:00'))
+                except ValueError:
+                    return Response({"success": False, "message": "Invalid due date format"}, status=400)
+            else:
+                job_offer.dueDate = None
+        
+        job_offer.save()
+        
+        return Response({"success": True, "message": "Job offer updated successfully"})
+        
+    except Exception as e:
+        print("Error in update_job_offer:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["DELETE"])
+@verify_token
+def delete_job_offer(request, offer_id):
+    """Delete a job offer"""
+    try:
+        # Get the job offer
+        try:
+            job_offer = JobOffer.objects.get(id=offer_id)
+        except JobOffer.DoesNotExist:
+            return Response({"success": False, "message": "Job offer not found"}, status=404)
+        
+        job_offer.delete()
+        
+        return Response({"success": True, "message": "Job offer deleted successfully"})
+        
+    except Exception as e:
+        print("Error in delete_job_offer:", e)
         return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
