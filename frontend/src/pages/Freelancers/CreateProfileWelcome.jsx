@@ -130,7 +130,7 @@ const CreateProfileWelcome = () => {
                     size={20}
                     style={{ color: "#da8535", marginRight: "8px" }}
                   />
-                  <span style={{ color: "#666", fontSize: "1.05rem" }}>
+                  <span style={{ color: "#121212", fontSize: "1.1rem" }}>
                     Takes only 5-10 minutes to complete
                   </span>
                 </div>
@@ -169,7 +169,7 @@ const CreateProfileWelcome = () => {
                     transition={{ delay: 0.3 + index * 0.1, duration: 0.5 }}
                   >
                     <div
-                      className="card h-100 border-0 shadow-sm"
+                      className="card h-100"
                       style={{
                         borderRadius: "15px",
                         transition: "transform 0.3s ease, box-shadow 0.3s ease",
@@ -234,8 +234,8 @@ const CreateProfileWelcome = () => {
                       <div className="col-md-8">
                         <div className="d-flex align-items-center mb-2">
                           <BsCheckCircle
-                            className="me-2"
-                            size={24}
+                            className="me-3 mt-3"
+                            size={22}
                             style={{ color: "#007674" }}
                           />
                           <h6
@@ -296,9 +296,9 @@ const CreateProfileWelcome = () => {
                     <BsArrowRight className="ms-2" size={20} />
                   </button>
 
-                  <p className="mt-3 mb-0" style={{ color: "#666" }}>
+                  <p className="mt-3 mb-3" style={{ color: "#121212", fontSize: '21px' }}>
                     <small>
-                      You can always edit your profile later from your dashboard
+                      You can always edit your profile later from your dashboard.
                     </small>
                   </p>
                 </div>

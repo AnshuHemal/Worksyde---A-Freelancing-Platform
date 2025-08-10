@@ -25,6 +25,7 @@ import toast from "react-hot-toast";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { RiLightbulbFlashLine } from "react-icons/ri";
 
 const QuickQuestions = () => {
   const API_URL = "http://localhost:5000/api/auth";
@@ -414,7 +415,7 @@ const QuickQuestions = () => {
                         className="fw-semibold"
                         style={{
                           color: progress === 100 ? "#007674" : "#da8535",
-                          fontSize: "0.9rem",
+                          fontSize: "1.1rem",
                         }}
                       >
                         {progress === 100
@@ -427,7 +428,7 @@ const QuickQuestions = () => {
                     <div
                       className="mt-5 p-3 rounded"
                       style={{
-                        backgroundColor: "#f8f9fa",
+                        backgroundColor: "#fff",
                         border: "1px solid #e3e3e3",
                       }}
                     >
@@ -435,11 +436,11 @@ const QuickQuestions = () => {
                         className="fw-semibold mb-2"
                         style={{ color: "#121212" }}
                       >
-                        💡 Quick Tips
+                        <RiLightbulbFlashLine size={25} style={{color: '#007674'}}/> Quick Tips
                       </h6>
                       <ul
                         className="mb-0"
-                        style={{ fontSize: "0.85rem", color: "#666" }}
+                        style={{ fontSize: "1rem", color: "#121212" }}
                       >
                         <li>Be honest about your experience level</li>
                         <li>
@@ -447,9 +448,9 @@ const QuickQuestions = () => {
                         </li>
                         <li>You can always update your profile later</li>
                       </ul>
-            </div>
+                    </div>
                   </motion.div>
-          </div>
+                </div>
 
                 {/* Question Section - Right Column */}
                 <div className="col-lg-8 ">
@@ -477,7 +478,7 @@ const QuickQuestions = () => {
                             lineHeight: "1.3",
                           }}
                         >
-              {questions[currentStep].question}
+                          {questions[currentStep].question}
                         </h2>
                         <p
                           className="mb-0"
@@ -487,13 +488,13 @@ const QuickQuestions = () => {
                             lineHeight: "1.5",
                           }}
                         >
-              {questions[currentStep].description}
-            </p>
+                          {questions[currentStep].description}
+                        </p>
                       </div>
 
                       {/* Options Grid */}
                       <div className="row g-2">
-              {questions[currentStep].options.map((option, index) => (
+                        {questions[currentStep].options.map((option, index) => (
                           <motion.div
                             key={index}
                             className="col-12"
@@ -501,7 +502,7 @@ const QuickQuestions = () => {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: index * 0.1, duration: 0.3 }}
                           >
-                <button
+                            <button
                               className={`w-100 p-4 border-0 rounded-3 text-start position-relative ${
                                 answers[currentStep] === option.text
                                   ? "selected"
@@ -521,7 +522,7 @@ const QuickQuestions = () => {
                                     ? "0 8px 25px rgba(0, 119, 116, 0.15)"
                                     : "0 2px 8px rgba(0,0,0,0.08)",
                               }}
-                  onClick={() => handleOptionSelect(option.text)}
+                              onClick={() => handleOptionSelect(option.text)}
                               onMouseEnter={(e) => {
                                 if (answers[currentStep] !== option.text) {
                                   e.target.style.borderColor = "#007674";
@@ -573,7 +574,7 @@ const QuickQuestions = () => {
                                       boxShadow: "none",
                                     }}
                                   >
-                  {option.text}
+                                    {option.text}
                                   </h5>
                                 </div>
                                 {answers[currentStep] === option.text && (
@@ -589,7 +590,7 @@ const QuickQuestions = () => {
                                   </motion.div>
                                 )}
                               </div>
-                </button>
+                            </button>
                           </motion.div>
                         ))}
                       </div>
