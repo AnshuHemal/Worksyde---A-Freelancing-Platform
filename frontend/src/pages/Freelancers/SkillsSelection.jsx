@@ -293,11 +293,11 @@ const SkillsSelection = () => {
             </div>
             <h3
               className="fw-semibold mb-3"
-              style={{ color: "#121212", fontSize: "1.8rem" }}
+              style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
             >
               Loading Skills Section
             </h3>
-            <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
+            <p className="mb-0" style={{ color: "#121212", fontSize: "1.2rem" }}>
               Preparing your skills setup...
             </p>
           </div>
@@ -341,15 +341,15 @@ const SkillsSelection = () => {
                       <div>
                         <h3
                           className="fw-semibold mb-1"
-                          style={{ color: "#121212", fontSize: "1.8rem" }}
+                          style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
                         >
                           Your Skills
                         </h3>
                         <p
                           className="mb-0"
                           style={{
-                            fontSize: "1rem",
-                            color: "#666",
+                            fontSize: "1.1rem",
+                            color: "#121212",
                             lineHeight: "1.5",
                           }}
                         >
@@ -369,8 +369,8 @@ const SkillsSelection = () => {
                     <div className="d-flex justify-content-between align-items-center">
                       <span
                         style={{
-                          fontSize: "0.9rem",
-                          color: "#666",
+                          fontSize: "1rem",
+                          color: "#121212",
                           fontWeight: 500,
                         }}
                       >
@@ -457,7 +457,7 @@ const SkillsSelection = () => {
                           <BsLightning size={40} />
                         </div>
                         <h5 style={{ color: "#121212" }}>No Skills Added</h5>
-                        <p style={{ color: "#666" }}>
+                        <p style={{ color: "#121212", fontSize: '1.2rem' }}>
                           Start building your skills profile by adding your
                           expertise
                         </p>
@@ -483,13 +483,13 @@ const SkillsSelection = () => {
                         className="fw-semibold mb-2"
                         style={{ color: "#121212" }}
                       >
-                        💡 Tips for selecting skills:
+                        <BsLightning size={20} style={{color: '#007674'}}/> Tips for selecting skills:
                       </h6>
                       <ul
                         className="mb-0"
                         style={{
                           fontSize: "1rem",
-                          color: "#666",
+                          color: "#121212",
                           paddingLeft: "1.2rem",
                         }}
                       >
@@ -531,7 +531,7 @@ const SkillsSelection = () => {
                     <div className="d-flex align-items-center mb-3">
                       <h4
                         className="fw-semibold mb-0"
-                        style={{ color: "#121212", fontSize: "1.5rem" }}
+                        style={{ color: "#121212", fontSize: "1.5rem", letterSpacing: '0.3px' }}
                       >
                         Add Your Skills
                       </h4>
@@ -539,8 +539,8 @@ const SkillsSelection = () => {
                     <p
                       className="mb-0"
                       style={{
-                        fontSize: "1rem",
-                        color: "#666",
+                        fontSize: "1.1rem",
+                        color: "#121212",
                         lineHeight: "1.5",
                       }}
                     >
@@ -591,7 +591,7 @@ const SkillsSelection = () => {
                     </div>
                     <small
                       className="text-muted mt-2 d-block"
-                      style={{ fontSize: "0.85rem" }}
+                      style={{ fontSize: "1rem", color: "#121212" }}
                     >
                       {selectedSkills.length >= 15
                         ? "Maximum 15 skills reached"
@@ -608,7 +608,7 @@ const SkillsSelection = () => {
                   >
                     <h6
                       className="fw-semibold mb-3"
-                      style={{ color: "#121212" }}
+                      style={{ color: "#121212", fontSize: '1.2rem' }}
                     >
                       Popular Skills
                     </h6>
@@ -627,7 +627,7 @@ const SkillsSelection = () => {
                           <button
                             className="btn w-100 text-start"
                             style={{
-                              backgroundColor: "#f8f9fa",
+                              backgroundColor: "#fff",
                               border: "1px solid #e3e3e3",
                               borderRadius: "8px",
                               fontSize: "1rem",
@@ -638,14 +638,12 @@ const SkillsSelection = () => {
                             disabled={selectedSkills.includes(skill)}
                             onMouseEnter={(e) => {
                               if (!selectedSkills.includes(skill)) {
-                                e.target.style.backgroundColor = "#e8f4f4";
                                 e.target.style.borderColor = "#007674";
                                 e.target.style.color = "#007674";
                               }
                             }}
                             onMouseLeave={(e) => {
                               if (!selectedSkills.includes(skill)) {
-                                e.target.style.backgroundColor = "#f8f9fa";
                                 e.target.style.borderColor = "#e3e3e3";
                                 e.target.style.color = "#666";
                               }
@@ -673,9 +671,9 @@ const SkillsSelection = () => {
             <div className="align-items-center"></div>
             <div>
               <button
-                className="btn border-0 px-5 py-2 fw-semibold"
+                className="login-button border-0 px-5 py-3 fw-semibold"
                 style={{
-                  fontSize: "1rem",
+                  fontSize: "1.1rem",
                   borderRadius: "50px",
                   background:
                     selectedSkills.length >= 5
@@ -688,7 +686,7 @@ const SkillsSelection = () => {
                     selectedSkills.length >= 5 ? "pointer" : "not-allowed",
                   boxShadow:
                     selectedSkills.length >= 5
-                      ? "0 6px 20px rgba(0, 118, 116, 0.3)"
+                      ? "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)"
                       : "0 2px 8px rgba(0, 0, 0, 0.1)",
                 }}
                 onClick={handleNext}
@@ -698,7 +696,7 @@ const SkillsSelection = () => {
                     e.target.style.background =
                       "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
                     e.target.style.boxShadow =
-                      "0 8px 25px rgba(18, 18, 18, 0.4)";
+                      "0 8px 25px rgba(18, 18, 18, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15)";
                     e.target.style.transform = "translateY(-2px)";
                   }
                 }}
@@ -707,7 +705,7 @@ const SkillsSelection = () => {
                     e.target.style.background =
                       "linear-gradient(135deg, #007674 0%, #005a58 100%)";
                     e.target.style.boxShadow =
-                      "0 6px 20px rgba(0, 118, 116, 0.3)";
+                      "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)";
                     e.target.style.transform = "translateY(0)";
                   }
                 }}

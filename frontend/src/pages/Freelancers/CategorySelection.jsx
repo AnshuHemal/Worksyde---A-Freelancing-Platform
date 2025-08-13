@@ -61,7 +61,7 @@ const CategorySelection = () => {
       try {
         setLoadingProgress(30);
         const res = await axios.get(`${API_URL}/current-user/`, {
-            withCredentials: true,
+          withCredentials: true,
         });
         setUserId(res.data.user._id);
         setLoadingProgress(60);
@@ -79,7 +79,7 @@ const CategorySelection = () => {
     const fetchCategories = async () => {
       try {
         setLoadingProgress(80);
-        const res = await axios.get(`${API_URL}/categories-with-specialities/`); 
+        const res = await axios.get(`${API_URL}/categories-with-specialities/`);
         setCategoryData(res.data);
         setLoadingProgress(100);
         setTimeout(() => {
@@ -131,15 +131,15 @@ const CategorySelection = () => {
     setLoading(true);
     try {
       const res = await axios.post(`${API_URL}/save-specialities/`, {
-          userId,
-          categoryId: selectedCategoryId,
-          specialities: selectedSpecialities,
+        userId,
+        categoryId: selectedCategoryId,
+        specialities: selectedSpecialities,
       });
 
       if (res.status === 200) {
         // toast.success("Specialities saved successfully!");
         setTimeout(() => {
-        navigate("/create-profile/title");
+          navigate("/create-profile/title");
         }, 100);
       }
     } catch (err) {
@@ -176,7 +176,7 @@ const CategorySelection = () => {
         `}
       </style>
       <Header1 />
-      
+
       {/* Loading Screen */}
       {dataLoading && (
         <div
@@ -196,7 +196,7 @@ const CategorySelection = () => {
           }}
         >
           <div className="text-center">
-        <div
+            <div
               className="d-inline-flex align-items-center justify-content-center mb-4"
               style={{
                 width: "80px",
@@ -211,17 +211,21 @@ const CategorySelection = () => {
             </div>
             <h3
               className="fw-semibold mb-3"
-              style={{ color: "#121212", fontSize: "1.8rem" }}
+              style={{
+                color: "#121212",
+                fontSize: "1.8rem",
+                letterSpacing: "0.3px",
+              }}
             >
               Loading Categories
-          </h3>
+            </h3>
             <p
               className="mb-4"
-              style={{ color: "#666", fontSize: "1rem" }}
+              style={{ color: "#121212", fontSize: "1.2rem" }}
             >
               Please wait while we fetch your available categories...
             </p>
-            
+
             {/* Progress Bar */}
             <div
               style={{
@@ -237,7 +241,8 @@ const CategorySelection = () => {
               <motion.div
                 style={{
                   height: "100%",
-                  background: "linear-gradient(90deg, #007674 0%, #da8535 100%)",
+                  background:
+                    "linear-gradient(90deg, #007674 0%, #da8535 100%)",
                   borderRadius: "10px",
                 }}
                 initial={{ width: "0%" }}
@@ -245,12 +250,12 @@ const CategorySelection = () => {
                 transition={{ duration: 0.5, ease: "easeOut" }}
               />
             </div>
-            
+
             <div className="mt-3">
               <span
                 style={{
                   color: "#007674",
-                  fontSize: "0.9rem",
+                  fontSize: "1rem",
                   fontWeight: 600,
                 }}
               >
@@ -297,13 +302,13 @@ const CategorySelection = () => {
                         <div className="text-center mb-4">
                           <h3
                             className="fw-semibold mb-2"
-                            style={{ color: "#121212", fontSize: "32px" }}
+                            style={{ color: "#121212", fontSize: "32px", letterSpacing: '0.3px' }}
                           >
                             Choose Your Category
                           </h3>
                           <p
-                            className="mb-0"
-                            style={{ color: "#666", fontSize: "0.95rem" }}
+                            className="py-2"
+                            style={{ color: "#121212", fontSize: "1.1rem" }}
                           >
                             Select the main category that best describes your
                             work
@@ -319,10 +324,10 @@ const CategorySelection = () => {
                             scrollbarWidth: "none",
                             msOverflowStyle: "none",
                           }}
-            >
+                        >
                           {categoryData.map((item, index) => (
                             <motion.div
-                  key={item.category._id}
+                              key={item.category._id}
                               initial={{ opacity: 0, y: 20 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: index * 0.1, duration: 0.3 }}
@@ -330,7 +335,7 @@ const CategorySelection = () => {
                                 setSelectedCategoryId(item.category._id)
                               }
                               className={`p-3 mb-3 rounded-3 cursor-pointer ${
-                    selectedCategoryId === item.category._id
+                                selectedCategoryId === item.category._id
                                   ? "selected-category"
                                   : "category-item"
                               }`}
@@ -387,8 +392,8 @@ const CategorySelection = () => {
                                   <h6
                                     className="fw-semibold mb-1"
                                     style={{ fontSize: "1rem" }}
-                >
-                  {item.category.name}
+                                  >
+                                    {item.category.name}
                                   </h6>
                                   <small style={{ opacity: 0.8 }}>
                                     {item.specialities.length} specialities
@@ -439,13 +444,13 @@ const CategorySelection = () => {
                         <div className="text-center mb-4">
                           <h3
                             className="fw-semibold mb-2"
-                            style={{ color: "#121212", fontSize: "32px" }}
+                            style={{ color: "#121212", fontSize: "32px", letterSpacing: '0.3px' }}
                           >
                             Select Your Specialities
                           </h3>
                           <p
                             className="mb-0"
-                            style={{ color: "#666", fontSize: "0.95rem" }}
+                            style={{ color: "#121212", fontSize: "1.2rem" }}
                           >
                             Choose up to 3 specialities that best match your
                             expertise
@@ -465,10 +470,10 @@ const CategorySelection = () => {
                               {selectedSpecialities.length}/3 selected
                             </span>
                           </div>
-            </div>
+                        </div>
 
                         {/* Specialities Grid */}
-            <div
+                        <div
                           className="specialities-container"
                           style={{
                             maxHeight: "400px",
@@ -476,14 +481,14 @@ const CategorySelection = () => {
                             scrollbarWidth: "none",
                             msOverflowStyle: "none",
                           }}
-            >
-              {(() => {
-                const selectedCategory = categoryData.find(
-                  (item) => item.category._id === selectedCategoryId
-                );
+                        >
+                          {(() => {
+                            const selectedCategory = categoryData.find(
+                              (item) => item.category._id === selectedCategoryId
+                            );
 
-                if (!selectedCategory) {
-                  return (
+                            if (!selectedCategory) {
+                              return (
                                 <div className="text-center py-5">
                                   <div
                                     className="d-inline-flex align-items-center justify-content-center mb-3"
@@ -504,10 +509,10 @@ const CategorySelection = () => {
                                   <p style={{ color: "#666" }}>
                                     Choose a category from the left to see
                                     available specialities
-                    </p>
+                                  </p>
                                 </div>
-                  );
-                }
+                              );
+                            }
 
                             return (
                               <div className="row g-3">
@@ -646,10 +651,10 @@ const CategorySelection = () => {
                                     </motion.div>
                                   )
                                 )}
-                  </div>
+                              </div>
                             );
-              })()}
-            </div>
+                          })()}
+                        </div>
 
                         {/* Continue Button */}
                         <div className="text-center mt-4">
@@ -722,12 +727,12 @@ const CategorySelection = () => {
                                 <BsArrowRight className="ms-2" size={20} />
                               </>
                             )}
-              </button>
+                          </button>
 
                           {selectedSpecialities.length === 0 && (
                             <p
                               className="mt-3 mb-0"
-                              style={{ color: "#666", fontSize: "0.85rem" }}
+                              style={{ color: "#121212", fontSize: "1rem" }}
                             >
                               Please select at least one speciality to continue
                             </p>

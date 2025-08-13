@@ -14,6 +14,7 @@ import {
   BsCheckCircle,
   BsClock,
 } from "react-icons/bs";
+import { RiLightbulbFlashLine } from "react-icons/ri";
 
 const ResumeImport = () => {
   const fileInputRef = useRef(null);
@@ -168,13 +169,13 @@ const ResumeImport = () => {
                     <div className="text-center mb-4">
                       <h3 
                         className="fw-semibold mb-2"
-                        style={{ color: "#121212" }}
+                        style={{ color: "#121212", letterSpacing: '0.3px' }}
                       >
                         Professional Resume Preview
                       </h3>
                       <p 
                         className="mb-0"
-                        style={{ color: "#666", fontSize: "0.95rem" }}
+                        style={{ color: "#121212", fontSize: "1.2rem" }}
                       >
                         See how your resume will look to potential clients
                       </p>
@@ -209,9 +210,9 @@ const ResumeImport = () => {
                     {/* Resume Tips */}
                     <div className="mt-4 p-3 rounded" style={{ backgroundColor: "#f8f9fa", border: "1px solid #e3e3e3" }}>
                       <h6 className="fw-semibold mb-2" style={{ color: "#121212" }}>
-                        💡 Resume Tips
+                      <RiLightbulbFlashLine size={25} style={{color: '#007674'}}/>  Resume Tips
                       </h6>
-                      <ul className="mb-0" style={{ fontSize: "1rem", color: "#666" }}>
+                      <ul className="mb-0" style={{ fontSize: "1rem", color: "#121212" }}>
                         <li>Keep your resume updated with recent experience</li>
                         <li>Highlight relevant skills for your target jobs</li>
                         <li>Use clear, professional formatting</li>
@@ -236,7 +237,8 @@ const ResumeImport = () => {
                             className="fw-semibold mb-3"
                             style={{ 
                               color: "#121212",
-                              fontSize: "2rem"
+                              fontSize: "2rem",
+                              letterSpacing: '0.3px'
                             }}
                           >
                             Let's build your professional profile
@@ -244,8 +246,8 @@ const ResumeImport = () => {
                           <p 
                             className="mb-0"
                             style={{ 
-                              color: "#666",
-                              fontSize: "1.1rem",
+                              color: "#121212",
+                              fontSize: "1.2rem",
                               lineHeight: "1.6"
                             }}
                           >
@@ -287,7 +289,7 @@ const ResumeImport = () => {
                             <h6 className="fw-semibold mb-2" style={{ color: "#121212" }}>
                               Drop your PDF resume here or click to browse
                             </h6>
-                            <p className="mb-0" style={{ color: "#666", fontSize: "0.9rem" }}>
+                            <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
                               Maximum file size: 5MB • PDF format only
                             </p>
                           </div>
@@ -389,7 +391,7 @@ const ResumeImport = () => {
                                 <h6 className="fw-semibold mb-1" style={{ color: "#121212" }}>
                                   AI Resume Builder
                                 </h6>
-                                <p className="mb-0" style={{ color: "#666", fontSize: "0.9rem" }}>
+                                <p className="mb-0" style={{ color: "#121212", fontSize: "1rem" }}>
                                   Create a professional resume from scratch with our AI assistant
                                 </p>
                               </div>
@@ -444,7 +446,7 @@ const ResumeImport = () => {
                           </button>
                           
                           {!uploadedFile && (
-                            <p className="mt-2 mb-0" style={{ color: "#666", fontSize: "0.85rem" }}>
+                            <p className="mt-3 mb-0" style={{ color: "#121212", fontSize: "1rem" }}>
                               Please upload a resume or use AI Builder to continue
                             </p>
                           )}

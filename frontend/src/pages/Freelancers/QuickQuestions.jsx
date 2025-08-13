@@ -185,7 +185,6 @@ const QuickQuestions = () => {
 
       // toast.success("Profile information saved successfully!");
 
-      // Wait a moment for the success message to show, then navigate
       setTimeout(() => {
         navigate("/create-profile/resume-import");
       }, 1500);
@@ -476,6 +475,7 @@ const QuickQuestions = () => {
                             color: "#121212",
                             fontSize: "1.75rem",
                             lineHeight: "1.3",
+                            letterSpacing: "0.3px",
                           }}
                         >
                           {questions[currentStep].question}
@@ -483,7 +483,7 @@ const QuickQuestions = () => {
                         <p
                           className="mb-0"
                           style={{
-                            color: "#666",
+                            color: "#121212",
                             fontSize: "1.1rem",
                             lineHeight: "1.5",
                           }}
@@ -530,8 +530,7 @@ const QuickQuestions = () => {
                                     "transparent";
                                   e.target.style.transform =
                                     "translateY(-3px) scale(1.02)";
-                                  e.target.style.boxShadow =
-                                    "0 12px 30px rgba(0, 119, 116, 0.2)";
+                                  
                                 }
                               }}
                               onMouseLeave={(e) => {
@@ -541,8 +540,7 @@ const QuickQuestions = () => {
                                     "transparent";
                                   e.target.style.transform =
                                     "translateY(0) scale(1)";
-                                  e.target.style.boxShadow =
-                                    "0 2px 8px rgba(0,0,0,0.08)";
+                                  
                                 }
                               }}
                             >
@@ -597,7 +595,7 @@ const QuickQuestions = () => {
 
                       {/* Navigation */}
                       <div className="d-flex justify-content-between align-items-center mt-5">
-                        <div className="text-muted">
+                        <div className="text-black" style={{fontSize: '1.2rem'}}>
                           <small>
                             {currentStep + 1} of {questions.length} questions
                           </small>

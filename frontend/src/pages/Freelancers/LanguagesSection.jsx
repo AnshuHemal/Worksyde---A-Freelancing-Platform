@@ -303,15 +303,15 @@ const LanguagesSection = () => {
                       <div>
                         <h3
                           className="fw-semibold mb-1"
-                          style={{ color: "#121212", fontSize: "1.8rem" }}
+                          style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
                         >
                           Languages
                         </h3>
                         <p
-                          className="mb-0"
+                          className="my-2"
                           style={{
-                            fontSize: "1rem",
-                            color: "#666",
+                            fontSize: "1.1rem",
+                            color: "#121212",
                             lineHeight: "1.5",
                           }}
                         >
@@ -343,16 +343,13 @@ const LanguagesSection = () => {
                           }}
                           className="language-card p-3 mb-3 rounded-3 border"
                           style={{
-                            backgroundColor: "#f8f9fa",
                             borderColor: "#e3e3e3",
                             transition: "all 0.3s ease",
                           }}
                           onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = "#e8f4f4";
                             e.target.style.borderColor = "#007674";
                           }}
                           onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = "#f8f9fa";
                             e.target.style.borderColor = "#e3e3e3";
                           }}
                         >
@@ -430,7 +427,7 @@ const LanguagesSection = () => {
                           <BsTranslate size={40} />
                         </div>
                         <h5 style={{ color: "#121212" }}>No Languages Added</h5>
-                        <p style={{ color: "#666" }}>
+                        <p style={{ color: "#121212" }}>
                           Start building your multilingual profile by adding
                           your language skills
                         </p>
@@ -602,7 +599,7 @@ const LanguagesSection = () => {
                       >
                         <h6
                           className="fw-semibold mb-3"
-                          style={{ color: "#121212" }}
+                          style={{ color: "#121212", fontSize: '1.2rem' }}
                         >
                           Proficiency Level Guide
                         </h6>
@@ -612,7 +609,7 @@ const LanguagesSection = () => {
                               <div
                                 className="p-3 rounded-3 border"
                                 style={{
-                                  backgroundColor: "#f8f9fa",
+                                  backgroundColor: "#fff",
                                   borderColor: "#e3e3e3",
                                 }}
                               >
@@ -627,8 +624,8 @@ const LanguagesSection = () => {
                                 <p
                                   className="mb-0"
                                   style={{
-                                    fontSize: "0.9rem",
-                                    color: "#666",
+                                    fontSize: "1rem",
+                                    color: "#121212",
                                     lineHeight: "1.4",
                                   }}
                                 >
@@ -732,9 +729,9 @@ const LanguagesSection = () => {
           >
             <div>
               <button
-                className="btn border-0 px-5 py-2 fw-semibold"
+                className="login-button border-0 px-5 py-3 fw-semibold"
                 style={{
-                  fontSize: "1rem",
+                  fontSize: "1.1rem",
                   borderRadius: "50px",
                   background:
                     languages.length > 0 && userId && !userLoading
@@ -746,7 +743,7 @@ const LanguagesSection = () => {
                   cursor: languages.length > 0 && userId && !userLoading ? "pointer" : "not-allowed",
                   boxShadow:
                     languages.length > 0 && userId && !userLoading
-                      ? "0 6px 20px rgba(0, 118, 116, 0.3)"
+                      ? "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)"
                       : "0 2px 8px rgba(0, 0, 0, 0.1)",
                 }}
                 onClick={handleNext}
@@ -756,7 +753,7 @@ const LanguagesSection = () => {
                     e.target.style.background =
                       "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
                     e.target.style.boxShadow =
-                      "0 8px 25px rgba(18, 18, 18, 0.4)";
+                      "0 8px 25px rgba(18, 18, 18, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15)";
                     e.target.style.transform = "translateY(-2px)";
                   }
                 }}
@@ -765,7 +762,7 @@ const LanguagesSection = () => {
                     e.target.style.background =
                       "linear-gradient(135deg, #007674 0%, #005a58 100%)";
                     e.target.style.boxShadow =
-                      "0 6px 20px rgba(0, 118, 116, 0.3)";
+                      "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)";
                     e.target.style.transform = "translateY(0)";
                   }
                 }}

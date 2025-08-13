@@ -457,11 +457,18 @@ const EducationSection = () => {
             </div>
             <h3
               className="fw-semibold mb-3"
-              style={{ color: "#121212", fontSize: "1.8rem" }}
+              style={{
+                color: "#121212",
+                fontSize: "1.8rem",
+                letterSpacing: "0.3px",
+              }}
             >
               Loading Education Section
             </h3>
-            <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
+            <p
+              className="mb-0"
+              style={{ color: "#121212", fontSize: "1.2rem" }}
+            >
               Preparing your education setup...
             </p>
           </div>
@@ -505,15 +512,19 @@ const EducationSection = () => {
                       <div>
                         <h3
                           className="fw-semibold mb-1"
-                          style={{ color: "#121212", fontSize: "1.8rem" }}
+                          style={{
+                            color: "#121212",
+                            fontSize: "1.8rem",
+                            letterSpacing: "0.3px",
+                          }}
                         >
                           Education
                         </h3>
                         <p
                           className="mb-0"
                           style={{
-                            fontSize: "1rem",
-                            color: "#666",
+                            fontSize: "1.1rem",
+                            color: "#121212",
                             lineHeight: "1.5",
                           }}
                         >
@@ -545,16 +556,14 @@ const EducationSection = () => {
                           }}
                           className="education-card p-3 mb-3 rounded-3 border"
                           style={{
-                            backgroundColor: "#f8f9fa",
+                            backgroundColor: "#fff",
                             borderColor: "#e3e3e3",
                             transition: "all 0.3s ease",
                           }}
                           onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = "#e8f4f4";
                             e.target.style.borderColor = "#007674";
                           }}
                           onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = "#f8f9fa";
                             e.target.style.borderColor = "#e3e3e3";
                           }}
                         >
@@ -573,7 +582,7 @@ const EducationSection = () => {
                                 className="mb-1"
                                 style={{
                                   color: "#007674",
-                                  fontSize: "0.95rem",
+                                  fontSize: "1rem",
                                   fontWeight: 600,
                                 }}
                               >
@@ -581,7 +590,7 @@ const EducationSection = () => {
                               </p>
                               <p
                                 className="mb-1"
-                                style={{ color: "#666", fontSize: "0.85rem" }}
+                                style={{ color: "#121212", fontSize: "1rem" }}
                               >
                                 {education.startYear} - {education.endYear}
                               </p>
@@ -618,8 +627,8 @@ const EducationSection = () => {
                           <p
                             className="mb-0"
                             style={{
-                              color: "#666",
-                              fontSize: "0.9rem",
+                              color: "#121212",
+                              fontSize: "1.1rem",
                               lineHeight: "1.4",
                             }}
                           >
@@ -648,7 +657,7 @@ const EducationSection = () => {
                           <BsMortarboard size={40} />
                         </div>
                         <h5 style={{ color: "#121212" }}>No Education Added</h5>
-                        <p style={{ color: "#666" }}>
+                        <p style={{ color: "#121212", fontSize: "1.2rem" }}>
                           Start building your academic profile by adding your
                           education experiences
                         </p>
@@ -725,7 +734,11 @@ const EducationSection = () => {
                         <div className="d-flex align-items-center">
                           <h4
                             className="fw-semibold mb-0"
-                            style={{ color: "#121212", fontSize: "1.5rem" }}
+                            style={{
+                              color: "#121212",
+                              fontSize: "1.5rem",
+                              letterSpacing: "0.3px",
+                            }}
                           >
                             {editingEducationId
                               ? "Edit Education"
@@ -929,25 +942,16 @@ const EducationSection = () => {
                               "linear-gradient(135deg, #007674 0%, #005a58 100%)",
                             color: "#fff",
                             transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                            boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
                           }}
                           onClick={handleSubmit}
                           disabled={loading}
                           onMouseEnter={(e) => {
                             if (!loading) {
-                              e.target.style.background =
-                                "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
-                              e.target.style.boxShadow =
-                                "0 8px 25px rgba(18, 18, 18, 0.4)";
                               e.target.style.transform = "translateY(-2px)";
                             }
                           }}
                           onMouseLeave={(e) => {
                             if (!loading) {
-                              e.target.style.background =
-                                "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                              e.target.style.boxShadow =
-                                "0 6px 20px rgba(0, 118, 116, 0.3)";
                               e.target.style.transform = "translateY(0)";
                             }
                           }}
@@ -1009,7 +1013,13 @@ const EducationSection = () => {
                       <h4 style={{ color: "#121212", marginBottom: "10px" }}>
                         Add Your Education
                       </h4>
-                      <p style={{ color: "#666", marginBottom: "20px" }}>
+                      <p
+                        style={{
+                          color: "#121212",
+                          marginBottom: "20px",
+                          fontSize: "1.2rem",
+                        }}
+                      >
                         Click the "Add Education" button to start building your
                         academic profile
                       </p>
@@ -1063,9 +1073,9 @@ const EducationSection = () => {
             </div>
             <div>
               <button
-                className="btn border-0 px-5 py-2 fw-semibold"
+                className="login-button border-0 px-5 py-3 fw-semibold"
                 style={{
-                  fontSize: "1rem",
+                  fontSize: "1.1rem",
                   borderRadius: "50px",
                   background:
                     educationExperiences.length > 0
@@ -1078,7 +1088,7 @@ const EducationSection = () => {
                     educationExperiences.length > 0 ? "pointer" : "not-allowed",
                   boxShadow:
                     educationExperiences.length > 0
-                      ? "0 6px 20px rgba(0, 118, 116, 0.3)"
+                      ? "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)"
                       : "0 2px 8px rgba(0, 0, 0, 0.1)",
                 }}
                 onClick={handleNext}
@@ -1088,7 +1098,7 @@ const EducationSection = () => {
                     e.target.style.background =
                       "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
                     e.target.style.boxShadow =
-                      "0 8px 25px rgba(18, 18, 18, 0.4)";
+                      "0 8px 25px rgba(18, 18, 18, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15)";
                     e.target.style.transform = "translateY(-2px)";
                   }
                 }}
@@ -1097,7 +1107,7 @@ const EducationSection = () => {
                     e.target.style.background =
                       "linear-gradient(135deg, #007674 0%, #005a58 100%)";
                     e.target.style.boxShadow =
-                      "0 6px 20px rgba(0, 118, 116, 0.3)";
+                      "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)";
                     e.target.style.transform = "translateY(0)";
                   }
                 }}

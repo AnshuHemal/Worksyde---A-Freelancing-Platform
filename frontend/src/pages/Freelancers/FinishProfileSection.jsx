@@ -102,7 +102,7 @@ const FinishProfileSection = () => {
                       style={{
                         color: "#121212",
                         fontSize: "2.5rem",
-                        letterSpacing: "1.25px",
+                        letterSpacing: "0.3px",
                       }}
                     >
                       Profile Submitted Successfully!
@@ -111,7 +111,7 @@ const FinishProfileSection = () => {
                       className="mb-0"
                       style={{
                         fontSize: "1.2rem",
-                        color: "#666",
+                        color: "#121212",
                         lineHeight: "1.6",
                         maxWidth: "600px",
                         margin: "0 auto",
@@ -132,13 +132,13 @@ const FinishProfileSection = () => {
                     <div
                       className="p-4 rounded-3"
                       style={{
-                        backgroundColor: "rgba(0, 118, 116, 0.05)",
-                        border: "1px solid rgba(0, 118, 116, 0.1)",
+                        backgroundColor: "#fff",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <h4
                         className="fw-semibold mb-3"
-                        style={{ color: "#007674", fontSize: "1.3rem" }}
+                        style={{ color: "#007674", fontSize: "1.3rem", letterSpacing: '0.3px' }}
                       >
                         <BsClock className="me-2" />
                         What Happens Next?
@@ -146,7 +146,7 @@ const FinishProfileSection = () => {
                       <p
                         style={{
                           fontSize: "1.1rem",
-                          color: "#666",
+                          color: "#121212",
                           lineHeight: "1.6",
                           marginBottom: "1.5rem",
                         }}
@@ -163,7 +163,7 @@ const FinishProfileSection = () => {
                       <p
                         style={{
                           fontSize: "1rem",
-                          color: "#666",
+                          color: "#121212",
                           lineHeight: "1.6",
                           marginBottom: "0",
                         }}
@@ -191,6 +191,7 @@ const FinishProfileSection = () => {
                             "linear-gradient(135deg, #007674 0%, #005a58 100%)",
                           color: "#fff",
                           boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
+                          letterSpacing: '0.3px',
                         }}
                         onClick={handleCheckMail}
                         onMouseEnter={(e) => {
@@ -216,6 +217,7 @@ const FinishProfileSection = () => {
                             "linear-gradient(135deg, #da8535 0%, #f39c12 100%)",
                           color: "#fff",
                           boxShadow: "0 6px 20px rgba(218, 133, 53, 0.3)",
+                          letterSpacing: '0.3px',
                         }}
                         onClick={handleBrowseJobs}
                         onMouseEnter={(e) => {
@@ -265,7 +267,7 @@ const FinishProfileSection = () => {
                   >
                     <h5
                       className="fw-semibold mb-3"
-                      style={{ color: "#121212" }}
+                      style={{ color: "#121212", letterSpacing: '0.3px' }}
                     >
                       While You Wait
                     </h5>
@@ -296,7 +298,7 @@ const FinishProfileSection = () => {
                             </h6>
                             <p
                               className="mb-0"
-                              style={{ color: "#666", fontSize: "1rem" }}
+                              style={{ color: "#121212", fontSize: "1rem" }}
                             >
                               Browse available opportunities
                             </p>
@@ -330,7 +332,7 @@ const FinishProfileSection = () => {
                             </h6>
                             <p
                               className="mb-0"
-                              style={{ color: "#666", fontSize: "1rem" }}
+                              style={{ color: "#121212", fontSize: "1rem" }}
                             >
                               Visit our help center
                             </p>
@@ -349,32 +351,33 @@ const FinishProfileSection = () => {
                   >
                     <h5
                       className="fw-semibold mb-3"
-                      style={{ color: "#121212" }}
+                      style={{ color: "#121212", letterSpacing: '0.3px' }}
                     >
                       Review Timeline
                     </h5>
                     <div
                       className="p-3 rounded-3"
                       style={{
-                        backgroundColor: "rgba(40, 167, 69, 0.05)",
-                        border: "1px solid rgba(40, 167, 69, 0.1)",
+                        backgroundColor: "#fff",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <div className="d-flex align-items-center mb-2">
                         <BsClock
                           className="me-2"
-                          style={{ color: "#28a745" }}
+                          style={{ color: "#007674" }}
+                          size={20}
                         />
                         <span
                           className="fw-semibold"
-                          style={{ color: "#28a745" }}
+                          style={{ color: "#007674" }}
                         >
                           24-48 Hours
                         </span>
                       </div>
                       <p
                         className="mb-0"
-                        style={{ color: "#666", fontSize: "1rem" }}
+                        style={{ color: "#121212", fontSize: "1.1rem" }}
                       >
                         Typical review time for new profiles
                       </p>
@@ -389,21 +392,21 @@ const FinishProfileSection = () => {
                   >
                     <h5
                       className="fw-semibold mb-3"
-                      style={{ color: "#121212" }}
+                      style={{ color: "#121212", letterSpacing: '0.3px' }}
                     >
-                      <BsStar className="me-2" style={{ color: "#007674" }} />
+                      <BsStar className="me-3" style={{ color: "#007674" }} size={20} />
                       Success Tips
                     </h5>
                     <div
                       className="p-3 rounded-3"
                       style={{
-                        backgroundColor: "rgba(0, 118, 116, 0.05)",
-                        border: "1px solid rgba(0, 118, 116, 0.1)",
+                        backgroundColor: "#fff",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <ul
                         className="mb-0"
-                        style={{ color: "#666", fontSize: "1rem" }}
+                        style={{ color: "#121212", fontSize: "1.1rem" }}
                       >
                         <li className="mb-2">Keep your profile updated</li>
                         <li className="mb-2">Respond to messages promptly</li>

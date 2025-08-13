@@ -63,7 +63,7 @@ const BiographySection = () => {
       if (response.status === 200) {
         // toast.success("Biography saved successfully!");
         setTimeout(() => {
-        navigate("/create-profile/rate");
+          navigate("/create-profile/rate");
         }, 100);
       }
     } catch (error) {
@@ -160,11 +160,18 @@ const BiographySection = () => {
             </div>
             <h3
               className="fw-semibold mb-3"
-              style={{ color: "#121212", fontSize: "1.8rem" }}
+              style={{
+                color: "#121212",
+                fontSize: "1.8rem",
+                letterSpacing: "0.3px",
+              }}
             >
               Loading Profile Setup
             </h3>
-            <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
+            <p
+              className="mb-0"
+              style={{ color: "#121212", fontSize: "1.2rem" }}
+            >
               Preparing your biography section...
             </p>
           </div>
@@ -208,7 +215,11 @@ const BiographySection = () => {
                       <div>
                         <h2
                           className="fw-semibold mb-2"
-                          style={{ color: "#121212", fontSize: "2rem" }}
+                          style={{
+                            color: "#121212",
+                            fontSize: "2rem",
+                            letterSpacing: "0.3px",
+                          }}
                         >
                           Tell Your Story
                         </h2>
@@ -216,7 +227,7 @@ const BiographySection = () => {
                           className="mb-0"
                           style={{
                             fontSize: "1.1rem",
-                            color: "#666",
+                            color: "#121212",
                             lineHeight: "1.5",
                           }}
                         >
@@ -238,13 +249,13 @@ const BiographySection = () => {
                     <div className="mb-3">
                       <label
                         className="form-label fw-semibold"
-                        style={{ color: "#121212", fontSize: "1.1rem" }}
+                        style={{ color: "#121212", fontSize: "1.2rem" }}
                       >
                         Your Biography
                       </label>
-              <textarea
-                value={bioText}
-                onChange={handleBioChange}
+                      <textarea
+                        value={bioText}
+                        onChange={handleBioChange}
                         className="bio-textarea w-100"
                         placeholder="Share your story, skills, and what drives you. What problems do you solve? What makes you passionate about your work? Include your achievements and what clients can expect when working with you..."
                         rows="12"
@@ -275,7 +286,7 @@ const BiographySection = () => {
                             </motion.div>
                           )}
                         </div>
-                        <small style={{ color: "#666" }}>
+                        <small style={{ color: "#121212", fontSize: "1.1rem" }}>
                           {bioText.length}/{MAX_CHARS} characters
                         </small>
                       </div>
@@ -315,7 +326,7 @@ const BiographySection = () => {
                   >
                     <h5
                       className="fw-semibold mb-3"
-                      style={{ color: "#121212" }}
+                      style={{ color: "#121212", fontSize: "1.2rem" }}
                     >
                       Inspiration Examples
                     </h5>
@@ -334,7 +345,7 @@ const BiographySection = () => {
                           <div
                             className="example-bio p-3 rounded-3 border h-100 d-flex align-items-center"
                             style={{
-                              backgroundColor: "#f8f9fa",
+                              backgroundColor: "#fff",
                               borderColor: "#e3e3e3",
                               cursor: "pointer",
                               transition: "all 0.3s ease",
@@ -342,17 +353,15 @@ const BiographySection = () => {
                             }}
                             onClick={() => setBioText(example)}
                             onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = "#e8f4f4";
                               e.target.style.borderColor = "#007674";
                             }}
                             onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = "#f8f9fa";
                               e.target.style.borderColor = "#e3e3e3";
                             }}
                           >
                             <small
                               style={{
-                                color: "#666",
+                                color: "#121212",
                                 fontSize: "1rem",
                                 lineHeight: "1.4",
                               }}
@@ -374,7 +383,7 @@ const BiographySection = () => {
                   >
                     <button
                       className="login-button border-0 px-5 py-3 fw-semibold"
-                style={{
+                      style={{
                         fontSize: "1.1rem",
                         borderRadius: "50px",
                         background:
@@ -472,7 +481,11 @@ const BiographySection = () => {
                     <div className="d-flex align-items-center mb-3">
                       <h4
                         className="fw-semibold mb-0"
-                        style={{ color: "#121212", fontSize: "1.4rem" }}
+                        style={{
+                          color: "#121212",
+                          fontSize: "1.4rem",
+                          letterSpacing: "0.3px",
+                        }}
                       >
                         Why a Great Bio Matters
                       </h4>
@@ -483,7 +496,7 @@ const BiographySection = () => {
                         <div>
                           <h6
                             className="fw-semibold mb-1"
-                            style={{ color: "#121212" }}
+                            style={{ color: "#121212", fontSize: "1.2rem" }}
                           >
                             ● Showcase Expertise
                           </h6>
@@ -497,7 +510,7 @@ const BiographySection = () => {
                         <div>
                           <h6
                             className="fw-semibold mb-1"
-                            style={{ color: "#121212" }}
+                            style={{ color: "#121212", fontSize: "1.2rem" }}
                           >
                             ● Connect Personally
                           </h6>
@@ -510,15 +523,15 @@ const BiographySection = () => {
                         <div>
                           <h6
                             className="fw-semibold mb-1"
-                            style={{ color: "#121212" }}
+                            style={{ color: "#121212", fontSize: "1.2rem" }}
                           >
                             ● Stand Out
                           </h6>
                           <p className="text-muted small mb-0">
                             Differentiate yourself from other freelancers
-              </p>
-            </div>
-          </div>
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </motion.div>
 
@@ -531,20 +544,19 @@ const BiographySection = () => {
                   >
                     <h5
                       className="fw-semibold mb-3"
-                      style={{ color: "#121212" }}
+                      style={{ color: "#121212", fontSize: "1.2rem" }}
                     >
                       Pro Tips
                     </h5>
                     <div
                       className="p-4 rounded-3"
                       style={{
-                        backgroundColor: "rgba(0, 118, 116, 0.05)",
                         border: "1px solid rgba(0, 118, 116, 0.1)",
                       }}
                     >
                       <ul
                         className="mb-0"
-                        style={{ color: "#666", fontSize: "0.95rem" }}
+                        style={{ color: "#121212", fontSize: "1rem" }}
                       >
                         <li className="mb-2">Start with a compelling hook</li>
                         <li className="mb-2">Include specific achievements</li>
@@ -564,7 +576,7 @@ const BiographySection = () => {
                   >
                     <h5
                       className="fw-semibold mb-3"
-                      style={{ color: "#121212" }}
+                      style={{ color: "#121212", fontSize: "1.2rem" }}
                     >
                       Best Practices
                     </h5>
@@ -572,42 +584,42 @@ const BiographySection = () => {
                       <div
                         className="p-3 rounded-3 border"
                         style={{
-                          backgroundColor: "#f8f9fa",
+                          backgroundColor: "#fff",
                           borderColor: "#e3e3e3",
                         }}
                       >
                         <h6
                           className="fw-semibold mb-1"
-                          style={{ color: "#007674", fontSize: "1rem" }}
+                          style={{ color: "#007674", fontSize: "1.2rem" }}
                         >
                           Do's
                         </h6>
-                        <small style={{ color: "#666", fontSize: "1rem" }}>
-                          • Be authentic and genuine
+                        <small style={{ color: "#121212", fontSize: "1.1rem" }}>
+                          - Be authentic and genuine
                           <br />
-                          • Include specific examples
-                          <br />• Show passion for your work
+                          - Include specific examples
+                          <br />- Show passion for your work
                         </small>
                       </div>
 
                       <div
                         className="p-3 mt-3 rounded-3 border"
                         style={{
-                          backgroundColor: "#f8f9fa",
+                          backgroundColor: "#fff",
                           borderColor: "#e3e3e3",
                         }}
                       >
                         <h6
                           className="fw-semibold mb-1"
-                          style={{ color: "#da8535", fontSize: "1rem" }}
+                          style={{ color: "#da8535", fontSize: "1.2rem" }}
                         >
                           Don'ts
                         </h6>
-                        <small style={{ color: "#666", fontSize: "1rem" }}>
-                          • Don't be too generic
+                        <small style={{ color: "#121212", fontSize: "1.1rem" }}>
+                          - Don't be too generic
                           <br />
-                          • Avoid excessive jargon
-                          <br />• Don't make it too long
+                          - Avoid excessive jargon
+                          <br />- Don't make it too long
                         </small>
                       </div>
                     </div>
@@ -622,8 +634,7 @@ const BiographySection = () => {
                     <div
                       className="p-3 rounded-3"
                       style={{
-                        backgroundColor: "rgba(218, 133, 53, 0.05)",
-                        border: "1px solid rgba(218, 133, 53, 0.1)",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <h6
@@ -632,7 +643,7 @@ const BiographySection = () => {
                       >
                         Character Guide
                       </h6>
-                      <div style={{ fontSize: "0.9rem", color: "#666" }}>
+                      <div style={{ fontSize: "1rem", color: "#121212" }}>
                         <div className="d-flex justify-content-between mb-1">
                           <span>Minimum:</span>
                           <span style={{ color: "#007674", fontWeight: 600 }}>

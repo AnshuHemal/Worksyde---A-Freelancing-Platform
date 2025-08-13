@@ -122,11 +122,11 @@ const SubmitProfile = () => {
             </div>
             <h3
               className="fw-semibold mb-3"
-              style={{ color: "#121212", fontSize: "1.8rem" }}
+              style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
             >
               Loading Profile Preview
             </h3>
-            <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
+            <p className="mb-0" style={{ color: "#121212", fontSize: "1.2rem" }}>
               Preparing your profile for submission...
             </p>
           </div>
@@ -180,7 +180,7 @@ const SubmitProfile = () => {
           }
           
           .section-card {
-            background: #f8f9fa;
+            background: #fff;
             border-radius: 15px;
             padding: 20px;
             margin-bottom: 20px;
@@ -232,7 +232,7 @@ const SubmitProfile = () => {
                     <div className="text-center mb-4">
                       <h2
                         className="fw-semibold mb-2"
-                        style={{ color: "#121212", fontSize: "2rem" }}
+                        style={{ color: "#121212", fontSize: "2rem", letterSpacing: '0.3px' }}
                       >
                         Profile Preview Ready!
                       </h2>
@@ -240,7 +240,7 @@ const SubmitProfile = () => {
                         className="mb-0"
                         style={{
                           fontSize: "1.1rem",
-                          color: "#666",
+                          color: "#121212",
                           lineHeight: "1.5",
                         }}
                       >
@@ -270,7 +270,7 @@ const SubmitProfile = () => {
                           <div className="col-md-8">
                             <h3
                               className="fw-bold mb-2"
-                              style={{ color: "#121212", fontSize: "1.8rem" }}
+                              style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
                             >
                               {userDetails.name || "Hemal Katariya"}
                             </h3>
@@ -279,7 +279,7 @@ const SubmitProfile = () => {
                                 className="me-2"
                                 style={{ color: "#007674" }}
                               />
-                              <span style={{ color: "#666", fontSize: "1rem" }}>
+                              <span style={{ color: "#121212", fontSize: "1.1rem" }}>
                                 {userDetails.city || "Ahmedabad, GJ"}
                               </span>
                             </div>
@@ -288,7 +288,7 @@ const SubmitProfile = () => {
                                 className="me-2"
                                 style={{ color: "#007674" }}
                               />
-                              <span style={{ color: "#666", fontSize: "1rem" }}>
+                              <span style={{ color: "#121212", fontSize: "1.1rem" }}>
                                 {userDetails.time || "5:35 PM"}
                               </span>
                             </div>
@@ -305,7 +305,7 @@ const SubmitProfile = () => {
                                 <p
                                   key={index}
                                   className="mb-1"
-                                  style={{ color: "#666", fontSize: "0.9rem" }}
+                                  style={{ color: "#121212", fontSize: "1rem" }}
                                 >
                                   {language.name}: {language.proficiency}
                                 </p>
@@ -313,7 +313,7 @@ const SubmitProfile = () => {
                             ) : (
                               <p
                                 className="mb-1"
-                                style={{ color: "#666", fontSize: "0.9rem" }}
+                                style={{ color: "#121212", fontSize: "1rem" }}
                               >
                                 No languages added
                               </p>
@@ -328,14 +328,14 @@ const SubmitProfile = () => {
                     <div className="mb-4">
                       <h4
                         className="fw-semibold mb-2"
-                        style={{ color: "#007674", fontSize: "1.4rem" }}
+                        style={{ color: "#007674", fontSize: "1.4rem", letterSpacing: '0.3px' }}
                       >
                         {userDetails.title ||
                           "WordPress Developer | WooCommerce Expert"}
                       </h4>
                       <p
                         style={{
-                          color: "#666",
+                          color: "#121212",
                           fontSize: "1.1rem",
                           lineHeight: "1.6",
                         }}
@@ -348,13 +348,13 @@ const SubmitProfile = () => {
                       <div>
                         <h4
                           className="fw-bold mb-0"
-                          style={{ color: "#28a745", fontSize: "1.5rem" }}
+                          style={{ color: "#007674", fontSize: "1.5rem", letterSpacing: '0.3px' }}
                         >
                           ₹{userDetails.hourlyRate || "250"}.00
                         </h4>
                         <p
                           className="mb-0"
-                          style={{ color: "#666", fontSize: "0.9rem" }}
+                          style={{ color: "#121212", fontSize: "1rem" }}
                         >
                           Hourly Rate
                         </p>
@@ -371,9 +371,9 @@ const SubmitProfile = () => {
                   >
                     <h4
                       className="fw-semibold mb-3"
-                      style={{ color: "#121212" }}
+                      style={{ color: "#121212", letterSpacing: '0.3px' }}
                     >
-                      <BsStar className="me-2" style={{ color: "#007674" }} />
+                      <BsStar className="me-3" style={{ color: "#007674" }} size={20} />
                       Your Skills
                     </h4>
                     <div className="selected-skills">
@@ -400,7 +400,7 @@ const SubmitProfile = () => {
                       className="fw-semibold mb-3"
                       style={{ color: "#121212" }}
                     >
-                      <BsBook className="me-2" style={{ color: "#007674" }} />
+                      <BsBook className="me-3" style={{ color: "#007674" }} size={20} />
                       Your Education
                     </h4>
                     {userDetails.education ? (
@@ -414,7 +414,7 @@ const SubmitProfile = () => {
                           </h6>
                           <p
                             className="mb-0"
-                            style={{ color: "#666", fontSize: "0.95rem" }}
+                            style={{ color: "#121212", fontSize: "1rem" }}
                           >
                             {edu.degree}, {edu.fieldOfStudy} - {edu.startYear} -{" "}
                             {edu.endYear}
@@ -438,8 +438,9 @@ const SubmitProfile = () => {
                       style={{ color: "#121212" }}
                     >
                       <BsBriefcase
-                        className="me-2"
+                        className="me-3"
                         style={{ color: "#007674" }}
+                        size={20}
                       />
                       Your Work Experience
                     </h4>
@@ -460,13 +461,13 @@ const SubmitProfile = () => {
                             </h6>
                             <p
                               className="mb-1"
-                              style={{ color: "#666", fontSize: "0.9rem" }}
+                              style={{ color: "#121212", fontSize: "1rem" }}
                             >
                               {startDateFormatted} - {endDateFormatted}
                             </p>
                             <p
                               className="mb-0"
-                              style={{ color: "#666", fontSize: "0.95rem" }}
+                              style={{ color: "#121212", fontSize: "1rem" }}
                             >
                               {work.description}
                             </p>
@@ -510,7 +511,7 @@ const SubmitProfile = () => {
                       >
                         Ready to Submit
                       </h4>
-                      <p className="text-muted small mb-0">
+                      <p className="mb-0" style={{ color: "#121212", fontSize: "1.1rem" }}>
                         Your profile will be reviewed by our team
                       </p>
                     </div>
@@ -532,8 +533,8 @@ const SubmitProfile = () => {
                     <div
                       className="p-4 rounded-3"
                       style={{
-                        backgroundColor: "rgba(0, 118, 116, 0.05)",
-                        border: "1px solid rgba(0, 118, 116, 0.1)",
+                        backgroundColor: "#fff",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <div className="d-flex align-items-center mb-3">
@@ -555,7 +556,7 @@ const SubmitProfile = () => {
                           >
                             Review Process
                           </h6>
-                          <p className="text-muted small mb-0">
+                          <p className="text-muted small mb-0" style={{ color: "#121212", fontSize: "1rem" }}>
                             Our team will review your profile within 24-48 hours
                           </p>
                         </div>
@@ -622,20 +623,20 @@ const SubmitProfile = () => {
                   >
                     <h5
                       className="fw-semibold mb-3"
-                      style={{ color: "#121212" }}
+                      style={{ color: "#121212", letterSpacing: '0.3px' }}
                     >
                       Pro Tips
                     </h5>
                     <div
                       className="p-3 rounded-3 border"
                       style={{
-                        backgroundColor: "#f8f9fa",
+                        backgroundColor: "#fff",
                         borderColor: "#e3e3e3",
                       }}
                     >
                       <ul
                         className="mb-0"
-                        style={{ color: "#666", fontSize: "0.95rem" }}
+                        style={{ color: "#121212", fontSize: "1rem" }}
                       >
                         <li className="mb-2">
                           Keep your profile updated regularly
@@ -710,7 +711,7 @@ const SubmitProfile = () => {
 
                     <p
                       className="mt-3 mb-0"
-                      style={{ color: "#666", fontSize: "0.9rem" }}
+                      style={{ color: "#121212", fontSize: "1rem" }}
                     >
                       You can edit your profile anytime after submission
                     </p>

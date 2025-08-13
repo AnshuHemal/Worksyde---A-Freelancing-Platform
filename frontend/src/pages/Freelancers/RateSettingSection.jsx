@@ -16,8 +16,8 @@ import axios from "axios";
 
 const RateSettingSection = () => {
   const [hourlyRate, setHourlyRate] = useState("");
-  const [platformFee, setPlatformFee] = useState(0);
-  const [estimatedEarnings, setEstimatedEarnings] = useState(0);
+  const [platformFee, setPlatformFee] = useState("0.00");
+  const [estimatedEarnings, setEstimatedEarnings] = useState("0.00");
   const [userId, setUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
@@ -45,6 +45,27 @@ const RateSettingSection = () => {
     fetchCurrentUser();
   }, []);
 
+  const calculateFees = (rateValue) => {
+    const value = parseInt(rateValue, 10);
+    
+    if (!isNaN(value) && value > 0) {
+      if (value < MIN_RATE || value > MAX_RATE) {
+        setPlatformFee("0.00");
+        setEstimatedEarnings("0.00");
+        return;
+      }
+
+      const fee = value >= 5000 ? value * 0.02 : value * 0.1;
+      const earnings = value - fee;
+      
+      setPlatformFee(fee.toFixed(2));
+      setEstimatedEarnings(earnings.toFixed(2));
+    } else {
+      setPlatformFee("0.00");
+      setEstimatedEarnings("0.00");
+    }
+  };
+
   const handleRateChange = (e) => {
     const input = e.target.value;
 
@@ -52,26 +73,12 @@ const RateSettingSection = () => {
     if (!/^\d*$/.test(input)) return;
 
     setHourlyRate(input);
-
-    const value = parseInt(input, 10);
-    if (!isNaN(value)) {
-      if (value < MIN_RATE || value > MAX_RATE) {
-        setPlatformFee(0);
-        setEstimatedEarnings(0);
-        return;
-      }
-
-      const fee = value >= 5000 ? value * 0.02 : value * 0.1;
-      setPlatformFee(fee.toFixed(2));
-      setEstimatedEarnings((value - fee).toFixed(2));
-    } else {
-      setPlatformFee(0);
-      setEstimatedEarnings(0);
-    }
+    calculateFees(input);
   };
 
   const handleNext = async () => {
-    if (hourlyRate === "" || hourlyRate < MIN_RATE || hourlyRate > MAX_RATE) {
+    const rateValue = parseInt(hourlyRate);
+    if (hourlyRate === "" || isNaN(rateValue) || rateValue < MIN_RATE || rateValue > MAX_RATE) {
       toast.error(`You can add hourly rate in ₹${MIN_RATE} - ₹${MAX_RATE}.`);
       return;
     }
@@ -104,7 +111,7 @@ const RateSettingSection = () => {
     { rate: "3500", label: "Expert Level" },
   ];
 
-  const isRateValid = hourlyRate >= MIN_RATE && hourlyRate <= MAX_RATE;
+  const isRateValid = parseInt(hourlyRate) >= MIN_RATE && parseInt(hourlyRate) <= MAX_RATE;
 
   return (
     <>
@@ -195,11 +202,11 @@ const RateSettingSection = () => {
             </div>
             <h3
               className="fw-semibold mb-3"
-              style={{ color: "#121212", fontSize: "1.8rem" }}
+              style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
             >
               Loading Profile Setup
           </h3>
-            <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
+            <p className="mb-0" style={{ color: "#121212", fontSize: "1.2rem" }}>
               Preparing your rate setting section...
           </p>
           </div>
@@ -243,7 +250,7 @@ const RateSettingSection = () => {
                       <div>
                         <h2
                           className="fw-semibold mb-2"
-                          style={{ color: "#121212", fontSize: "2rem" }}
+                          style={{ color: "#121212", fontSize: "2rem", letterSpacing: '0.3px' }}
                         >
                           Set Your Hourly Rate
                         </h2>
@@ -251,7 +258,7 @@ const RateSettingSection = () => {
                           className="mb-0"
                           style={{
                             fontSize: "1.1rem",
-                            color: "#666",
+                            color: "#121212",
                             lineHeight: "1.5",
                           }}
                         >
@@ -290,7 +297,7 @@ const RateSettingSection = () => {
                     <span className="input-group-text">/hr</span>
                   </div>
                       <div className="d-flex justify-content-between align-items-center mt-2">
-                        <small style={{ color: "#666" }}>
+                        <small style={{ color: "#121212", fontSize: '1.1rem' }}>
                           Range: ₹{MIN_RATE} - ₹{MAX_RATE}
                         </small>
                         {isRateValid && (
@@ -342,19 +349,20 @@ const RateSettingSection = () => {
                           <div
                             className="suggested-rate p-3 rounded-3 border h-100 d-flex flex-column justify-content-center align-items-center"
                             style={{
-                              backgroundColor: "#f8f9fa",
+                              backgroundColor: "#fff",
                               borderColor: "#e3e3e3",
                               cursor: "pointer",
                               transition: "all 0.3s ease",
                               minHeight: "100px",
                             }}
-                            onClick={() => setHourlyRate(suggestion.rate)}
+                            onClick={() => {
+                              setHourlyRate(suggestion.rate);
+                              calculateFees(suggestion.rate);
+                            }}
                             onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = "#e8f4f4";
                               e.target.style.borderColor = "#007674";
                             }}
                             onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = "#f8f9fa";
                               e.target.style.borderColor = "#e3e3e3";
                             }}
                           >
@@ -635,8 +643,7 @@ const RateSettingSection = () => {
                     <div
                       className="p-4 rounded-3"
                       style={{
-                        backgroundColor: "rgba(0, 118, 116, 0.05)",
-                        border: "1px solid rgba(0, 118, 116, 0.1)",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <div className="mb-3">

@@ -11,6 +11,7 @@ import {
 } from "react-icons/bs";
 import toast from "react-hot-toast";
 import axios from "axios";
+import { GoLocation } from "react-icons/go";
 
 const ExperienceSection = () => {
   const [showForm, setShowForm] = useState(false);
@@ -31,6 +32,8 @@ const ExperienceSection = () => {
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
+  const [countries, setCountries] = useState([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
   const navigate = useNavigate();
 
   const API_URL = "http://localhost:5000/api/auth";
@@ -97,30 +100,30 @@ const ExperienceSection = () => {
     (_, index) => new Date().getFullYear() - index
   ); // Last 50 years
 
-  // List of countries (You can replace this with a dynamic list from an API)
-  const countries = [
-    "United States",
-    "Canada",
-    "United Kingdom",
-    "Australia",
-    "India",
-    "Germany",
-    "France",
-    "Italy",
-    "Brazil",
-    "Mexico",
-    "China",
-    "Japan",
-    "South Korea",
-    "Russia",
-    "South Africa",
-    "Spain",
-    "Netherlands",
-    "Sweden",
-    "Norway",
-    "Denmark",
-    "Switzerland",
-  ];
+  // Fetch countries from API
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        setCountriesLoading(true);
+        const response = await fetch('https://restcountries.com/v3.1/all?fields=name');
+        const data = await response.json();
+        
+        // Sort countries alphabetically by name
+        const sortedCountries = data
+          .map(country => country.name.common)
+          .sort((a, b) => a.localeCompare(b));
+        
+        setCountries(sortedCountries);
+      } catch (error) {
+        console.error('Error fetching countries:', error);
+        toast.error('Failed to load countries. Using default list.');
+      } finally {
+        setCountriesLoading(false);
+      }
+    };
+
+    fetchCountries();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -427,11 +430,11 @@ const ExperienceSection = () => {
             </div>
             <h3
               className="fw-semibold mb-3"
-              style={{ color: "#121212", fontSize: "1.8rem" }}
+              style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
             >
               Loading Experience Section
             </h3>
-            <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
+            <p className="mb-0" style={{ color: "#121212", fontSize: "1.2rem" }}>
               Preparing your work experience setup...
             </p>
           </div>
@@ -475,15 +478,15 @@ const ExperienceSection = () => {
                       <div>
                         <h3
                           className="fw-semibold mb-1"
-                          style={{ color: "#121212", fontSize: "1.8rem" }}
+                          style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
                         >
                           Work Experience
                         </h3>
                         <p
                           className="mb-0"
                           style={{
-                            fontSize: "1rem",
-                            color: "#666",
+                            fontSize: "1.1rem",
+                            color: "#121212",
                             lineHeight: "1.5",
                           }}
                         >
@@ -530,16 +533,14 @@ const ExperienceSection = () => {
                             }}
                             className="experience-card p-3 mb-3 rounded-3 border"
                             style={{
-                              backgroundColor: "#f8f9fa",
+                              backgroundColor: "#fff",
                               borderColor: "#e3e3e3",
                               transition: "all 0.3s ease",
                             }}
                             onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = "#e8f4f4";
                               e.target.style.borderColor = "#007674";
                             }}
                             onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = "#f8f9fa";
                               e.target.style.borderColor = "#e3e3e3";
                             }}
                           >
@@ -549,7 +550,7 @@ const ExperienceSection = () => {
                                   className="fw-semibold mb-1"
                                   style={{
                                     color: "#121212",
-                                    fontSize: "1.1rem",
+                                    fontSize: "1.2rem",
                                   }}
                                 >
                                   {experience.title}
@@ -558,7 +559,7 @@ const ExperienceSection = () => {
                                   className="mb-1"
                                   style={{
                                     color: "#007674",
-                                    fontSize: "0.95rem",
+                                    fontSize: "1rem",
                                     fontWeight: 600,
                                   }}
                                 >
@@ -566,7 +567,7 @@ const ExperienceSection = () => {
                                 </p>
                                 <p
                                   className="mb-1"
-                                  style={{ color: "#666", fontSize: "0.85rem" }}
+                                  style={{ color: "#121212", fontSize: "1rem" }}
                                 >
                                   {startDateMonth} {startDateYear} -{" "}
                                   {experience.endDate == "Present" ||
@@ -576,9 +577,9 @@ const ExperienceSection = () => {
                                 </p>
                                 <p
                                   className="mb-2"
-                                  style={{ color: "#666", fontSize: "0.85rem" }}
+                                  style={{ color: "#121212", fontSize: "1rem" }}
                                 >
-                                  📍 {experience.city}, {experience.country}
+                                  <GoLocation size={16} style={{color: '#007674'}}/> {experience.city}, {experience.country}
                                 </p>
                               </div>
                               <div className="d-flex gap-2">
@@ -613,8 +614,8 @@ const ExperienceSection = () => {
                             <p
                               className="mb-0"
                               style={{
-                                color: "#666",
-                                fontSize: "0.9rem",
+                                color: "#121212",
+                                fontSize: "1rem",
                                 lineHeight: "1.4",
                               }}
                             >
@@ -836,14 +837,22 @@ const ExperienceSection = () => {
                               value={formData.country}
                               onChange={handleChange}
                               className="experience-input"
+                              disabled={countriesLoading}
                             >
-                              <option value="">Select Country</option>
+                              <option value="">
+                                {countriesLoading ? "Loading countries..." : "Select Country"}
+                              </option>
                               {countries.map((country, index) => (
                                 <option key={index} value={country}>
                                   {country}
                                 </option>
                               ))}
                             </select>
+                            {countriesLoading && (
+                              <small style={{ color: "#666", fontSize: "0.8rem" }}>
+                                Loading countries from API...
+                              </small>
+                            )}
                           </div>
                         </div>
                       </motion.div>
@@ -1082,7 +1091,7 @@ const ExperienceSection = () => {
                       <h4 style={{ color: "#121212", marginBottom: "10px" }}>
                         Add Your Experience
                       </h4>
-                      <p style={{ color: "#666", marginBottom: "20px" }}>
+                      <p style={{ color: "#121212", marginBottom: "20px", fontSize: '1.2rem' }}>
                         Click the "Add Experience" button to start building your
                         professional profile
                       </p>
@@ -1136,9 +1145,9 @@ const ExperienceSection = () => {
             </div>
             <div>
               <button
-                className="btn border-0 px-5 py-2 fw-semibold"
+                className="login-button border-0 px-5 py-3 fw-semibold"
                 style={{
-                  fontSize: "1rem",
+                  fontSize: "1.1rem",
                   borderRadius: "50px",
                   background:
                     workExperiences.length > 0
@@ -1151,7 +1160,7 @@ const ExperienceSection = () => {
                     workExperiences.length > 0 ? "pointer" : "not-allowed",
                   boxShadow:
                     workExperiences.length > 0
-                      ? "0 6px 20px rgba(0, 118, 116, 0.3)"
+                      ? "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)"
                       : "0 2px 8px rgba(0, 0, 0, 0.1)",
                 }}
                 onClick={handleNext}
@@ -1161,7 +1170,7 @@ const ExperienceSection = () => {
                     e.target.style.background =
                       "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
                     e.target.style.boxShadow =
-                      "0 8px 25px rgba(18, 18, 18, 0.4)";
+                      "0 8px 25px rgba(18, 18, 18, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15)";
                     e.target.style.transform = "translateY(-2px)";
                   }
                 }}
@@ -1170,7 +1179,7 @@ const ExperienceSection = () => {
                     e.target.style.background =
                       "linear-gradient(135deg, #007674 0%, #005a58 100%)";
                     e.target.style.boxShadow =
-                      "0 6px 20px rgba(0, 118, 116, 0.3)";
+                      "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)";
                     e.target.style.transform = "translateY(0)";
                   }
                 }}

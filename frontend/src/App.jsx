@@ -128,7 +128,7 @@ const App = () => {
             path="/create-profile/quick-questions"
             element={<QuickQuestions />}
           />
-          <Route
+          <Route 
             path="/create-profile/resume-import"
             element={<ResumeImport />}
           />

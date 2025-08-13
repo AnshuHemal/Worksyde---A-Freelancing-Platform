@@ -14,6 +14,7 @@ import {
   BsGeoAlt,
   BsPhone,
   BsCalendar,
+  BsX,
 } from "react-icons/bs";
 import axios from "axios";
 
@@ -37,6 +38,7 @@ const PhotoAndLocationSection = () => {
     country: "India",
   });
   const [loading, setLoading] = useState(false);
+  const [ageError, setAgeError] = useState("");
   const navigate = useNavigate();
 
   const API_URL = "http://localhost:5000/api/auth";
@@ -65,8 +67,33 @@ const PhotoAndLocationSection = () => {
     setRawPhoneNumber(input);
   };
 
+  const calculateAge = (birthDate) => {
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    return age;
+  };
+
+  const isUser18Plus = (birthDate) => {
+    if (!birthDate) return false;
+    const age = calculateAge(birthDate);
+    return age >= 18;
+  };
+
   const handleFormChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    
+    // Clear age error when DOB changes
+    if (name === 'dob') {
+      setAgeError("");
+    }
   };
 
   const readFile = (file) =>
@@ -105,6 +132,12 @@ const PhotoAndLocationSection = () => {
   };
 
   const handleNext = async () => {
+    // Validate age before proceeding
+    if (formData.dob && !isUser18Plus(formData.dob)) {
+      setAgeError("You must be at least 18 years old to create a freelancer profile.");
+      return;
+    }
+
     setLoading(true);
     try {
       const response = await axios.post(
@@ -131,6 +164,11 @@ const PhotoAndLocationSection = () => {
   };
 
   const isFormValid = () => {
+    // Check if user is 18+
+    if (formData.dob && !isUser18Plus(formData.dob)) {
+      return false;
+    }
+    
     return (
       croppedImage &&
       formData.dob &&
@@ -238,7 +276,6 @@ const PhotoAndLocationSection = () => {
             border-color: #007674;
             box-shadow: 0 6px 20px rgba(0, 118, 116, 0.15), 0 3px 8px rgba(0, 0, 0, 0.08);
             background: #ffffff;
-            transform: translateY(-2px);
           }
         `}
       </style>
@@ -278,11 +315,11 @@ const PhotoAndLocationSection = () => {
             </div>
             <h3
               className="fw-semibold mb-3"
-              style={{ color: "#121212", fontSize: "1.8rem" }}
+              style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
             >
               Loading Profile Setup
             </h3>
-            <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
+            <p className="mb-0" style={{ color: "#121212", fontSize: "1.2rem" }}>
               Preparing your photo and location section...
             </p>
           </div>
@@ -326,7 +363,7 @@ const PhotoAndLocationSection = () => {
                       <div>
                         <h2
                           className="fw-semibold mb-2"
-                          style={{ color: "#121212", fontSize: "2rem" }}
+                          style={{ color: "#121212", fontSize: "2rem", letterSpacing: '0.3px' }}
                         >
                           Profile Photo
                         </h2>
@@ -334,7 +371,7 @@ const PhotoAndLocationSection = () => {
                           className="mb-0"
                           style={{
                             fontSize: "1.1rem",
-                            color: "#666",
+                            color: "#121212",
                             lineHeight: "1.5",
                           }}
                         >
@@ -354,46 +391,88 @@ const PhotoAndLocationSection = () => {
                   >
                     <div className="text-center">
                       {croppedImage ? (
-                        <div className="mb-4">
+                        <div className="mb-4 position-relative">
                           <img
                             src={croppedImage}
                             alt="Profile Preview"
                             className="profile-preview mb-3"
                           />
+                          
+                          {/* Delete Icon Button */}
                           <button
-                            className="btn px-4 py-3 fw-semibold"
-                            onClick={() =>
-                              document.getElementById("fileInput").click()
-                            }
+                            className="btn position-absolute"
+                            onClick={() => {
+                              setCroppedImage(null);
+                              setImageSrc(null);
+                              setCroppedAreaPixels(null);
+                            }}
                             style={{
-                              borderRadius: "15px",
-                              background:
-                                "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                              top: "10px",
+                              right: "10px",
+                              width: "40px",
+                              height: "40px",
+                              borderRadius: "50%",
+                              background: "linear-gradient(135deg, #dc3545 0%, #c82333 100%)",
                               color: "#fff",
                               border: "none",
-                              transition:
-                                "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-                              boxShadow:
-                                "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                              boxShadow: "0 4px 15px rgba(220, 53, 69, 0.3)",
+                              zIndex: 10,
                             }}
                             onMouseEnter={(e) => {
-                              e.target.style.background =
-                                "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
-                              e.target.style.boxShadow =
-                                "0 8px 25px rgba(18, 18, 18, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15)";
-                              e.target.style.transform = "translateY(-2px)";
+                              e.target.style.background = "linear-gradient(135deg, #c82333 0%, #a71e2a 100%)";
+                              e.target.style.transform = "scale(1.1)";
+                              e.target.style.boxShadow = "0 6px 20px rgba(220, 53, 69, 0.4)";
                             }}
                             onMouseLeave={(e) => {
-                              e.target.style.background =
-                                "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                              e.target.style.boxShadow =
-                                "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)";
-                              e.target.style.transform = "translateY(0)";
+                              e.target.style.background = "linear-gradient(135deg, #dc3545 0%, #c82333 100%)";
+                              e.target.style.transform = "scale(1)";
+                              e.target.style.boxShadow = "0 4px 15px rgba(220, 53, 69, 0.3)";
                             }}
+                            title="Remove Photo"
                           >
-                            <BsCamera className="me-2" size={18} />
-                            Change Photo
+                            <BsX size={20} />
                           </button>
+                          
+                          <div className="d-flex gap-3 justify-content-center">
+                            <button
+                              className="btn px-4 py-3 fw-semibold"
+                              onClick={() =>
+                                document.getElementById("fileInput").click()
+                              }
+                              style={{
+                                borderRadius: "15px",
+                                background:
+                                  "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                                color: "#fff",
+                                border: "none",
+                                transition:
+                                  "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                                boxShadow:
+                                  "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.target.style.background =
+                                  "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
+                                e.target.style.boxShadow =
+                                  "0 8px 25px rgba(18, 18, 18, 0.4), 0 4px 12px rgba(0, 0, 0, 0.15)";
+                                e.target.style.transform = "translateY(-2px)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.background =
+                                  "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                                e.target.style.boxShadow =
+                                  "0 6px 20px rgba(0, 118, 116, 0.3), 0 3px 8px rgba(0, 0, 0, 0.1)";
+                                e.target.style.transform = "translateY(0)";
+                              }}
+                            >
+                              <BsCamera className="me-2" size={18} />
+                              Change Photo
+                            </button>
+                          </div>
                         </div>
                       ) : (
                         <div
@@ -444,13 +523,12 @@ const PhotoAndLocationSection = () => {
                     <div
                       className="p-4 rounded-3"
                       style={{
-                        backgroundColor: "rgba(0, 118, 116, 0.05)",
-                        border: "1px solid rgba(0, 118, 116, 0.1)",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <ul
                         className="mb-0"
-                        style={{ color: "#666", fontSize: "0.95rem" }}
+                        style={{ color: "#121212", fontSize: "1.1rem" }}
                       >
                         <li className="mb-2">
                           Clearly feature your face, taken from a short distance
@@ -497,7 +575,7 @@ const PhotoAndLocationSection = () => {
                       <div>
                         <h2
                           className="fw-semibold mb-2"
-                          style={{ color: "#121212", fontSize: "2rem" }}
+                          style={{ color: "#121212", fontSize: "2rem", letterSpacing: '0.3px' }}
                         >
                           Personal Details
                         </h2>
@@ -505,7 +583,7 @@ const PhotoAndLocationSection = () => {
                           className="mb-0"
                           style={{
                             fontSize: "1.1rem",
-                            color: "#666",
+                            color: "#121212",
                             lineHeight: "1.5",
                           }}
                         >
@@ -531,14 +609,22 @@ const PhotoAndLocationSection = () => {
                         >
                           <BsCalendar className="me-2" />
                           Date of Birth *
-                        </label>
+                        </label> <br />
                         <input
                           type="date"
                           className="form-input"
                           name="dob"
                           value={formData.dob}
                           onChange={handleFormChange}
+                          max={new Date().toISOString().split('T')[0]} // Prevent future dates
                         />
+                        {ageError && (
+                          <div className="mt-2">
+                            <small style={{ color: "#dc3545", fontSize: "0.9rem" }}>
+                              {ageError}
+                            </small>
+                          </div>
+                        )}
                       </div>
                       <div className="col-md-6">
                         <label
@@ -732,9 +818,9 @@ const PhotoAndLocationSection = () => {
                     {!isFormValid() && (
                       <p
                         className="mt-3 mb-0"
-                        style={{ color: "#666", fontSize: "0.9rem" }}
+                        style={{ color: "#121212", fontSize: "1.1rem" }}
                       >
-                        Please fill in all required fields and upload a photo
+                        Please fill in all required fields and upload a photo.
                       </p>
                     )}
                   </motion.div>

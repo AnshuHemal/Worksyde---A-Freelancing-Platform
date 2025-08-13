@@ -5,6 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { BsArrowRight, BsLightbulb, BsCheckCircle } from "react-icons/bs";
 import axios from "axios";
+import { RxCross2 } from "react-icons/rx";
+import { TiTick } from "react-icons/ti";
+
 
 const UserTitle = () => {
   const [title, setTitle] = useState("");
@@ -54,7 +57,7 @@ const UserTitle = () => {
       if (res.status === 200) {
         // toast.success("Professional headline saved successfully!");
         setTimeout(() => {
-        navigate("/create-profile/experience");
+          navigate("/create-profile/experience");
         }, 100);
       }
     } catch (err) {
@@ -150,11 +153,11 @@ const UserTitle = () => {
             </div>
             <h3
               className="fw-semibold mb-3"
-              style={{ color: "#121212", fontSize: "1.8rem" }}
+              style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
             >
               Loading Profile Setup
-          </h3>
-            <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
+            </h3>
+            <p className="mb-0" style={{ color: "#121212", fontSize: "1.2rem" }}>
               Preparing your profile creation experience...
             </p>
           </div>
@@ -198,7 +201,11 @@ const UserTitle = () => {
                       <div>
                         <h2
                           className="fw-semibold mb-2"
-                          style={{ color: "#121212", fontSize: "2rem" }}
+                          style={{
+                            color: "#121212",
+                            fontSize: "2rem",
+                            letterSpacing: "0.3px",
+                          }}
                         >
                           Your Professional Headline
                         </h2>
@@ -206,7 +213,7 @@ const UserTitle = () => {
                           className="mb-0"
                           style={{
                             fontSize: "1.1rem",
-                            color: "#666",
+                            color: "#121212",
                             lineHeight: "1.5",
                           }}
                         >
@@ -231,10 +238,10 @@ const UserTitle = () => {
                       >
                         Professional Headline
                       </label>
-            <input
+                      <input
                         type="text"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
+                        value={title}
+                        onChange={(e) => setTitle(e.target.value)}
                         className="title-input w-100"
                         placeholder="Example: Full-Stack Developer | React & Node.js Expert"
                         maxLength={100}
@@ -293,7 +300,7 @@ const UserTitle = () => {
                             className="example-title p-3 rounded-3 border"
                             style={{
                               backgroundColor: "#f8f9fa",
-                              borderColor: "#e3e3e3",
+                              borderColor: "#121212",
                               cursor: "pointer",
                               transition: "all 0.3s ease",
                               minHeight: "80px",
@@ -302,18 +309,16 @@ const UserTitle = () => {
                             }}
                             onClick={() => setTitle(example)}
                             onMouseEnter={(e) => {
-                              e.target.style.backgroundColor = "#e8f4f4";
                               e.target.style.borderColor = "#007674";
                             }}
                             onMouseLeave={(e) => {
-                              e.target.style.backgroundColor = "#f8f9fa";
                               e.target.style.borderColor = "#e3e3e3";
                             }}
                           >
                             <small
                               style={{
-                                color: "#666",
-                                fontSize: "0.9rem",
+                                color: "#121212",
+                                fontSize: "1rem",
                                 lineHeight: "1.4",
                               }}
                             >
@@ -381,14 +386,14 @@ const UserTitle = () => {
                             <span className="visually-hidden">Loading...</span>
                           </div>
                           Saving...
-          </div>
+                        </div>
                       ) : (
                         <>
                           Next, Add Experience
                           <BsArrowRight className="ms-2" size={20} />
                         </>
                       )}
-            </button>
+                    </button>
 
                     {title.length < 10 && title.length > 0 && (
                       <p
@@ -437,13 +442,12 @@ const UserTitle = () => {
                     <div
                       className="p-4 rounded-3"
                       style={{
-                        backgroundColor: "rgba(0, 118, 116, 0.05)",
-                        border: "1px solid rgba(0, 118, 116, 0.1)",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <ul
                         className="mb-0"
-                        style={{ color: "#666", fontSize: "0.95rem" }}
+                        style={{ color: "#121212", fontSize: "1.0rem" }}
                       >
                         <li className="mb-2">
                           Include your primary skill or expertise
@@ -481,20 +485,20 @@ const UserTitle = () => {
                       >
                         <h6
                           className="fw-semibold mb-1"
-                          style={{ color: "#007674", fontSize: "0.9rem" }}
+                          style={{ color: "#007674", fontSize: "1rem" }}
                         >
-                          ✅ Do's
+                          <TiTick size={20}/> Do's
                         </h6>
-                        <small style={{ color: "#666", fontSize: "1rem" }}>
-                          • Be specific about your expertise
+                        <small style={{ color: "#121212", fontSize: "1rem" }}>
+                          - Be specific about your expertise
                           <br />
-                          • Include relevant keywords
-                          <br />• Keep it professional yet engaging
+                          - Include relevant keywords
+                          <br />- Keep it professional yet engaging
                         </small>
                       </div>
 
                       <div
-                        className="p-3 rounded-3 border"
+                        className="mt-3 p-3 rounded-3 border"
                         style={{
                           backgroundColor: "#f8f9fa",
                           borderColor: "#e3e3e3",
@@ -502,15 +506,15 @@ const UserTitle = () => {
                       >
                         <h6
                           className="fw-semibold mb-1"
-                          style={{ color: "#da8535", fontSize: "0.9rem" }}
+                          style={{ color: "#da8535", fontSize: "1rem" }}
                         >
-                          ❌ Don'ts
+                          <RxCross2 size={20}/> Don'ts
                         </h6>
-                        <small style={{ color: "#666", fontSize: "1rem" }}>
-                          • Avoid generic terms like "expert"
+                        <small style={{ color: "#121212", fontSize: "1rem" }}>
+                          - Avoid generic terms like "expert"
                           <br />
-                          • Don't make it too long
-                          <br />• Avoid jargon or buzzwords
+                          - Don't make it too long
+                          <br />- Avoid jargon or buzzwords
                         </small>
                       </div>
                     </div>
@@ -525,8 +529,7 @@ const UserTitle = () => {
                     <div
                       className="p-3 rounded-3"
                       style={{
-                        backgroundColor: "rgba(218, 133, 53, 0.05)",
-                        border: "1px solid rgba(218, 133, 53, 0.1)",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <h6
@@ -535,7 +538,7 @@ const UserTitle = () => {
                       >
                         Character Guide
                       </h6>
-                      <div style={{ fontSize: "0.9rem", color: "#666" }}>
+                      <div style={{ fontSize: "1rem", color: "#121212" }}>
                         <div className="d-flex justify-content-between mb-1">
                           <span>Minimum:</span>
                           <span style={{ color: "#007674", fontWeight: 600 }}>
