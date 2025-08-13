@@ -64,6 +64,78 @@ const HomePage = () => {
   useEffect(() => {
     AOS.init({ duration: 1000 });
   }, []);
+
+  // Horizontal scroll effect for client logos
+  useEffect(() => {
+    const initHorizontalScroll = () => {
+      const logoWraps = document.querySelectorAll('.clients-one-logo-wrap');
+      
+      logoWraps.forEach((wrap, index) => {
+        if (wrap) {
+          // Reset any existing transforms
+          wrap.style.transform = 'translateX(0)';
+          
+          // Create the scroll animation
+          const animate = () => {
+            const currentTransform = wrap.style.transform;
+            const currentX = parseInt(currentTransform.match(/translateX\(([^)]+)\)/)?.[1] || '0');
+            
+            // Calculate the width to scroll (full width of the content)
+            const scrollWidth = wrap.scrollWidth;
+            const containerWidth = wrap.parentElement.offsetWidth;
+            
+            if (scrollWidth > containerWidth) {
+              // If content is wider than container, animate
+              const newX = currentX - 1; // Move 1px to the left
+              
+              // Reset to beginning when fully scrolled out
+              if (Math.abs(newX) >= scrollWidth - containerWidth) {
+                wrap.style.transform = 'translateX(0)';
+              } else {
+                wrap.style.transform = `translateX(${newX}px)`;
+              }
+            }
+          };
+          
+          // Start animation with a slight delay for each row
+          setTimeout(() => {
+            const animationId = setInterval(animate, 30); // 30ms interval for smooth animation
+            
+            // Store the animation ID for cleanup
+            wrap.dataset.animationId = animationId;
+          }, index * 1000); // Stagger the start of each row
+        }
+      });
+    };
+
+    // Initialize scroll on mount
+    initHorizontalScroll();
+    
+    // Re-initialize on window resize
+    const handleResize = () => {
+      // Clear existing animations
+      document.querySelectorAll('.clients-one-logo-wrap').forEach(wrap => {
+        if (wrap.dataset.animationId) {
+          clearInterval(parseInt(wrap.dataset.animationId));
+        }
+      });
+      
+      // Re-initialize after a short delay
+      setTimeout(initHorizontalScroll, 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    
+    // Cleanup function
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      document.querySelectorAll('.clients-one-logo-wrap').forEach(wrap => {
+        if (wrap.dataset.animationId) {
+          clearInterval(parseInt(wrap.dataset.animationId));
+        }
+      });
+    };
+  }, []);
   return (
     <div
       style={{
@@ -141,19 +213,7 @@ const HomePage = () => {
               </div>
             </div>
             <div className="w-layout-hflex clients-one-logo-wrapper overflow-hidden">
-              <div
-                className="w-layout-hflex clients-one-logo-wrap"
-                style={{
-                  WebkitTransform:
-                    "translate3d(0%, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0)",
-                  MozTransform:
-                    "translate3d(0%, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0)",
-                  MsTransform:
-                    "translate3d(0%, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0)",
-                  transform:
-                    "translate3d(0%, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0)",
-                }}
-              >
+              <div className="w-layout-hflex clients-one-logo-wrap">
                 <div className="w-layout-vflex client-one-logo">
                   <img
                     src={Google}
@@ -234,19 +294,7 @@ const HomePage = () => {
                   />
                 </div>
               </div>
-              <div
-                style={{
-                  WebkitTransform:
-                    "translate3d(0%, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0)",
-                  MozTransform:
-                    "translate3d(0%, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0)",
-                  MsTransform:
-                    "translate3d(0%, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0)",
-                  transform:
-                    "translate3d(0%, 0, 0) scale3d(1, 1, 1) rotateX(0) rotateY(0) rotateZ(0) skew(0, 0)",
-                }}
-                className="w-layout-hflex clients-one-logo-wrap"
-              >
+              <div className="w-layout-hflex clients-one-logo-wrap">
                 <div className="w-layout-vflex client-one-logo">
                   <img
                     src={Google}

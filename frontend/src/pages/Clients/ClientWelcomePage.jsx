@@ -94,7 +94,7 @@ const ClientWelcomePage = () => {
                   >
                     <h1
                       className="display-5 fw-semibold mb-4"
-                      style={{ color: "#121212" }}
+                      style={{ color: "#121212", letterSpacing: '0.3px' }}
                     >
                       Welcome, {user.name.split(" ")[0]}! 👋
                     </h1>
@@ -104,6 +104,7 @@ const ClientWelcomePage = () => {
                         fontSize: "2rem",
                         color: "#007674",
                         lineHeight: "1.3",
+                        letterSpacing: '0.3px'
                       }}
                     >
                       Let's create your first job post and find the right talent
@@ -112,7 +113,7 @@ const ClientWelcomePage = () => {
                       className="lead mb-5"
                       style={{
                         fontSize: "1.25rem",
-                        color: "#666",
+                        color: "#121212",
                         lineHeight: "1.6",
                         fontWeight: 500,
                       }}
@@ -179,7 +180,7 @@ const ClientWelcomePage = () => {
                 <div className="col-12 text-center mb-5">
                   <h3
                     className="fw-bold mb-3"
-                    style={{ color: "#121212", fontSize: "2.5rem" }}
+                    style={{ color: "#121212", fontSize: "2.5rem", letterSpacing: '0.3px' }}
                   >
                     Why Choose Worksyde?
                   </h3>
@@ -187,7 +188,7 @@ const ClientWelcomePage = () => {
                     className="lead"
                     style={{
                       fontSize: "1.25rem",
-                      color: "#666",
+                      color: "#121212",
                       maxWidth: "600px",
                       margin: "0 auto",
                     }}
@@ -236,7 +237,7 @@ const ClientWelcomePage = () => {
                             </div>
                             <h4
                               className="fw-bold mb-3"
-                              style={{ color: "#121212" }}
+                              style={{ color: "#121212", letterSpacing: '0.3px' }}
                             >
                               {feature.title}
                             </h4>
@@ -244,7 +245,7 @@ const ClientWelcomePage = () => {
                               className="mb-0"
                               style={{
                                 fontSize: "1.1rem",
-                                color: "#666",
+                                color: "#121212",
                                 lineHeight: "1.6",
                               }}
                             >
@@ -270,15 +271,13 @@ const ClientWelcomePage = () => {
                     className="card border-0 shadow-lg"
                     style={{
                       borderRadius: "25px",
-                      background:
-                        "linear-gradient(135deg, #e8f4f4 0%, #f0f9f9 100%)",
                       border: "1px solid rgba(0, 118, 116, 0.1)",
                     }}
                   >
                     <div className="card-body p-5">
                       <h3
                         className="fw-bold text-center mb-4"
-                        style={{ color: "#007674" }}
+                        style={{ color: "#007674", letterSpacing: '0.3px' }}
                       >
                         Quick Start Guide
                       </h3>
@@ -301,14 +300,14 @@ const ClientWelcomePage = () => {
                           </div>
                           <h5
                             className="fw-semibold mb-2"
-                            style={{ color: "#121212" }}
+                            style={{ color: "#121212", letterSpacing: '0.3px' }}
                           >
                             Create Job Post
                           </h5>
                           <p
                             style={{
                               fontSize: "1rem",
-                              color: "#666",
+                              color: "#121212",
                               lineHeight: "1.5",
                             }}
                           >
@@ -333,14 +332,14 @@ const ClientWelcomePage = () => {
                           </div>
                           <h5
                             className="fw-semibold mb-2"
-                            style={{ color: "#121212" }}
+                            style={{ color: "#121212", letterSpacing: '0.3px' }}
                           >
                             Review Proposals
                           </h5>
                           <p
                             style={{
                               fontSize: "1rem",
-                              color: "#666",
+                              color: "#121212",
                               lineHeight: "1.5",
                             }}
                           >
@@ -365,14 +364,14 @@ const ClientWelcomePage = () => {
                           </div>
                           <h5
                             className="fw-semibold mb-2"
-                            style={{ color: "#121212" }}
+                            style={{ color: "#121212", letterSpacing: '0.3px' }}
                           >
                             Start Working
                           </h5>
                           <p
                             style={{
                               fontSize: "1rem",
-                              color: "#666",
+                              color: "#121212",
                               lineHeight: "1.5",
                             }}
                           >

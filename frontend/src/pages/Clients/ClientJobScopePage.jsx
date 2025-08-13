@@ -146,7 +146,7 @@ const ClientJobScopePage = () => {
               >
                 <h2
                   className="display-5 fw-semibold mb-3"
-                  style={{ color: "#121212" }}
+                  style={{ color: "#121212", letterSpacing: '0.3px' }}
                 >
                   Create Your Job Post
                 </h2>
@@ -154,8 +154,9 @@ const ClientJobScopePage = () => {
                   className="lead mb-4"
                   style={{
                     fontSize: "1.25rem",
-                    color: "#007674",
+                    color: "#121212",
                     fontWeight: 600,
+                    letterSpacing: '0.3px'
                   }}
                 >
                   Step 3: Define the scope and requirements of your project
@@ -175,19 +176,17 @@ const ClientJobScopePage = () => {
                       className="cardd border-0 shadow-lg h-100"
                       style={{
                         borderRadius: "25px",
-                        background:
-                          "linear-gradient(135deg, #e8f4f4 0%, #f0f9f9 100%)",
                         border: "1px solid rgba(0, 118, 116, 0.1)",
                       }}
                     >
                       <div className="card-body p-5">
-                        <h3 className="fw-semibold mb-4" style={{ color: "#121212" }}>
+                        <h3 className="fw-semibold mb-4" style={{ color: "#121212", letterSpacing: '0.3px' }}>
                           Project Scope
                         </h3>
                         {/* Scope of Work Section */}
                         <div className="mb-5">
-                          <h5 className="fw-semibold mb-4" style={{ color: "#007674" }}>
-                            <BsBriefcase className="me-2" />
+                          <h5 className="fw-semibold mb-4" style={{ color: "#007674", letterSpacing: '0.3px' }}>
+                            <BsBriefcase className="me-3" style={{ color: "#007674" }} size={20} />
                             Scope of Work
                           </h5>
                           <div className="row g-3">
@@ -195,11 +194,11 @@ const ClientJobScopePage = () => {
                               <div key={option.value} className="col-12">
                                 <div
                                   className={`p-4 rounded cursor-pointer border-2 ${
-                                    scopeOfWork === option.value ? "border-primary" : "border-light"
+                                    scopeOfWork === option.value ? "#007674" : "border-light"
                                   }`}
                                   style={{
                                     background: scopeOfWork === option.value
-                                      ? "rgba(0, 118, 116, 0.05)"
+                                      ? "#fff"
                                       : "#fff",
                                     border: scopeOfWork === option.value
                                       ? "2px solid #007674"
@@ -210,7 +209,7 @@ const ClientJobScopePage = () => {
                                   onClick={() => setScopeOfWork(option.value)}
                                   onMouseEnter={(e) => {
                                     if (scopeOfWork !== option.value) {
-                                      e.target.style.background = "rgba(0, 118, 116, 0.02)";
+                                      e.target.style.background = "#fff";
                                       e.target.style.borderColor = "#007674";
                                     }
                                   }}
@@ -239,7 +238,7 @@ const ClientJobScopePage = () => {
                                       <h6 className="fw-semibold mb-2" style={{ color: "#121212" }}>
                                         {option.title}
                                       </h6>
-                                      <p className="mb-0" style={{ fontSize: "1rem", color: "#666", lineHeight: "1.5" }}>
+                                      <p className="mb-0" style={{ fontSize: "1rem", color: "#121212", lineHeight: "1.5" }}>
                                         {option.description}
                                       </p>
                                     </div>
@@ -251,8 +250,8 @@ const ClientJobScopePage = () => {
                         </div>
                         {/* Duration Section */}
                         <div className="mb-5">
-                          <h5 className="fw-semibold mb-4" style={{ color: "#007674" }}>
-                            <BsClock className="me-2" />
+                          <h5 className="fw-semibold mb-4" style={{ color: "#007674", letterSpacing: '0.3px' }}>
+                            <BsClock className="me-3" style={{ color: "#007674" }} size={20} />
                             How long will your work take?
                           </h5>
                           <div className="row g-3">
@@ -260,12 +259,12 @@ const ClientJobScopePage = () => {
                               <div key={option} className="col-md-6">
                                 <div
                                   className={`p-3 rounded cursor-pointer border-2 ${
-                                    duration === option ? "border-primary" : "border-light"
+                                    duration === option ? "#007674" : "border-light"
                                   }`}
                                   style={{
                                     minHeight: "64px", // Ensures consistent height
                                     background: duration === option
-                                      ? "rgba(0, 118, 116, 0.05)"
+                                      ? "#fff"
                                       : "#fff",
                                     border: duration === option
                                       ? "2px solid #007674"
@@ -278,7 +277,7 @@ const ClientJobScopePage = () => {
                                   onClick={() => setDuration(option)}
                                   onMouseEnter={(e) => {
                                     if (duration !== option) {
-                                      e.target.style.background = "rgba(0, 118, 116, 0.02)";
+                                      e.target.style.background = "#fff";
                                       e.target.style.borderColor = "#007674";
                                     }
                                   }}
@@ -327,22 +326,21 @@ const ClientJobScopePage = () => {
                       className="cardd border-0 shadow-lg"
                       style={{
                         borderRadius: "25px",
-                        background:
-                          "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)",
+                        background: "#fff",
                         border: "1px solid rgba(0, 118, 116, 0.1)",
                       }}
                     >
                       <div className="card-body p-5">
-                        <h3 className="fw-semibold mb-4" style={{ color: "#121212" }}>
+                        <h3 className="fw-semibold mb-4" style={{ color: "#121212", letterSpacing: '0.3px' }}>
                           Additional Details
                         </h3>
                         {/* Experience Level Section */}
                         <div className="mb-5">
-                          <h5 className="fw-semibold mb-3" style={{ color: "#007674" }}>
-                            <BsPerson className="me-2" />
+                          <h5 className="fw-semibold mb-3" style={{ color: "#007674", letterSpacing: '0.3px' }}>
+                            <BsPerson className="me-3" style={{ color: "#007674" }} size={20} />
                             What level of experience will it need?
                           </h5>
-                          <p className="mb-4" style={{ fontSize: "1rem", color: "#666", lineHeight: "1.5" }}>
+                          <p className="mb-4" style={{ fontSize: "1rem", color: "#121212", lineHeight: "1.5" }}>
                             This won't restrict any proposals, but helps match expertise to your budget.
                           </p>
                           <div className="row g-3">
@@ -350,11 +348,11 @@ const ClientJobScopePage = () => {
                               <div key={option.value} className="col-12">
                                 <div
                                   className={`p-4 rounded cursor-pointer border-2 ${
-                                    experienceLevel === option.value ? "border-primary" : "border-light"
+                                    experienceLevel === option.value ? "#007674" : "border-light"
                                   }`}
                                   style={{
                                     background: experienceLevel === option.value
-                                      ? "rgba(0, 118, 116, 0.05)"
+                                      ? "#fff"
                                       : "#fff",
                                     border: experienceLevel === option.value
                                       ? "2px solid #007674"
@@ -365,7 +363,7 @@ const ClientJobScopePage = () => {
                                   onClick={() => setExperienceLevel(option.value)}
                                   onMouseEnter={(e) => {
                                     if (experienceLevel !== option.value) {
-                                      e.target.style.background = "rgba(0, 118, 116, 0.02)";
+                                      e.target.style.background = "#fff";
                                       e.target.style.borderColor = "#007674";
                                     }
                                   }}
@@ -394,7 +392,7 @@ const ClientJobScopePage = () => {
                                       <h6 className="fw-semibold mb-2" style={{ color: "#121212" }}>
                                         {option.title}
                                       </h6>
-                                      <p className="mb-0" style={{ fontSize: "1rem", color: "#666", lineHeight: "1.5" }}>
+                                      <p className="mb-0" style={{ fontSize: "1rem", color: "#121212", lineHeight: "1.5" }}>
                                         {option.description}
                                       </p>
                                     </div>
@@ -406,11 +404,11 @@ const ClientJobScopePage = () => {
                         </div>
                         {/* Contract to Hire Section */}
                         <div className="mb-5">
-                          <h5 className="fw-semibold mb-3" style={{ color: "#007674" }}>
-                            <BsBriefcase className="me-2" />
+                          <h5 className="fw-semibold mb-3" style={{ color: "#007674", letterSpacing: '0.3px' }}>
+                            <BsBriefcase className="me-3" style={{ color: "#007674" }} size={20} />
                             Is this job a contract-to-hire opportunity?
                           </h5>
-                          <p className="mb-4" style={{ fontSize: "1rem", color: "#666", lineHeight: "1.5" }}>
+                          <p className="mb-4" style={{ fontSize: "1rem", color: "#121212", lineHeight: "1.5" }}>
                             This helps set expectations with talent and won't restrict who can submit proposals.
                           </p>
                           <div className="row g-3">
@@ -418,11 +416,11 @@ const ClientJobScopePage = () => {
                               <div key={option.value} className="col-12">
                                 <div
                                   className={`p-4 rounded cursor-pointer border-2 ${
-                                    contractToHire === option.value ? "border-primary" : "border-light"
+                                    contractToHire === option.value ? "#007674" : "border-light"
                                   }`}
                                   style={{
                                     background: contractToHire === option.value
-                                      ? "rgba(0, 118, 116, 0.05)"
+                                      ? "#fff"
                                       : "#fff",
                                     border: contractToHire === option.value
                                       ? "2px solid #007674"
@@ -433,7 +431,7 @@ const ClientJobScopePage = () => {
                                   onClick={() => setContractToHire(option.value)}
                                   onMouseEnter={(e) => {
                                     if (contractToHire !== option.value) {
-                                      e.target.style.background = "rgba(0, 118, 116, 0.02)";
+                                      e.target.style.background = "#fff";
                                       e.target.style.borderColor = "#007674";
                                     }
                                   }}
@@ -462,7 +460,7 @@ const ClientJobScopePage = () => {
                                       <h6 className="fw-semibold mb-2" style={{ color: "#121212" }}>
                                         {option.title}
                                       </h6>
-                                      <p className="mb-0" style={{ fontSize: "1rem", color: "#666", lineHeight: "1.5" }}>
+                                      <p className="mb-0" style={{ fontSize: "1rem", color: "#121212", lineHeight: "1.5" }}>
                                         {option.description}
                                       </p>
                                     </div>
@@ -476,29 +474,19 @@ const ClientJobScopePage = () => {
                           className="btn fw-semibold px-5 py-3 w-100"
                           style={{
                             borderRadius: "50px",
-                            background:
-                              !isLoading
-                                ? "linear-gradient(135deg, #007674 0%, #005a58 100%)"
-                                : "#ccc",
+                            background: "#007674",
                             color: "#fff",
                             fontSize: "1.1rem",
-                            boxShadow: !isLoading
-                              ? "0 6px 20px rgba(0, 118, 116, 0.3)"
-                              : "none",
+                            boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
                             border: "none",
                             transition: "all 0.3s ease",
                           }}
                           disabled={isLoading}
                           onClick={handleNext}
-                          whileHover={
-                            !isLoading
-                              ? {
-                                  scale: 1.02,
-                                  boxShadow:
-                                    "0 8px 25px rgba(0, 118, 116, 0.4)",
-                                }
-                              : {}
-                          }
+                          whileHover={{
+                            scale: 1.02,
+                            boxShadow: "0 8px 25px rgba(0, 118, 116, 0.4)",
+                          }}
                           whileTap={{ scale: 0.98 }}
                         >
                           {isLoading ? (

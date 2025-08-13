@@ -100,7 +100,7 @@ const ClientJobTitlePage = () => {
               >
                 <h2
                   className="display-5 fw-semibold mb-3"
-                  style={{ color: "#121212" }}
+                  style={{ color: "#121212", letterSpacing: '0.3px' }}
                 >
                   Create Your Job Post
                 </h2>
@@ -108,8 +108,9 @@ const ClientJobTitlePage = () => {
                   className="lead mb-4"
                   style={{
                     fontSize: "1.25rem",
-                    color: "#007674",
+                    color: "#121212",
                     fontWeight: 600,
+                    letterSpacing: '0.3px'
                   }}
                 >
                   Step 1: Let's start with a compelling title
@@ -129,8 +130,6 @@ const ClientJobTitlePage = () => {
                       className="cardd border-0 shadow-lg h-100"
                       style={{
                         borderRadius: "25px",
-                        background:
-                          "linear-gradient(135deg, #e8f4f4 0%, #f0f9f9 100%)",
                         border: "1px solid rgba(0, 118, 116, 0.1)",
                       }}
                     >
@@ -142,7 +141,7 @@ const ClientJobTitlePage = () => {
                           />
                           <h4
                             className="fw-bold mb-0"
-                            style={{ color: "#121212" }}
+                            style={{ color: "#121212", letterSpacing: '0.3px' }}
                           >
                             Example Job Titles
                           </h4>
@@ -151,7 +150,7 @@ const ClientJobTitlePage = () => {
                           className="mb-4"
                           style={{
                             fontSize: "1rem",
-                            color: "#666",
+                            color: "#121212",
                             lineHeight: "1.6",
                           }}
                         >
@@ -164,24 +163,22 @@ const ClientJobTitlePage = () => {
                               key={index}
                               className="p-4 rounded"
                               style={{
-                                background: "rgba(255, 255, 255, 0.8)",
-                                border: "1px solid rgba(0, 118, 116, 0.1)",
+                                background: "#fff",
+                                border: "1px solid #e3e3e3",
                                 cursor: "pointer",
                                 transition: "all 0.3s ease",
                                 marginBottom: "12px",
                               }}
                               onMouseEnter={(e) => {
                                 e.target.style.background =
-                                  "rgba(255, 255, 255, 0.95)";
+                                  "#fff";
                                 e.target.style.transform = "translateY(-3px)";
-                                e.target.style.boxShadow =
-                                  "0 8px 25px rgba(0, 118, 116, 0.15)";
+                                
                               }}
                               onMouseLeave={(e) => {
                                 e.target.style.background =
-                                  "rgba(255, 255, 255, 0.8)";
+                                  "#fff";
                                 e.target.style.transform = "translateY(0)";
-                                e.target.style.boxShadow = "none";
                               }}
                               onClick={() => setTitle(example)}
                             >
@@ -189,7 +186,7 @@ const ClientJobTitlePage = () => {
                                 className="mb-0"
                                 style={{
                                   fontSize: "1rem",
-                                  color: "#333",
+                                  color: "#121212",
                                   fontWeight: 500,
                                   lineHeight: "1.5",
                                 }}
@@ -215,15 +212,13 @@ const ClientJobTitlePage = () => {
                       className="cardd border-0 shadow-lg"
                       style={{
                         borderRadius: "25px",
-                        background:
-                          "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)",
                         border: "1px solid rgba(0, 118, 116, 0.1)",
                       }}
                     >
                       <div className="card-body p-5">
                         <h3
-                          className="fw-bold mb-4"
-                          style={{ color: "#121212" }}
+                          className="fw-semibold mb-4"
+                          style={{ color: "#121212", letterSpacing: '0.3px' }}
                         >
                           Great, Let's start with a strong title
                         </h3>
@@ -231,7 +226,7 @@ const ClientJobTitlePage = () => {
                           className="mb-4"
                           style={{
                             fontSize: "1.1rem",
-                            color: "#666",
+                            color: "#121212",
                             lineHeight: "1.6",
                           }}
                         >
@@ -244,7 +239,7 @@ const ClientJobTitlePage = () => {
                         <div className="mb-4">
                           <label
                             className="fw-semibold mb-3 d-block"
-                            style={{ color: "#121212" }}
+                            style={{ color: "#121212", letterSpacing: '0.3px' }}
                           >
                             Job Title
                           </label>
@@ -262,7 +257,7 @@ const ClientJobTitlePage = () => {
                                 borderRadius: "15px",
                                 border: "2px solid #e3e3e3",
                                 padding: "15px 20px",
-                                background: "#fff",
+                                background: "#fcfafd",
                                 transition: "all 0.3s ease",
                               }}
                               onFocus={(e) => {

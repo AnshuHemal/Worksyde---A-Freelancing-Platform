@@ -168,7 +168,7 @@ const ClientJobSkillSelectionPage = () => {
               >
                 <h2
                   className="display-5 fw-semibold mb-3"
-                  style={{ color: "#121212" }}
+                  style={{ color: "#121212", letterSpacing: '0.3px' }}
                 >
                   Create Your Job Post
                 </h2>
@@ -176,8 +176,9 @@ const ClientJobSkillSelectionPage = () => {
                   className="lead mb-4"
                   style={{
                     fontSize: "1.25rem",
-                    color: "#007674",
+                    color: "#121212",
                     fontWeight: 600,
+                    letterSpacing: '0.3px'
                   }}
                 >
                   Step 2: Select the skills required for your project
@@ -197,8 +198,6 @@ const ClientJobSkillSelectionPage = () => {
                       className="card border-0 shadow-lg h-100"
                       style={{
                         borderRadius: "25px",
-                        background:
-                          "linear-gradient(135deg, #e8f4f4 0%, #f0f9f9 100%)",
                         border: "1px solid rgba(0, 118, 116, 0.1)",
                       }}
                     >
@@ -210,7 +209,7 @@ const ClientJobSkillSelectionPage = () => {
                           />
                           <h4
                             className="fw-bold mb-0"
-                            style={{ color: "#121212" }}
+                            style={{ color: "#121212", letterSpacing: '0.3px' }}
                           >
                             Popular Skills
                           </h4>
@@ -219,7 +218,7 @@ const ClientJobSkillSelectionPage = () => {
                           className="mb-4"
                           style={{
                             fontSize: "1rem",
-                            color: "#666",
+                            color: "#121212",
                             lineHeight: "1.6",
                           }}
                         >
@@ -234,9 +233,9 @@ const ClientJobSkillSelectionPage = () => {
                                 borderRadius: "25px",
                                 background: selectedSkills.includes(skill)
                                   ? "linear-gradient(135deg, #007674 0%, #005a58 100%)"
-                                  : "rgba(255, 255, 255, 0.8)",
-                                color: selectedSkills.includes(skill) ? "#fff" : "#333",
-                                border: "1px solid rgba(0, 118, 116, 0.2)",
+                                  : "#fff",
+                                color: selectedSkills.includes(skill) ? "#fff" : "#121212",
+                                border: "1px solid #e3e3e3",
                                 fontSize: "0.9rem",
                                 fontWeight: 600,
                                 padding: "8px 16px",
@@ -275,15 +274,13 @@ const ClientJobSkillSelectionPage = () => {
                       className="card border-0 shadow-lg"
                       style={{
                         borderRadius: "25px",
-                        background:
-                          "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)",
                         border: "1px solid rgba(0, 118, 116, 0.1)",
                       }}
                     >
                       <div className="card-body p-5">
                         <h3
-                          className="fw-bold mb-4"
-                          style={{ color: "#121212" }}
+                          className="fw-semibold mb-4"
+                          style={{ color: "#121212", letterSpacing: '0.3px', fontSize: '2rem' }}
                         >
                           Awesome, add main skills required for your work
                         </h3>
@@ -291,7 +288,7 @@ const ClientJobSkillSelectionPage = () => {
                           className="mb-4"
                           style={{
                             fontSize: "1.1rem",
-                            color: "#666",
+                            color: "#121212",
                             lineHeight: "1.6",
                           }}
                         >
@@ -306,13 +303,13 @@ const ClientJobSkillSelectionPage = () => {
                           <div className="d-flex justify-content-between align-items-center mb-3">
                             <label
                               className="fw-semibold"
-                              style={{ color: "#121212" }}
+                              style={{ color: "#121212", letterSpacing: '0.3px' }}
                             >
                               Search & Add Skills
                             </label>
                             <span
                               className="text-muted"
-                              style={{ fontSize: "0.9rem" }}
+                              style={{ fontSize: "1rem" }}
                             >
                               {selectedSkills.length}/15 skills
                             </span>
@@ -323,7 +320,7 @@ const ClientJobSkillSelectionPage = () => {
                               <span
                                 className="input-group-text border-end-0"
                                 style={{
-                                  background: "#fff",
+                                  background: "#fcfafd",
                                   border: "2px solid #e3e3e3",
                                   borderRight: "none",
                                   borderRadius: "15px 0 0 15px",
@@ -387,7 +384,7 @@ const ClientJobSkillSelectionPage = () => {
                                     <span
                                       style={{
                                         fontSize: "1rem",
-                                        color: "#333",
+                                        color: "#121212",
                                         fontWeight: 500,
                                       }}
                                     >
@@ -405,7 +402,7 @@ const ClientJobSkillSelectionPage = () => {
                           <div className="mb-4">
                             <h6
                               className="fw-semibold mb-3"
-                              style={{ color: "#121212" }}
+                              style={{ color: "#121212", letterSpacing: '0.3px' }}
                             >
                               Selected Skills ({selectedSkills.length})
                             </h6>
@@ -415,12 +412,12 @@ const ClientJobSkillSelectionPage = () => {
                                   key={index}
                                   className="badge d-flex align-items-center gap-2"
                                   style={{
-                                    backgroundColor: "rgba(0, 118, 116, 0.1)",
-                                    color: "#007674",
+                                    backgroundColor: "#fcfafd",
+                                    color: "#121212",
                                     fontSize: "1rem",
                                     fontWeight: 600,
                                     borderRadius: "25px",
-                                    border: "1px solid rgba(0, 118, 116, 0.2)",
+                                    border: "1px solid #e3e3e3",
                                     padding: "10px 15px",
                                   }}
                                   initial={{ scale: 0.8, opacity: 0 }}
@@ -452,9 +449,9 @@ const ClientJobSkillSelectionPage = () => {
                           {selectedSkills.length < 5 && selectedSkills.length > 0 && (
                             <div className="alert alert-warning border-0" style={{
                               borderRadius: "15px",
-                              background: "rgba(255, 193, 7, 0.1)",
-                              border: "1px solid rgba(255, 193, 7, 0.2)",
-                              color: "#856404",
+                              background: "#fcfafd",
+                              border: "1px solid #e3e3e3",
+                              color: "#121212",
                             }}>
                               <BsCheckCircle className="me-2" />
                               Please select at least 5 skills to continue.
@@ -463,9 +460,9 @@ const ClientJobSkillSelectionPage = () => {
                           {selectedSkills.length >= 5 && (
                             <div className="alert alert-success border-0" style={{
                               borderRadius: "15px",
-                              background: "rgba(40, 167, 69, 0.1)",
-                              border: "1px solid rgba(40, 167, 69, 0.2)",
-                              color: "#155724",
+                              background: "#fcfafd",
+                              border: "1px solid #e3e3e3",
+                              color: "#121212",
                             }}>
                               <BsCheckCircle className="me-2" />
                               Great! You've selected {selectedSkills.length} skills.
@@ -477,28 +474,19 @@ const ClientJobSkillSelectionPage = () => {
                           className="btn fw-semibold px-5 py-3 w-100"
                           style={{
                             borderRadius: "50px",
-                            background:
-                              selectedSkills.length >= 5
-                                ? "linear-gradient(135deg, #007674 0%, #005a58 100%)"
-                                : "#ccc",
+                            background: "#007674",
                             color: "#fff",
                             fontSize: "1.1rem",
-                            boxShadow: selectedSkills.length >= 5
-                              ? "0 6px 20px rgba(0, 118, 116, 0.3)"
-                              : "none",
+                            boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
                             border: "none",
                             transition: "all 0.3s ease",
                           }}
                           disabled={selectedSkills.length < 5 || isLoading}
                           onClick={handleNext}
-                          whileHover={
-                            selectedSkills.length >= 5
-                              ? {
-                                  scale: 1.02,
-                                  boxShadow: "0 8px 25px rgba(0, 118, 116, 0.4)",
-                                }
-                              : {}
-                          }
+                          whileHover={{
+                            scale: 1.02,
+                            boxShadow: "0 8px 25px rgba(0, 118, 116, 0.4)",
+                          }}
                           whileTap={{ scale: 0.98 }}
                         >
                           {isLoading ? (
