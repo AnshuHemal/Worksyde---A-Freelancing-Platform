@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
-import Header2 from "../../components/Header2";
+import ClientHeader from "../../components/ClientHeader";
 import { BsLightbulb, BsPaperclip, BsTrash, BsPencil } from "react-icons/bs";
 import { createPortal } from "react-dom";
 
@@ -626,7 +626,7 @@ const OfferSendingPage = () => {
 
   return (
     <>
-      <Header2 />
+      <ClientHeader />
       <div
         className="section-container"
         style={{
