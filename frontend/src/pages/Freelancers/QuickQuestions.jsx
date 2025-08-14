@@ -435,7 +435,11 @@ const QuickQuestions = () => {
                         className="fw-semibold mb-2"
                         style={{ color: "#121212" }}
                       >
-                        <RiLightbulbFlashLine size={25} style={{color: '#007674'}}/> Quick Tips
+                        <RiLightbulbFlashLine
+                          size={25}
+                          style={{ color: "#007674" }}
+                        />{" "}
+                        Quick Tips
                       </h6>
                       <ul
                         className="mb-0"
@@ -530,7 +534,6 @@ const QuickQuestions = () => {
                                     "transparent";
                                   e.target.style.transform =
                                     "translateY(-3px) scale(1.02)";
-                                  
                                 }
                               }}
                               onMouseLeave={(e) => {
@@ -540,7 +543,6 @@ const QuickQuestions = () => {
                                     "transparent";
                                   e.target.style.transform =
                                     "translateY(0) scale(1)";
-                                  
                                 }
                               }}
                             >
@@ -595,7 +597,10 @@ const QuickQuestions = () => {
 
                       {/* Navigation */}
                       <div className="d-flex justify-content-between align-items-center mt-5">
-                        <div className="text-black" style={{fontSize: '1.2rem'}}>
+                        <div
+                          className="text-black"
+                          style={{ fontSize: "1.2rem" }}
+                        >
                           <small>
                             {currentStep + 1} of {questions.length} questions
                           </small>

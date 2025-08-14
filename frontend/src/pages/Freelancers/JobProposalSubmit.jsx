@@ -231,14 +231,15 @@ const JobProposalSubmit = () => {
     <>
       <Header2 />
       <div
+        className="section-container"
         style={{
           background: "#fff",
           minHeight: "100vh",
           fontFamily: "Inter, Arial, sans-serif",
+          
         }}
       >
         <div
-          className="section-container"
           style={{
             maxWidth: "1400px",
             margin: "0 auto",
@@ -256,6 +257,7 @@ const JobProposalSubmit = () => {
           >
             <h1
               style={{
+                letterSpacing: "0.3px",
                 fontSize: "32px",
                 fontWeight: "600",
                 color: "#222",
@@ -289,6 +291,7 @@ const JobProposalSubmit = () => {
                     fontSize: "26px",
                     marginBottom: "24px",
                     color: "#111",
+                    letterSpacing: "0.3px",
                   }}
                 >
                   Job details
@@ -302,6 +305,7 @@ const JobProposalSubmit = () => {
                     marginBottom: "16px",
                     color: "#111",
                     lineHeight: "1.3",
+                    letterSpacing: "0.3px",
                   }}
                 >
                   {safeRender(job.title, "Job Title Not Available")}
@@ -318,19 +322,20 @@ const JobProposalSubmit = () => {
                 >
                   <span
                     style={{
-                      background: "#f8f9fa",
+                      background: "#fff",
                       color: "#495057",
                       padding: "6px 12px",
                       borderRadius: "20px",
-                      fontSize: "14px",
+                      fontSize: "16px",
                       fontWeight: "500",
+                      border: "1px solid #e3e3e3",
                     }}
                   >
                     {typeof job.category === "object"
                       ? job.category.name
                       : job.category || "General"}
                   </span>
-                  <span style={{ color: "#6c757d", fontSize: "14px" }}>
+                  <span style={{ color: "#121212", fontSize: "16px" }}>
                     Posted {formatPostDate(job.createdAt)}
                   </span>
                 </div>
@@ -341,8 +346,8 @@ const JobProposalSubmit = () => {
                   <div style={{ flex: 1 }}>
                     <p
                       style={{
-                        color: "#495057",
-                        fontSize: "16px",
+                        color: "#121212",
+                        fontSize: "18px",
                         lineHeight: "1.6",
                         marginBottom: "16px",
                       }}
@@ -393,16 +398,16 @@ const JobProposalSubmit = () => {
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "8px",
+                          gap: "12px",
                           marginBottom: "4px",
                         }}
                       >
-                        <BsBriefcase size={18} style={{ color: "#007476" }} />
+                        <BsBriefcase size={20} style={{ color: "#007476" }} />
                         <span
                           style={{
                             fontWeight: "600",
                             color: "#111",
-                            fontSize: "16px",
+                            fontSize: "18px",
                           }}
                         >
                           {typeof job.experienceLevel === "object"
@@ -410,7 +415,7 @@ const JobProposalSubmit = () => {
                             : job.experienceLevel || "Not specified"}
                         </span>
                       </div>
-                      <span style={{ color: "#6c757d", fontSize: "14px" }}>
+                      <span style={{ color: "#121212", fontSize: "16px" }}>
                         Experience level
                       </span>
                     </div>
@@ -420,16 +425,19 @@ const JobProposalSubmit = () => {
                         style={{
                           display: "flex",
                           alignItems: "center",
-                          gap: "8px",
+                          gap: "12px",
                           marginBottom: "4px",
                         }}
                       >
-                        <BsCurrencyRupee size={18} style={{ color: "#007476" }} />
+                        <BsCurrencyRupee
+                          size={20}
+                          style={{ color: "#007476" }}
+                        />
                         <span
                           style={{
                             fontWeight: "600",
                             color: "#111",
-                            fontSize: "16px",
+                            fontSize: "18px",
                           }}
                         >
                           {job.budgetType === "fixed"
@@ -439,7 +447,7 @@ const JobProposalSubmit = () => {
                               }`}
                         </span>
                       </div>
-                      <span style={{ color: "#6c757d", fontSize: "14px" }}>
+                      <span style={{ color: "#121212", fontSize: "16px" }}>
                         {job.budgetType === "fixed"
                           ? "Fixed Price"
                           : "Hourly Range"}
@@ -455,18 +463,18 @@ const JobProposalSubmit = () => {
                           marginBottom: "4px",
                         }}
                       >
-                        <BsClock size={18} style={{ color: "#007476" }} />
+                        <BsClock size={20} style={{ color: "#007476" }} />
                         <span
                           style={{
                             fontWeight: "600",
                             color: "#111",
-                            fontSize: "16px",
+                            fontSize: "18px",
                           }}
                         >
                           {getJobDuration(job) || "Not specified"}
                         </span>
                       </div>
-                      <span style={{ color: "#6c757d", fontSize: "14px" }}>
+                      <span style={{ color: "#121212", fontSize: "16px" }}>
                         {(() => {
                           const duration = getJobDuration(job);
                           // If duration looks like hours per week, label accordingly
@@ -499,6 +507,7 @@ const JobProposalSubmit = () => {
                     fontSize: "26px",
                     marginBottom: "24px",
                     color: "#111",
+                    letterSpacing: "0.3px",
                   }}
                 >
                   Skills and expertise
@@ -509,19 +518,20 @@ const JobProposalSubmit = () => {
                       <span
                         key={index}
                         style={{
-                          background: "#f8f9fa",
-                          color: "#495057",
-                          padding: "6px 12px",
+                          background: "#fff",
+                          color: "#121212",
+                          padding: "6px 15px",
                           borderRadius: "20px",
-                          fontSize: "14px",
+                          fontSize: "16px",
                           fontWeight: "500",
+                          border: "1px solid #e3e3e3",
                         }}
                       >
                         {typeof skill === "object" ? skill.name : skill}
                       </span>
                     ))
                   ) : (
-                    <span style={{ color: "#6c757d", fontSize: "16px" }}>
+                    <span style={{ color: "#121212", fontSize: "16px" }}>
                       No skills specified
                     </span>
                   )}
@@ -548,6 +558,7 @@ const JobProposalSubmit = () => {
                     fontSize: "26px",
                     marginBottom: "24px",
                     color: "#111",
+                    letterSpacing: "0.3px",
                   }}
                 >
                   Your proposed terms
@@ -557,10 +568,11 @@ const JobProposalSubmit = () => {
                   <label
                     style={{
                       fontWeight: "600",
-                      fontSize: "18px",
+                      fontSize: "20px",
                       color: "#111",
                       marginBottom: "8px",
                       display: "block",
+                      letterSpacing: "0.3px",
                     }}
                   >
                     {proposal.budgetType === "fixed"
@@ -573,8 +585,8 @@ const JobProposalSubmit = () => {
                   {/* Summary caption */}
                   <p
                     style={{
-                      color: "#6c757d",
-                      fontSize: "16px",
+                      color: "#121212",
+                      fontSize: "18px",
                       marginBottom: "16px",
                     }}
                   >
@@ -588,9 +600,9 @@ const JobProposalSubmit = () => {
                   {/* Amount summary */}
                   <div
                     style={{
-                      fontWeight: "600",
+                      fontWeight: "500",
                       color: "#111",
-                      fontSize: "24px",
+                      fontSize: "20px",
                       marginBottom: proposal.budgetType === "fixed" ? "8px" : 0,
                     }}
                   >
@@ -602,13 +614,17 @@ const JobProposalSubmit = () => {
                               0
                             )
                           )
-                        : formatCurrency(proposal.bidAmount || proposal.fixedRate)
-                      : `${formatCurrency(proposal.hourlyRate || proposal.bidAmount)}/hr`}
+                        : formatCurrency(
+                            proposal.bidAmount || proposal.fixedRate
+                          )
+                      : `${formatCurrency(
+                          proposal.hourlyRate || proposal.bidAmount
+                        )}/hr`}
                   </div>
 
                   {/* Fee and receive for fixed price */}
                   {proposal.budgetType === "fixed" && (
-                    <div style={{ color: "#6c757d", fontSize: 14 }}>
+                    <div style={{ color: "#121212", fontSize: 16 }}>
                       <span style={{ marginRight: 16 }}>
                         Service fee: {formatCurrency(proposal.serviceFee)}
                       </span>
@@ -620,71 +636,81 @@ const JobProposalSubmit = () => {
                 </div>
 
                 {/* Milestones breakdown when applicable */}
-                {proposal.budgetType === "fixed" && proposal.scopeOfWork === "By Milestone" && (
-                  <div
-                    style={{
-                      borderTop: "1px solid #e9ecef",
-                      paddingTop: 16,
-                    }}
-                  >
-                    {parseMilestones(proposal.milestones).length === 0 ? (
-                      <div style={{ color: "#6c757d" }}>No milestones added</div>
-                    ) : (
-                      <div>
-                        {parseMilestones(proposal.milestones).map((m, i) => (
+                {proposal.budgetType === "fixed" &&
+                  proposal.scopeOfWork === "By Milestone" && (
+                    <div
+                      style={{
+                        borderTop: "1px solid #e9ecef",
+                        paddingTop: 16,
+                      }}
+                    >
+                      {parseMilestones(proposal.milestones).length === 0 ? (
+                        <div style={{ color: "#121212" }}>
+                          No milestones added
+                        </div>
+                      ) : (
+                        <div>
+                          {parseMilestones(proposal.milestones).map((m, i) => (
+                            <div
+                              key={`${m.title || "milestone"}-${i}`}
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                padding: "10px 0",
+                                borderBottom: "1px dashed #eee",
+                              }}
+                            >
+                              <div>
+                                <div style={{ fontWeight: 600, color: "#111" }}>
+                                  {m.title || `Milestone ${i + 1}`}
+                                </div>
+                                {(m.dueDate || m.date) && (
+                                  <div
+                                    style={{ color: "#121212", fontSize: 16 }}
+                                  >
+                                    Due{" "}
+                                    {new Date(
+                                      m.dueDate || m.date
+                                    ).toLocaleDateString("en-GB", {
+                                      day: "2-digit",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ fontWeight: 600, color: "#111" }}>
+                                {formatCurrency(m.amount)}
+                              </div>
+                            </div>
+                          ))}
+
+                          {/* Milestones total */}
                           <div
-                            key={`${m.title || "milestone"}-${i}`}
                             style={{
                               display: "flex",
                               justifyContent: "space-between",
                               alignItems: "center",
-                              padding: "10px 0",
-                              borderBottom: "1px dashed #eee",
+                              paddingTop: 12,
                             }}
                           >
-                            <div>
-                              <div style={{ fontWeight: 600, color: "#111" }}>
-                                {m.title || `Milestone ${i + 1}`}
-                              </div>
-                              {(m.dueDate || m.date) && (
-                                <div style={{ color: "#6c757d", fontSize: 14 }}>
-                                  Due {new Date(m.dueDate || m.date).toLocaleDateString("en-GB", {
-                                    day: "2-digit",
-                                    month: "short",
-                                    year: "numeric",
-                                  })}
-                                </div>
+                            <div style={{ color: "#111", fontWeight: 600 }}>
+                              Total
+                            </div>
+                            <div style={{ fontWeight: 700 }}>
+                              {formatCurrency(
+                                parseMilestones(proposal.milestones).reduce(
+                                  (sum, m) => sum + Number(m.amount || 0),
+                                  0
+                                )
                               )}
                             </div>
-                            <div style={{ fontWeight: 600, color: "#111" }}>
-                              {formatCurrency(m.amount)}
-                            </div>
-                          </div>
-                        ))}
-
-                        {/* Milestones total */}
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "center",
-                            paddingTop: 12,
-                          }}
-                        >
-                          <div style={{ color: "#111", fontWeight: 600 }}>Total</div>
-                          <div style={{ fontWeight: 700 }}>
-                            {formatCurrency(
-                              parseMilestones(proposal.milestones).reduce(
-                                (sum, m) => sum + Number(m.amount || 0),
-                                0
-                              )
-                            )}
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      )}
+                    </div>
+                  )}
               </motion.div>
 
               {/* Cover Letter Card */}
@@ -708,6 +734,7 @@ const JobProposalSubmit = () => {
                       fontSize: "26px",
                       marginBottom: "24px",
                       color: "#111",
+                      letterSpacing: "0.3px",
                     }}
                   >
                     Cover letter
@@ -715,8 +742,8 @@ const JobProposalSubmit = () => {
 
                   <p
                     style={{
-                      color: "#495057",
-                      fontSize: "16px",
+                      color: "#121212",
+                      fontSize: "18px",
                       lineHeight: "1.6",
                       marginBottom: "16px",
                     }}
@@ -756,12 +783,12 @@ const JobProposalSubmit = () => {
                           style={{
                             display: "flex",
                             alignItems: "center",
-                            gap: "8px",
+                            gap: "12px",
                             marginBottom: "8px",
                           }}
                         >
                           <IoDocumentAttach
-                            size={16}
+                            size={20}
                             style={{ color: "#007476" }}
                           />
                           <a
@@ -771,7 +798,7 @@ const JobProposalSubmit = () => {
                             style={{
                               color: "#007476",
                               textDecoration: "underline",
-                              fontSize: "14px",
+                              fontSize: "18px",
                               fontWeight: "500",
                             }}
                           >
@@ -779,8 +806,8 @@ const JobProposalSubmit = () => {
                           </a>
                           <span
                             style={{
-                              color: "#6c757d",
-                              fontSize: "12px",
+                              color: "#121212",
+                              fontSize: "18px",
                               marginLeft: "8px",
                             }}
                           >
@@ -803,7 +830,7 @@ const JobProposalSubmit = () => {
                         }}
                       >
                         <IoDocumentAttach
-                          size={16}
+                          size={20}
                           style={{ color: "#007476" }}
                         />
                         <a
@@ -811,7 +838,7 @@ const JobProposalSubmit = () => {
                           style={{
                             color: "#007476",
                             textDecoration: "underline",
-                            fontSize: "14px",
+                            fontSize: "16px",
                             fontWeight: "500",
                           }}
                         >
@@ -819,8 +846,8 @@ const JobProposalSubmit = () => {
                         </a>
                         <span
                           style={{
-                            color: "#6c757d",
-                            fontSize: "12px",
+                            color: "#121212",
+                            fontSize: "16px",
                             marginLeft: "8px",
                           }}
                         >
@@ -845,7 +872,7 @@ const JobProposalSubmit = () => {
                 <div
                   style={{
                     background: "#fff",
-                    border: "1px solid #e6e6e6",
+                    border: "1px solid #e3e3e3",
                     borderRadius: "12px",
                     padding: "24px",
                     marginBottom: "24px",
@@ -918,19 +945,20 @@ const JobProposalSubmit = () => {
                       fontSize: "20px",
                       marginBottom: "20px",
                       color: "#111",
+                      letterSpacing: "0.3px",
                     }}
                   >
                     About the client
                   </h3>
 
                   <div style={{ marginBottom: "16px" }}>
-                    <span style={{ color: "#111", fontSize: "16px" }}>
+                    <span style={{ color: "#111", fontSize: "18px" }}>
                       Payment method{" "}
                       {hasPaymentMethod ? "verified" : "not verified"}
                     </span>
                     {!hasPaymentMethod && (
                       <BsQuestionCircle
-                        size={14}
+                        size={16}
                         style={{ color: "#007476", marginLeft: "4px" }}
                       />
                     )}
@@ -944,7 +972,7 @@ const JobProposalSubmit = () => {
                   </div> */}
 
                   <div style={{ marginBottom: "16px" }}>
-                    <span style={{ color: "#111", fontSize: "16px" }}>
+                    <span style={{ color: "#111", fontSize: "18px" }}>
                       {clientDetails?.country || "India"}, <br />{" "}
                       {clientDetails?.city || ""}{" "}
                       {formatLastSeen(clientDetails?.lastSeen)}
@@ -958,14 +986,14 @@ const JobProposalSubmit = () => {
                   </div> */}
 
                   <div style={{ marginBottom: "16px" }}>
-                    <span style={{ color: "#111", fontSize: "16px" }}>
+                    <span style={{ color: "#111", fontSize: "18px" }}>
                       {clientDetails?.hireRate || 0}% hire rate,{" "}
                       {clientDetails?.openJobs || 0} open job
                     </span>
                   </div>
 
                   <div style={{ marginBottom: "16px" }}>
-                    <span style={{ color: "#111", fontSize: "16px" }}>
+                    <span style={{ color: "#111", fontSize: "18px" }}>
                       Member since {formatMemberSince(clientDetails?.createdAt)}
                     </span>
                   </div>
