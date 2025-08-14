@@ -919,7 +919,7 @@ const JobProposalSubmit = () => {
                     }}
                     onClick={() => setShowModal(true)}
                     onMouseEnter={(e) => {
-                      e.target.style.backgroundColor = "#f8f9fa";
+                      e.target.style.backgroundColor = "#fff";
                     }}
                     onMouseLeave={(e) => {
                       e.target.style.backgroundColor = "#fff";
@@ -1006,114 +1006,262 @@ const JobProposalSubmit = () => {
 
       {/* Withdraw Modal */}
       {showModal && (
-        <div
-          className="modal fade show"
-          style={{ display: "block", backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={() => setShowModal(false)}
         >
-          <div className="modal-dialog modal-dialog-centered">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "800px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
             <div
-              className="modal-content border-0 shadow-lg"
-              style={{ borderRadius: "20px" }}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
             >
-              <div className="modal-header border-0 pb-0">
-                <h5
-                  className="modal-title fw-semibold"
-                  style={{ color: "#121212" }}
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "26px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
+                  letterSpacing: "0.3px",
+                }}
+              >
+                Withdraw proposal
+              </h3>
+              <motion.button
+                onClick={() => setShowModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#121212",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  color: "#121212",
+                  background: "#fff",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ marginBottom: "24px" }}>
+              {/* Introductory Text */}
+              <p
+                style={{
+                  margin: "0 0 12px 0",
+                  fontSize: "18px",
+                  color: "#121212",
+                  lineHeight: "1.5",
+                }}
+              >
+                We will politely notify the client that you are not interested. The client will be able to view the reason you've withdrawn your proposal.
+              </p>
+
+              {/* Reason Section */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "20px",
+                    fontWeight: "600",
+                    color: "#121212",
+                    marginBottom: "12px",
+                  }}
                 >
-                  Withdraw Proposal
-                </h5>
-                <button
-                  type="button"
-                  className="btn-close"
-                  onClick={() => setShowModal(false)}
-                ></button>
-              </div>
-              <div className="modal-body pt-0">
-                <p style={{ color: "#666", fontSize: "1rem" }}>
-                  Please select a reason for withdrawing your proposal:
-                </p>
-                <div className="mb-3">
+                  Reason
+                </label>
+                <div>
                   {withdrawReasons.map((reason) => (
-                    <div key={reason} className="form-check mb-2">
+                    <div
+                      key={reason}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: "8px",
+                      }}
+                    >
                       <input
-                        className="form-check-input"
                         type="radio"
-                        name="withdrawReason"
                         id={reason}
+                        name="withdrawReason"
                         value={reason}
                         checked={selectedReason === reason}
                         onChange={(e) => setSelectedReason(e.target.value)}
-                        style={{ accentColor: "#007674" }}
+                        style={{
+                          marginRight: "12px",
+                          width: "16px",
+                          height: "16px",
+                          accentColor: "#007674",
+                        }}
                       />
                       <label
-                        className="form-check-label"
                         htmlFor={reason}
-                        style={{ color: "#121212", fontSize: "1rem" }}
+                        style={{
+                          color: "#1a1a1a",
+                          fontSize: "18px",
+                          cursor: "pointer",
+                          margin: 0,
+                        }}
                       >
                         {reason}
                       </label>
                     </div>
                   ))}
                 </div>
-                {selectedReason === "Other" && (
-                  <div className="mb-3">
-                    <label className="form-label" style={{ color: "#121212" }}>
-                      Please specify:
-                    </label>
-                    <textarea
-                      className="form-control"
-                      rows="3"
-                      value={otherReason}
-                      onChange={(e) => setOtherReason(e.target.value)}
-                      style={{ borderRadius: "10px" }}
-                    ></textarea>
-                  </div>
-                )}
-                <div className="mb-3">
-                  <label className="form-label" style={{ color: "#121212" }}>
-                    Optional message to client:
-                  </label>
-                  <textarea
-                    className="form-control"
-                    rows="3"
-                    value={optionalMessage}
-                    onChange={(e) => setOptionalMessage(e.target.value)}
-                    style={{ borderRadius: "10px" }}
-                  ></textarea>
-                </div>
               </div>
-              <div className="modal-footer border-0 pt-0">
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setShowModal(false)}
+
+              {/* Message Section */}
+              <div style={{ marginBottom: "24px" }}>
+                <label
                   style={{
-                    color: "#6c757d",
-                    border: "1px solid #6c757d",
-                    borderRadius: "8px",
-                    padding: "8px 20px",
+                    display: "block",
+                    fontSize: "20px",
+                    fontWeight: "600",
+                    color: "#121212",
+                    marginBottom: "8px",
                   }}
                 >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  className="btn fw-semibold"
+                  Message
+                </label>
+                <p
                   style={{
-                    backgroundColor: "#dc3545",
-                    color: "#fff",
-                    borderRadius: "8px",
-                    padding: "8px 20px",
-                    border: "none",
+                    fontSize: "18px",
+                    color: "#121212",
+                    marginBottom: "12px",
                   }}
-                  disabled={!selectedReason}
                 >
-                  Withdraw Proposal
-                </button>
+                  Add an optional message to share with the client when we notify them that this proposal has been withdrawn.
+                </p>
+                <textarea
+                  value={optionalMessage}
+                  onChange={(e) => setOptionalMessage(e.target.value)}
+                  placeholder="Message"
+                  style={{
+                    width: "100%",
+                    minHeight: "100px",
+                    padding: "12px 16px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "18px",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                    boxSizing: "border-box",
+                    fontFamily: "inherit",
+                    resize: "vertical",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007674";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                />
               </div>
             </div>
-          </div>
-        </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+              }}
+            >
+              <motion.button
+                onClick={() => setShowModal(false)}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: "none",
+                  color: "#007674",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                onClick={() => {
+                  // Handle withdraw logic here
+                  console.log("Withdrawing proposal with reason:", selectedReason);
+                  console.log("Optional message:", optionalMessage);
+                  setShowModal(false);
+                  setSelectedReason("");
+                  setOptionalMessage("");
+                }}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: !selectedReason ? "#ccc" : "#007674",
+                  color: "#fff",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: !selectedReason ? "not-allowed" : "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={selectedReason ? {
+                  background: "#005a58",
+                } : {}}
+                whileTap={selectedReason ? { scale: 0.95 } : {}}
+                disabled={!selectedReason}
+              >
+                Withdraw
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
       )}
     </>
   );
