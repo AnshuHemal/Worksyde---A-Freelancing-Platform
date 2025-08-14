@@ -15,7 +15,7 @@ import { useUser } from "../contexts/UserContext";
 import { CgProfile } from "react-icons/cg";
 
 const ClientHeader = () => {
-  const { userId } = useUser();
+  const { userId, logout } = useUser();
   const [showDropdown, setShowDropdown] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -141,16 +141,9 @@ const ClientHeader = () => {
     e.preventDefault();
 
     try {
-      const response = await axios.post(
-        `${API_URL}/logout/`,
-        {},
-        { withCredentials: true }
-      );
-
-      if (response?.data?.success) {
-        navigate("/");
-        toast.success("Successfully Logged out..");
-      }
+      await logout();
+      navigate("/");
+      toast.success("Successfully Logged out..");
     } catch (error) {
       console.log(error);
       toast.error(error.message);

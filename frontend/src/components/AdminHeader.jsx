@@ -2,8 +2,10 @@ import axios from "axios";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/worksyde.png";
 import toast from "react-hot-toast";
+import { useUser } from "../contexts/UserContext";
 
 const AdminHeader = () => {
+  const { logout } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
   const API_URL = "http://localhost:5000/api/auth";
@@ -11,15 +13,9 @@ const AdminHeader = () => {
   const handleLogout = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(
-        `${API_URL}/logout/`,
-        {},
-        { withCredentials: true }
-      );
-      if (response?.data?.success) {
-        navigate("/");
-        toast.success("Successfully Logged out..");
-      }
+      await logout();
+      navigate("/");
+      toast.success("Successfully Logged out..");
     } catch (error) {
       console.log(error);
       toast.error(error.message);

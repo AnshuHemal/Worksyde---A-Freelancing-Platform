@@ -145,6 +145,13 @@ const ClientInfoPage = () => {
     fetchProfileData();
   }, [userId, userData]);
 
+  // Refresh user data when component mounts to ensure we have latest data
+  useEffect(() => {
+    if (refreshUserData) {
+      refreshUserData();
+    }
+  }, []);
+
   // Navigation handler for sidebar
   const handleSidebarNavigate = (key) => {
     switch (key) {

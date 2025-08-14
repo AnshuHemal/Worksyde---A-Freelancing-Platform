@@ -47,6 +47,15 @@ function timeAgo(dateString) {
   return `${days} day${days > 1 ? "s" : ""} ago`;
 }
 
+// Utility function to format file size
+function formatFileSize(bytes) {
+  if (bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
+
 const ClientJobDetailedPage = () => {
   // CSS Animations for filter section
   const filterAnimations = `
@@ -87,6 +96,11 @@ const ClientJobDetailedPage = () => {
       }
     }
     
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
     .filter-section-enter {
       animation: slideDown 0.3s ease-out;
     }
@@ -118,9 +132,6 @@ const ClientJobDetailedPage = () => {
   const [invitedFreelancerIds, setInvitedFreelancerIds] = useState([]);
   const [expandedBios, setExpandedBios] = useState({});
   const [invitedCount, setInvitedCount] = useState(0);
-  const [declinedInvitations, setDeclinedInvitations] = useState([]);
-  const [declinedInvitationsLoading, setDeclinedInvitationsLoading] =
-    useState(false);
   const [proposals, setProposals] = useState([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
   const [proposalsError, setProposalsError] = useState(null);
@@ -134,6 +145,13 @@ const ClientJobDetailedPage = () => {
   const [checkingBilling, setCheckingBilling] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [attachmentLoading, setAttachmentLoading] = useState(false);
+  const [paymentVerified, setPaymentVerified] = useState(false);
+  const [loadingPaymentStatus, setLoadingPaymentStatus] = useState(true);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [loadingPhoneStatus, setLoadingPhoneStatus] = useState(true);
+  const [clientDetails, setClientDetails] = useState(null);
+  const [loadingClientDetails, setLoadingClientDetails] = useState(true);
 
   const openProposalModal = (proposal) => {
     setSelectedProposal(proposal);
@@ -344,8 +362,8 @@ const ClientJobDetailedPage = () => {
                     {
                       state: {
                         jobId: job?.id,
-                        job: job
-                      }
+                        job: job,
+                      },
                     }
                   );
                 }}
@@ -482,6 +500,82 @@ const ClientJobDetailedPage = () => {
                 </div>
               </div>
 
+              {/* Job Budget Information */}
+              <div style={{ marginBottom: 24 }}>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 700,
+                    color: "#121212",
+                    marginBottom: 8,
+                  }}
+                >
+                  Job Budget
+                </div>
+                <div
+                  style={{
+                    background:
+                      "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
+                    border: "1px solid rgba(0, 118, 116, 0.2)",
+                    borderRadius: 8,
+                    padding: "12px 16px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
+                  <div>
+                    <div
+                      style={{ fontSize: 12, color: "#666", marginBottom: 2 }}
+                    >
+                      {job.budgetType === "fixed"
+                        ? "Fixed Price"
+                        : "Hourly Rate"}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 16,
+                        fontWeight: 600,
+                        color: "#007674",
+                      }}
+                    >
+                      {job.budgetType === "fixed" && job.fixedRate
+                        ? `₹${parseFloat(job.fixedRate).toFixed(2)}`
+                        : job.budgetType === "hourly" &&
+                          job.hourlyRateFrom &&
+                          job.hourlyRateTo
+                        ? `₹${parseFloat(job.hourlyRateFrom).toFixed(
+                            2
+                          )} - ₹${parseFloat(job.hourlyRateTo).toFixed(2)}`
+                        : job.fixedRate
+                        ? `₹${parseFloat(job.fixedRate).toFixed(2)}`
+                        : job.hourlyRateFrom && job.hourlyRateTo
+                        ? `₹${parseFloat(job.hourlyRateFrom).toFixed(
+                            2
+                          )} - ₹${parseFloat(job.hourlyRateTo).toFixed(2)}`
+                        : "₹15.00 - ₹35.00"}
+                      {job.budgetType === "hourly" && "/hr"}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div
+                      style={{ fontSize: 12, color: "#666", marginBottom: 2 }}
+                    >
+                      Project Duration
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 16,
+                        fontWeight: 600,
+                        color: "#007674",
+                      }}
+                    >
+                      {job.duration || "1 to 3 months"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Cover Letter */}
               <div style={{ marginBottom: 24 }}>
                 <div
@@ -515,22 +609,72 @@ const ClientJobDetailedPage = () => {
                     Attachments
                   </div>
                   <div
-                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "12px",
+                      border: "1px solid rgba(0, 118, 116, 0.1)",
+                      borderRadius: "8px",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = "white";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "white";
+                    }}
+                    onClick={() => handleAttachmentClick(proposal.attachment)}
                   >
-                    <BsPaperclip style={{ color: "#007674", fontSize: 16 }} />
-                    <a
-                      href={proposal.attachment}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <div
                       style={{
-                        color: "#007674",
-                        textDecoration: "underline",
-                        fontWeight: 600,
-                        fontSize: 14,
+                        background: "#007674",
+                        borderRadius: "50%",
+                        width: "32px",
+                        height: "32px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
                       }}
                     >
-                      Untitled Project (4).jpg (292 KB)
-                    </a>
+                      <BsPaperclip style={{ color: "#fff", fontSize: 14 }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          color: "#007674",
+                          fontWeight: 600,
+                          fontSize: 14,
+                          marginBottom: 2,
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                        }}
+                      >
+                        {proposal.attachmentName || "Attachment"}
+                      </div>
+                      <div
+                        style={{
+                          color: "#666",
+                          fontSize: 12,
+                        }}
+                      >
+                        {proposal.attachmentSize
+                          ? formatFileSize(proposal.attachmentSize)
+                          : "Click to open"}
+                      </div>
+                    </div>
+                    <div
+                      style={{
+                        color: "#007674",
+                        fontSize: 14,
+                        fontWeight: 600,
+                      }}
+                    >
+                      →
+                    </div>
                   </div>
                 </div>
               )}
@@ -599,14 +743,8 @@ const ClientJobDetailedPage = () => {
       case "all":
         newPath = `/ws/client/applicants/${jobid}/proposals`;
         break;
-      case "shortlisted":
-        newPath = `/ws/client/applicants/${jobid}/shortlisted`;
-        break;
       case "messaged":
         newPath = `/ws/client/applicants/${jobid}/messaged`;
-        break;
-      case "archived":
-        newPath = `/ws/client/applicants/${jobid}/archived`;
         break;
       default:
         newPath = `/ws/client/applicants/${jobid}/proposals`;
@@ -655,7 +793,6 @@ const ClientJobDetailedPage = () => {
       return 1;
     if (
       path.includes("/proposals") ||
-      path.includes("/shortlisted") ||
       path.includes("/messaged")
     )
       return 2;
@@ -689,12 +826,8 @@ const ClientJobDetailedPage = () => {
   // Initialize activeProposalTab based on URL path
   useEffect(() => {
     const path = location.pathname;
-    if (path.includes("/shortlisted")) {
-      setActiveProposalTab("shortlisted");
-    } else if (path.includes("/messaged")) {
+    if (path.includes("/messaged")) {
       setActiveProposalTab("messaged");
-    } else if (path.includes("/archived")) {
-      setActiveProposalTab("archived");
     } else if (path.includes("/proposals")) {
       setActiveProposalTab("all");
     } else {
@@ -702,26 +835,7 @@ const ClientJobDetailedPage = () => {
     }
   }, [location.pathname]);
 
-  const fetchDeclinedInvitations = async () => {
-    if (!jobid) return;
 
-    setDeclinedInvitationsLoading(true);
-    try {
-      const response = await axios.get(
-        `${API_URL}/client/declined-job-invitations/${jobid}/`,
-        {
-          withCredentials: true,
-        }
-      );
-
-      setDeclinedInvitations(response.data.data || []);
-    } catch (error) {
-      console.error("Error fetching declined invitations:", error);
-      setDeclinedInvitations([]);
-    } finally {
-      setDeclinedInvitationsLoading(false);
-    }
-  };
 
   const handleProposalAction = async (proposalId, action) => {
     try {
@@ -745,27 +859,10 @@ const ClientJobDetailedPage = () => {
                 ? {
                     ...proposal,
                     status:
-                      action === "shortlist" ? "shortlisted" : "submitted",
+                      "submitted",
                   }
                 : proposal
             )
-          );
-        }
-      } else if (action === "archive") {
-        const response = await axios.post(
-          `${API_URL}/jobproposals/archive/`,
-          {
-            proposalId: proposalId,
-          },
-          {
-            withCredentials: true,
-          }
-        );
-
-        if (response.data.success) {
-          // Remove the proposal from the current list
-          setProposals((prev) =>
-            prev.filter((proposal) => proposal.id !== proposalId)
           );
         }
       } else {
@@ -832,12 +929,7 @@ const ClientJobDetailedPage = () => {
     fetchJob();
   }, [jobid]);
 
-  // Fetch declined job invitations when archived tab is active
-  useEffect(() => {
-    if (activeProposalTab === "archived") {
-      fetchDeclinedInvitations();
-    }
-  }, [activeProposalTab, jobid]);
+
 
   // Fetch proposals when proposals tab is active
   useEffect(() => {
@@ -881,6 +973,29 @@ const ClientJobDetailedPage = () => {
         }
       })
       .catch(() => setClientName("White T."));
+  }, []);
+
+  // Check verification status and fetch client details on component mount
+  useEffect(() => {
+    checkPaymentVerificationStatus();
+    checkPhoneVerificationStatus();
+    fetchClientDetails();
+  }, []);
+
+  // Refresh verification status and client details when page becomes visible (user returns from settings page)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkPaymentVerificationStatus();
+        checkPhoneVerificationStatus();
+        fetchClientDetails();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   // Fetch invited freelancer IDs for this job and client
@@ -954,6 +1069,209 @@ const ClientJobDetailedPage = () => {
     // Navigate to billing settings page
     navigate("/ws/client/deposit-method");
     closeBillingModal();
+    // Refresh payment status after navigation
+    setTimeout(() => {
+      checkPaymentVerificationStatus();
+    }, 1000);
+  };
+
+  // Function to handle phone verification click
+  const handlePhoneVerificationClick = () => {
+    // Navigate to phone verification page or open phone verification modal
+    navigate("/ws/client/overview");
+    // Refresh phone status after navigation
+    setTimeout(() => {
+      checkPhoneVerificationStatus();
+    }, 1000);
+  };
+
+  // Function to handle attachment click
+  const handleAttachmentClick = (attachmentUrl) => {
+    if (!attachmentUrl) return;
+
+    setAttachmentLoading(true);
+    try {
+      // Open the attachment in a new tab
+      window.open(attachmentUrl, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error("Error opening attachment:", error);
+    } finally {
+      setAttachmentLoading(false);
+    }
+  };
+
+  // Function to check payment verification status
+  const checkPaymentVerificationStatus = async () => {
+    setLoadingPaymentStatus(true);
+    try {
+      // Check both payment cards and PayPal accounts
+      const [cardsResponse, paypalResponse] = await Promise.all([
+        axios.get(`${API_URL}/payment-cards/`, {
+          withCredentials: true,
+        }),
+        axios.get(`${API_URL}/paypal-accounts/`, {
+          withCredentials: true,
+        }),
+      ]);
+
+      let hasPaymentMethod = false;
+
+      if (
+        cardsResponse.data.success &&
+        cardsResponse.data.cards &&
+        cardsResponse.data.cards.length > 0
+      ) {
+        hasPaymentMethod = true;
+      }
+
+      if (
+        !hasPaymentMethod &&
+        paypalResponse.data.success &&
+        paypalResponse.data.accounts &&
+        paypalResponse.data.accounts.length > 0
+      ) {
+        hasPaymentMethod = true;
+      }
+
+      setPaymentVerified(hasPaymentMethod);
+    } catch (error) {
+      console.error("Error checking payment verification status:", error);
+      setPaymentVerified(false);
+    } finally {
+      setLoadingPaymentStatus(false);
+    }
+  };
+
+  // Function to check phone verification status
+  const checkPhoneVerificationStatus = async () => {
+    setLoadingPhoneStatus(true);
+    try {
+      // Get current user data to check phone verification status
+      const userResponse = await axios.get(`${API_URL}/current-user/`, {
+        withCredentials: true,
+      });
+
+      if (userResponse.data.success && userResponse.data.user) {
+        const isPhoneVerified = userResponse.data.user.phoneVerified === true;
+        setPhoneVerified(isPhoneVerified);
+      } else {
+        setPhoneVerified(false);
+      }
+    } catch (error) {
+      console.error("Error checking phone verification status:", error);
+      setPhoneVerified(false);
+    } finally {
+      setLoadingPhoneStatus(false);
+    }
+  };
+
+  // Function to fetch comprehensive client details
+  const fetchClientDetails = async () => {
+    setLoadingClientDetails(true);
+    try {
+      // Get current user ID first
+      const userResponse = await axios.get(`${API_URL}/current-user/`, {
+        withCredentials: true,
+      });
+
+      if (!userResponse.data.success || !userResponse.data.user) {
+        throw new Error("Failed to get current user");
+      }
+
+      const userId = userResponse.data.user._id;
+
+      // Fetch client profile details
+      const [clientProfileResponse, clientProfileDetailsResponse] = await Promise.all([
+        axios.get(`${API_URL}/client/profile/${userId}/`, {
+          withCredentials: true,
+        }),
+        axios.get(`${API_URL}/client/profile-details/${userId}/`, {
+          withCredentials: true,
+        }),
+      ]);
+
+      // Get all job posts by this client
+      const jobPostsResponse = await axios.get(`${API_URL}/jobposts/client/${userId}/`, {
+        withCredentials: true,
+      });
+
+      // Calculate client statistics
+      const allJobPosts = jobPostsResponse.data.data || [];
+      const activeJobs = allJobPosts.filter(job => job.status === "verified").length;
+      const totalJobs = allJobPosts.length;
+      
+      // Calculate hiring rate
+      const completedProposals = allJobPosts.flatMap(job => 
+        job.proposals || []
+      ).filter(proposal => proposal.status === "completed");
+      
+      const totalProposals = allJobPosts.flatMap(job => 
+        job.proposals || []
+      ).length;
+      
+      const hiringRate = totalProposals > 0 ? Math.round((completedProposals.length / totalProposals) * 100) : 0;
+
+      // Format dates
+      const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        });
+      };
+
+      // Compile client details
+      const details = {
+        // Basic info
+        name: userResponse.data.user.name,
+        email: userResponse.data.user.email,
+        createdAt: formatDate(userResponse.data.user.createdAt),
+        
+        // Company info
+        companyName: clientProfileDetailsResponse.data.companyName || "Not specified",
+        industry: clientProfileDetailsResponse.data.industry || "Not specified",
+        companySize: clientProfileDetailsResponse.data.size || "Not specified",
+        website: clientProfileDetailsResponse.data.website || "Not specified",
+        
+        // Job statistics
+        activeJobs: activeJobs,
+        totalJobs: totalJobs,
+        hiringRate: hiringRate,
+        
+        // Financial info
+        totalSpent: clientProfileResponse.data.spent || 0,
+        totalHires: clientProfileResponse.data.hires || 0,
+        
+        // Online status
+        onlineStatus: userResponse.data.user.onlineStatus || "offline",
+        lastSeen: userResponse.data.user.lastSeen,
+      };
+
+      setClientDetails(details);
+    } catch (error) {
+      console.error("Error fetching client details:", error);
+      // Set default values if fetch fails
+      setClientDetails({
+        name: "Client",
+        email: "N/A",
+        createdAt: "N/A",
+        companyName: "Not specified",
+        industry: "Not specified",
+        companySize: "Not specified",
+        website: "Not specified",
+        activeJobs: 0,
+        totalJobs: 0,
+        hiringRate: 0,
+        totalSpent: 0,
+        totalHires: 0,
+        onlineStatus: "offline",
+        lastSeen: null,
+      });
+    } finally {
+      setLoadingClientDetails(false);
+    }
   };
 
   // Billing Method Modal Component
@@ -1089,15 +1407,21 @@ const ClientJobDetailedPage = () => {
   if (error) return <div style={{ padding: 32, color: "red" }}>{error}</div>;
   if (!job) return null;
 
-  // Placeholder client info (replace with real data if available)
-  const client = {
-    paymentVerified: false,
-    phoneVerified: true,
-    time: "3:31 PM",
-    hireRate: "0% hire rate, 1 open job",
-    company: "Mid-sized company (10-99 people)",
-    industry: "Engineering & Architecture",
-    memberSince: "May 4, 2025",
+  // Format time for display
+  const formatTime = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  // Format currency for display
+  const formatCurrency = (amount) => {
+    if (!amount || amount === 0) return "₹0";
+    return `₹${parseFloat(amount).toLocaleString('en-IN')}`;
   };
 
   // Search function to filter freelancers
@@ -1360,13 +1684,25 @@ const ClientJobDetailedPage = () => {
                     marginBottom: 2,
                   }}
                 >
-                  {job.hourlyRateFrom && job.hourlyRateTo
+                  {job.budgetType === "fixed" && job.fixedRate
+                    ? `₹${parseFloat(job.fixedRate).toFixed(2)}`
+                    : job.budgetType === "hourly" &&
+                      job.hourlyRateFrom &&
+                      job.hourlyRateTo
+                    ? `₹${parseFloat(job.hourlyRateFrom).toFixed(
+                        2
+                      )} - ₹${parseFloat(job.hourlyRateTo).toFixed(2)}`
+                    : job.fixedRate
+                    ? `₹${parseFloat(job.fixedRate).toFixed(2)}`
+                    : job.hourlyRateFrom && job.hourlyRateTo
                     ? `₹${parseFloat(job.hourlyRateFrom).toFixed(
                         2
                       )} - ₹${parseFloat(job.hourlyRateTo).toFixed(2)}`
                     : "₹15.00 - ₹35.00"}
                 </div>
-                <div style={{ color: "#888", fontSize: 18 }}>Hourly</div>
+                <div style={{ color: "#888", fontSize: 18 }}>
+                  {job.budgetType === "fixed" ? "Fixed Price" : "Hourly Rate"}
+                </div>
               </div>
             </div>
             {/* Attachment Section */}
@@ -1393,30 +1729,125 @@ const ClientJobDetailedPage = () => {
                 Attachment
               </div>
               {job.attachments ? (
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <BsPaperclip
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "16px",
+                    background:
+                      "linear-gradient(135deg, rgba(0, 118, 116, 0.05) 0%, rgba(0, 118, 116, 0.02) 100%)",
+                    border: "1px solid rgba(0, 118, 116, 0.1)",
+                    borderRadius: "12px",
+                    cursor: "pointer",
+                    transition: "all 0.3s ease",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)";
+                    e.currentTarget.style.transform = "translateY(-1px)";
+                    e.currentTarget.style.boxShadow =
+                      "0 4px 12px rgba(0, 118, 116, 0.15)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background =
+                      "linear-gradient(135deg, rgba(0, 118, 116, 0.05) 0%, rgba(0, 118, 116, 0.02) 100%)";
+                    e.currentTarget.style.transform = "translateY(0)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }}
+                  onClick={() => handleAttachmentClick(job.attachments)}
+                >
+                  <div
                     style={{
-                      color: "#007476",
-                      fontSize: 22,
-                      verticalAlign: -3,
-                    }}
-                  />
-                  <a
-                    href={job.attachments}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      color: "#007476",
-                      fontWeight: 600,
-                      textDecoration: "underline",
-                      fontSize: 18,
+                      background: "#007674",
+                      borderRadius: "50%",
+                      width: "48px",
+                      height: "48px",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
                     }}
                   >
-                    PPRC_Price_List.pdf (321 KB)
-                  </a>
+                    <BsPaperclip
+                      style={{
+                        color: "#fff",
+                        fontSize: 20,
+                      }}
+                    />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        color: "#007674",
+                        fontWeight: 600,
+                        fontSize: 16,
+                        marginBottom: 4,
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                    >
+                      {job.attachmentDetails?.fileName || "Document"}
+                    </div>
+                    <div
+                      style={{
+                        color: "#666",
+                        fontSize: 14,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                      }}
+                    >
+                      <span>
+                        {job.attachmentDetails?.fileSize
+                          ? formatFileSize(job.attachmentDetails.fileSize)
+                          : "PDF Document"}
+                      </span>
+                      <span>•</span>
+                      <span>Click to open</span>
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      color: "#007674",
+                      fontSize: 16,
+                      fontWeight: 600,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    {attachmentLoading ? (
+                      <div
+                        style={{
+                          width: "16px",
+                          height: "16px",
+                          border: "2px solid #007674",
+                          borderTop: "2px solid transparent",
+                          borderRadius: "50%",
+                          animation: "spin 1s linear infinite",
+                        }}
+                      />
+                    ) : (
+                      "→"
+                    )}
+                  </div>
                 </div>
               ) : (
-                <div style={{ color: "#888", fontSize: 18 }}>No attachment</div>
+                <div
+                  style={{
+                    color: "#888",
+                    fontSize: 18,
+                    padding: "16px",
+                    background: "#f8f9fa",
+                    border: "1px solid #e9ecef",
+                    borderRadius: "12px",
+                    textAlign: "center",
+                  }}
+                >
+                  No attachment
+                </div>
               )}
             </div>
             {/* Project Type Section */}
@@ -3242,24 +3673,6 @@ const ClientJobDetailedPage = () => {
                 All proposals
               </span>
               <span
-                onClick={() => handleProposalTabChange("shortlisted")}
-                style={{
-                  fontWeight: activeProposalTab === "shortlisted" ? 600 : 600,
-                  fontSize: activeProposalTab === "shortlisted" ? 20 : 20,
-                  color: activeProposalTab === "shortlisted" ? "#222" : "#888",
-                  borderBottom:
-                    activeProposalTab === "shortlisted"
-                      ? "2.5px solid #222"
-                      : "2.5px solid transparent",
-                  paddingBottom: 6,
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  position: "relative",
-                }}
-              >
-                Shortlisted
-              </span>
-              <span
                 onClick={() => handleProposalTabChange("messaged")}
                 style={{
                   fontWeight: activeProposalTab === "messaged" ? 600 : 600,
@@ -3276,24 +3689,6 @@ const ClientJobDetailedPage = () => {
                 }}
               >
                 Messaged
-              </span>
-              <span
-                onClick={() => handleProposalTabChange("archived")}
-                style={{
-                  fontWeight: activeProposalTab === "archived" ? 600 : 600,
-                  fontSize: activeProposalTab === "archived" ? 20 : 20,
-                  color: activeProposalTab === "archived" ? "#222" : "#888",
-                  borderBottom:
-                    activeProposalTab === "archived"
-                      ? "2.5px solid #222"
-                      : "2.5px solid transparent",
-                  paddingBottom: 6,
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  position: "relative",
-                }}
-              >
-                Archived
               </span>
             </div>
 
@@ -3690,8 +4085,8 @@ const ClientJobDetailedPage = () => {
                                     {
                                       state: {
                                         jobId: job?.id,
-                                        job: job
-                                      }
+                                        job: job,
+                                      },
                                     }
                                   );
                                 }}
@@ -3874,11 +4269,11 @@ const ClientJobDetailedPage = () => {
               </div>
             )}
 
-            {activeProposalTab === "shortlisted" && (
+            {activeProposalTab === "messaged" && (
               <div
                 style={{ maxWidth: 400, margin: "0 auto", textAlign: "center" }}
               >
-                {/* Briefcase Icon */}
+                {/* Mailbox Icon */}
                 <div
                   style={{
                     width: 80,
@@ -3890,57 +4285,57 @@ const ClientJobDetailedPage = () => {
                     justifyContent: "center",
                   }}
                 >
-                  {/* Main briefcase body */}
+                  {/* Mailbox body */}
                   <div
                     style={{
-                      width: 60,
-                      height: 45,
-                      background: "#8B4513",
+                      width: 50,
+                      height: 35,
+                      background: "#28a745",
                       borderRadius: "8px 8px 12px 12px",
                       position: "relative",
-                      boxShadow: "0 4px 12px rgba(139, 69, 19, 0.3)",
+                      boxShadow: "0 4px 12px rgba(40, 167, 69, 0.3)",
                     }}
                   >
-                    {/* Briefcase handle */}
+                    {/* Mailbox flag */}
                     <div
                       style={{
                         position: "absolute",
-                        top: -8,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: 20,
-                        height: 8,
-                        background: "#A0522D",
-                        borderRadius: "4px 4px 0 0",
-                        border: "2px solid #8B4513",
+                        top: -12,
+                        right: -8,
+                        width: 6,
+                        height: 20,
+                        background: "#dc3545",
+                        borderRadius: "3px 3px 0 0",
+                        transform: "rotate(-15deg)",
+                        transformOrigin: "bottom center",
                       }}
                     ></div>
 
-                    {/* Briefcase opening with glow */}
+                    {/* Mailbox opening */}
                     <div
                       style={{
                         position: "absolute",
                         top: 0,
                         left: 0,
                         right: 0,
-                        height: 8,
+                        height: 6,
                         background: "linear-gradient(90deg, #87CEEB, #98FB98)",
                         borderRadius: "8px 8px 0 0",
                         opacity: 0.8,
                       }}
                     ></div>
 
-                    {/* Small tag on the right */}
+                    {/* Mail slot */}
                     <div
                       style={{
                         position: "absolute",
                         top: 8,
-                        right: -4,
-                        width: 8,
-                        height: 12,
-                        background: "#D2B48C",
-                        borderRadius: "2px 0 0 2px",
-                        transform: "rotate(15deg)",
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        width: 12,
+                        height: 2,
+                        background: "#000",
+                        borderRadius: "1px",
                       }}
                     ></div>
                   </div>
@@ -3956,7 +4351,7 @@ const ClientJobDetailedPage = () => {
                     lineHeight: 1.2,
                   }}
                 >
-                  Narrow down your most promising options
+                  Keep track of your conversations
                 </div>
 
                 {/* Descriptive Text */}
@@ -3969,8 +4364,8 @@ const ClientJobDetailedPage = () => {
                     lineHeight: 1.5,
                   }}
                 >
-                  When you Shortlist proposals, they'll appear here so you can
-                  compare and make offers.
+                  When you message freelancers, those conversations will appear
+                  here for easy access.
                 </div>
 
                 {/* View all proposals Button */}
@@ -4011,438 +4406,6 @@ const ClientJobDetailedPage = () => {
                 >
                   View all proposals
                 </button>
-              </div>
-            )}
-
-            {activeProposalTab === "archived" && (
-              <div style={{ padding: "20px" }}>
-                {declinedInvitationsLoading ? (
-                  <div style={{ textAlign: "center", padding: "40px" }}>
-                    <div style={{ fontSize: "18px", color: "#666" }}>
-                      Loading archived proposals...
-                    </div>
-                  </div>
-                ) : declinedInvitations.length > 0 ? (
-                  // Show declined invitations with the layout from the image
-                  declinedInvitations.map((invitation, index) => (
-                    <div
-                      key={index}
-                      style={{
-                        background: "#ffffff",
-                        borderRadius: "12px",
-                        padding: "24px",
-                        marginBottom: "20px",
-                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.1)",
-                        border: "1px solid #e0e0e0",
-                      }}
-                    >
-                      {/* Freelancer Info Section */}
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "flex-start",
-                          marginBottom: "20px",
-                        }}
-                      >
-                        {/* Profile Picture */}
-                        <div
-                          style={{ position: "relative", marginRight: "16px" }}
-                        >
-                          <img
-                            src={
-                              invitation.freelancer?.profilePicture ||
-                              "https://via.placeholder.com/60x60/4CAF50/FFFFFF?text=HK"
-                            }
-                            alt={invitation.freelancer?.name || "Freelancer"}
-                            style={{
-                              width: "60px",
-                              height: "60px",
-                              borderRadius: "50%",
-                              objectFit: "cover",
-                            }}
-                          />
-                          {/* Online Status Dot */}
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: "2px",
-                              left: "2px",
-                              width: "12px",
-                              height: "12px",
-                              backgroundColor: "#4CAF50",
-                              borderRadius: "50%",
-                              border: "2px solid #ffffff",
-                            }}
-                          />
-                        </div>
-
-                        {/* Freelancer Details */}
-                        <div style={{ flex: 1 }}>
-                          <div
-                            style={{
-                              fontSize: "18px",
-                              fontWeight: "600",
-                              color: "#333",
-                              marginBottom: "4px",
-                            }}
-                          >
-                            {invitation.freelancer?.name || "Hemal K."}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "14px",
-                              color: "#666",
-                              marginBottom: "8px",
-                            }}
-                          >
-                            {invitation.freelancer?.location || "India"}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "14px",
-                              color: "#333",
-                              marginBottom: "8px",
-                              lineHeight: "1.4",
-                            }}
-                          >
-                            {invitation.freelancer?.specialization ||
-                              "Web Developer | Front-End & Back-End Development | Custom Solutions"}
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "12px",
-                              color: "#dc3545",
-                              fontStyle: "italic",
-                            }}
-                          >
-                            Proposal withdrawn by freelancer.
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Three Column Layout */}
-                      <div
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr 1fr",
-                          gap: "20px",
-                        }}
-                      >
-                        {/* Stats Column */}
-                        <div>
-                          <div
-                            style={{
-                              fontSize: "14px",
-                              fontWeight: "600",
-                              color: "#333",
-                              marginBottom: "12px",
-                            }}
-                          >
-                            Stats
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              marginBottom: "8px",
-                            }}
-                          >
-                            <BsCreditCard
-                              style={{ marginRight: "8px", color: "#666" }}
-                            />
-                            <span style={{ fontSize: "14px", color: "#666" }}>
-                              {invitation.freelancer?.completedJobs || 0}{" "}
-                              completed jobs
-                            </span>
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              marginBottom: "8px",
-                            }}
-                          >
-                            <BsClock
-                              style={{ marginRight: "8px", color: "#666" }}
-                            />
-                            <span style={{ fontSize: "14px", color: "#666" }}>
-                              {invitation.freelancer?.totalHours || 0} total
-                              hours
-                            </span>
-                          </div>
-                          <div
-                            style={{ display: "flex", alignItems: "center" }}
-                          >
-                            <span
-                              style={{
-                                marginRight: "8px",
-                                color: "#666",
-                                fontSize: "16px",
-                              }}
-                            >
-                              $
-                            </span>
-                            <span style={{ fontSize: "14px", color: "#666" }}>
-                              {invitation.freelancer?.totalEarned || 0} earned
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Qualifications Column */}
-                        <div>
-                          <div
-                            style={{
-                              fontSize: "14px",
-                              fontWeight: "600",
-                              color: "#333",
-                              marginBottom: "12px",
-                            }}
-                          >
-                            Qualifications
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              marginBottom: "12px",
-                            }}
-                          >
-                            <BsQuestionCircle
-                              style={{ marginRight: "8px", color: "#666" }}
-                            />
-                            <span style={{ fontSize: "14px", color: "#666" }}>
-                              {invitation.freelancer?.skills?.length || 13}{" "}
-                              skills on their profile
-                            </span>
-                          </div>
-                          <div
-                            style={{
-                              display: "flex",
-                              flexWrap: "wrap",
-                              gap: "8px",
-                            }}
-                          >
-                            {(
-                              invitation.freelancer?.skills || [
-                                "Ecommerce",
-                                "Ecommerce Website",
-                                "Web Development",
-                                "React",
-                                "Node.js",
-                                "MongoDB",
-                              ]
-                            )
-                              .slice(0, 6)
-                              .map((skill, skillIndex) => (
-                                <span key={skillIndex} className="skill-tag">
-                                  {skill}
-                                </span>
-                              ))}
-                            {(invitation.freelancer?.skills?.length || 13) >
-                              6 && (
-                              <span className="skill-tag">
-                                +
-                                {(invitation.freelancer?.skills?.length || 13) -
-                                  6}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Details Column */}
-                        <div>
-                          <div
-                            style={{
-                              fontSize: "14px",
-                              fontWeight: "600",
-                              color: "#333",
-                              marginBottom: "12px",
-                            }}
-                          >
-                            Details
-                          </div>
-                          <div style={{ marginBottom: "12px" }}>
-                            <div
-                              style={{
-                                fontSize: "16px",
-                                fontWeight: "600",
-                                color: "#333",
-                                marginBottom: "4px",
-                              }}
-                            >
-                              ${invitation.freelancer?.hourlyRate || "25.00"}/hr
-                            </div>
-                            <span
-                              style={{
-                                background: "#007bff",
-                                color: "#ffffff",
-                                padding: "2px 8px",
-                                borderRadius: "12px",
-                                fontSize: "12px",
-                                fontWeight: "500",
-                              }}
-                            >
-                              Invited
-                            </span>
-                          </div>
-                          <div
-                            style={{
-                              fontSize: "14px",
-                              color: "#666",
-                              lineHeight: "1.4",
-                            }}
-                          >
-                            <strong>Cover letter -</strong>{" "}
-                            {invitation.coverLetter || ""}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  // Show empty state when no declined invitations
-                  <div
-                    style={{
-                      maxWidth: 400,
-                      margin: "0 auto",
-                      textAlign: "center",
-                    }}
-                  >
-                    {/* Archive Icon */}
-                    <div
-                      style={{
-                        width: 80,
-                        height: 80,
-                        margin: "0 auto 32px auto",
-                        position: "relative",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {/* Archive box */}
-                      <div
-                        style={{
-                          width: 60,
-                          height: 45,
-                          background: "#6c757d",
-                          borderRadius: "8px 8px 12px 12px",
-                          position: "relative",
-                          boxShadow: "0 4px 12px rgba(108, 117, 125, 0.3)",
-                        }}
-                      >
-                        {/* Archive lid */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: -8,
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            width: 50,
-                            height: 12,
-                            background: "#6c757d",
-                            borderRadius: "8px 8px 0 0",
-                            borderBottom: "2px solid #495057",
-                          }}
-                        ></div>
-
-                        {/* Archive handle */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: -4,
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            width: 20,
-                            height: 6,
-                            background: "#495057",
-                            borderRadius: "3px",
-                          }}
-                        ></div>
-
-                        {/* Archive lock */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: 8,
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            width: 8,
-                            height: 8,
-                            background: "#495057",
-                            borderRadius: "50%",
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-
-                    {/* Heading */}
-                    <div
-                      style={{
-                        fontSize: 26,
-                        fontWeight: 700,
-                        color: "#000",
-                        marginBottom: 16,
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      No archived proposals
-                    </div>
-
-                    {/* Descriptive Text */}
-                    <div
-                      style={{
-                        fontSize: 18,
-                        color: "#666",
-                        marginBottom: 40,
-                        textAlign: "center",
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      Archived proposals will appear here when you archive them
-                      from other tabs.
-                    </div>
-
-                    {/* View all proposals Button */}
-                    <button
-                      onClick={() => handleProposalTabChange("all")}
-                      style={{
-                        background:
-                          "linear-gradient(135deg, #007674 0%, #005a58 100%)",
-                        color: "#ffffff",
-                        border: "none",
-                        borderRadius: 15,
-                        padding: "14px 32px",
-                        fontSize: "1rem",
-                        fontWeight: 600,
-                        transition: "all 0.3s ease",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 8,
-                        cursor: "pointer",
-                        boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
-                        margin: "0 auto",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.target.style.background =
-                          "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
-                        e.target.style.transform = "translateY(-2px)";
-                        e.target.style.boxShadow =
-                          "0 8px 25px rgba(18, 18, 18, 0.4)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.background =
-                          "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                        e.target.style.transform = "translateY(0)";
-                        e.target.style.boxShadow =
-                          "0 6px 20px rgba(0, 118, 116, 0.3)";
-                      }}
-                    >
-                      View all proposals
-                    </button>
-                  </div>
-                )}
               </div>
             )}
 
@@ -5058,6 +5021,52 @@ const ClientJobDetailedPage = () => {
         }
         ${filterAnimations}
       `}</style>
+
+      {/* Loading Screen */}
+      {loading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "#fff",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            fontFamily: "Urbanist, sans-serif",
+          }}
+        >
+          <div className="text-center">
+            <div
+              className="d-inline-flex align-items-center justify-content-center mb-4"
+              style={{
+                width: "80px",
+                height: "80px",
+                borderRadius: "50%",
+                background: "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                color: "white",
+                boxShadow: "0 8px 25px rgba(0, 118, 116, 0.3)",
+              }}
+            >
+              <BsPeople size={40} />
+            </div>
+            <h3
+              className="fw-semibold mb-3"
+              style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
+            >
+              Loading Job Details
+            </h3>
+            <p className="mb-0" style={{ color: "#121212", fontSize: "1.2rem" }}>
+              Preparing your job posting and applicant data...
+            </p>
+          </div>
+        </div>
+      )}
+
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px" }}>
         {/* Job Title at the very top */}
         <div
@@ -5093,7 +5102,6 @@ const ClientJobDetailedPage = () => {
             fontSize: 18,
           }}
         >
-          <span style={{ color: "#222", fontWeight: 600 }}>Invite-Only</span>
           <span
             style={{
               color: "#888",
@@ -5104,7 +5112,7 @@ const ClientJobDetailedPage = () => {
           >
             <BsCalendar size={16} />{" "}
             <span style={{ fontWeight: 500 }}>Posted</span>{" "}
-            {job.createdAt ? timeAgo(job.createdAt) : "1 hour ago"}
+            {job.updatedAt ? timeAgo(job.updatedAt) : "1 hour ago"}
           </span>
         </div>
         {/* Step Progress Bar below meta row */}
@@ -5206,7 +5214,6 @@ const ClientJobDetailedPage = () => {
                 <SidebarAction icon={<BsPencil />} text="Edit posting" />
                 <SidebarAction icon={<BsEye />} text="View posting" />
                 <SidebarAction icon={<BsX />} text="Remove posting" />
-                <SidebarAction icon={<BsGlobe />} text="Make public" />
               </div>
               {/* About the client section, no border or background */}
               <div
@@ -5238,72 +5245,193 @@ const ClientJobDetailedPage = () => {
                 </div>
                 <div
                   style={{
-                    color: "#222",
-                    fontWeight: 400,
+                    color: paymentVerified ? "#007476" : "#222",
+                    fontWeight: paymentVerified ? 500 : 400,
                     fontSize: 18,
                     marginBottom: 10,
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
+                    cursor:
+                      !paymentVerified && !loadingPaymentStatus
+                        ? "pointer"
+                        : "default",
+                  }}
+                  onClick={() => {
+                    if (!paymentVerified && !loadingPaymentStatus) {
+                      handleAddBillingMethod();
+                    }
                   }}
                 >
-                  Payment method not verified{" "}
-                  <BsQuestionCircle
+                  {loadingPaymentStatus ? (
+                    <>
+                      Checking payment status...{" "}
+                      <div
+                        style={{
+                          width: "16px",
+                          height: "16px",
+                          border: "2px solid #007476",
+                          borderTop: "2px solid transparent",
+                          borderRadius: "50%",
+                          animation: "spin 1s linear infinite",
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      Payment method{" "}
+                      {paymentVerified ? "verified" : "not verified"}{" "}
+                      {paymentVerified ? (
+                        <BsCheckCircle
+                          style={{ color: "#007476", fontSize: 18 }}
+                        />
+                      ) : (
+                        <BsQuestionCircle
+                          style={{
+                            fontSize: 15,
+                            color: "#bbb",
+                            marginLeft: 2,
+                            verticalAlign: -2,
+                          }}
+                        />
+                      )}
+                    </>
+                  )}
+                </div>
+                <div
+                  style={{
+                    color: phoneVerified ? "#007476" : "#222",
+                    fontWeight: phoneVerified ? 500 : 400,
+                    fontSize: 18,
+                    marginBottom: 10,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    cursor: !phoneVerified && !loadingPhoneStatus ? "pointer" : "default",
+                  }}
+                  onClick={() => {
+                    if (!phoneVerified && !loadingPhoneStatus) {
+                      handlePhoneVerificationClick();
+                    }
+                  }}
+                >
+                  {loadingPhoneStatus ? (
+                    <>
+                      Checking phone status...{" "}
+                      <div
+                        style={{
+                          width: "16px",
+                          height: "16px",
+                          border: "2px solid #007476",
+                          borderTop: "2px solid transparent",
+                          borderRadius: "50%",
+                          animation: "spin 1s linear infinite",
+                        }}
+                      />
+                    </>
+                  ) : (
+                    <>
+                      {phoneVerified ? (
+                        <BsCheckCircle style={{ color: "#007476", fontSize: 18 }} />
+                      ) : (
+                        <BsQuestionCircle
+                          style={{
+                            fontSize: 15,
+                            color: "#bbb",
+                            marginLeft: 2,
+                            verticalAlign: -2,
+                          }}
+                        />
+                      )}{" "}
+                      Phone number {phoneVerified ? "verified" : "not verified"}
+                    </>
+                  )}
+                </div>
+                {loadingClientDetails ? (
+                  <div
                     style={{
-                      fontSize: 15,
-                      color: "#bbb",
-                      marginLeft: 2,
-                      verticalAlign: -2,
+                      color: "#666",
+                      fontSize: 16,
+                      marginBottom: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
                     }}
-                  />
-                </div>
-                <div
-                  style={{
-                    color: "#007476",
-                    fontWeight: 500,
-                    fontSize: 18,
-                    marginBottom: 10,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                  }}
-                >
-                  <BsCheckCircle style={{ color: "#007476", fontSize: 18 }} />{" "}
-                  Phone number verified
-                </div>
-                <div
-                  style={{
-                    color: "#121212",
-                    fontWeight: 400,
-                    fontSize: 18,
-                    marginBottom: 0,
-                  }}
-                >
-                  {client.time}
-                </div>
-                <div
-                  style={{ color: "#121212", fontSize: 18, margin: "10px 0" }}
-                >
-                  {client.hireRate}
-                </div>
-                <div
-                  style={{
-                    color: "#222",
-                    fontWeight: 600,
-                    fontSize: 18,
-                    marginBottom: 10,
-                  }}
-                >
-                  {client.industry}
-                </div>
-                <div
-                  style={{ color: "#121212", fontSize: 18, marginBottom: 0 }}
-                >
-                  {client.company}
-                </div>
-                <div style={{ color: "#888", fontSize: 18, marginTop: 15 }}>
-                  Member since {client.memberSince}
-                </div>
+                  >
+                    Loading client details...{" "}
+                    <div
+                      style={{
+                        width: "16px",
+                        height: "16px",
+                        border: "2px solid #007476",
+                        borderTop: "2px solid transparent",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                      }}
+                    />
+                  </div>
+                ) : clientDetails ? (
+                  <>
+                    {/* Online Status and Time */}
+                    <div
+                      style={{
+                        color: "#121212",
+                        fontWeight: 400,
+                        fontSize: 18,
+                        marginBottom: 10,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <div
+                      />
+                       {formatTime(clientDetails.lastSeen)}
+                    </div>
+
+                    {/* Hiring Rate and Job Statistics */}
+                    <div
+                      style={{ 
+                        color: "#121212", 
+                        fontSize: 18, 
+                        marginBottom: 10,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {clientDetails.hiringRate}% hire rate, {clientDetails.activeJobs} active job{clientDetails.activeJobs !== 1 ? 's' : ''}
+                    </div>
+
+                    {/* Company Information */}
+                    <div
+                      style={{
+                        color: "#222",
+                        fontWeight: 600,
+                        fontSize: 18,
+                        marginBottom: 8,
+                      }}
+                    >
+                      {clientDetails.industry}
+                    </div>
+                    <div
+                      style={{ 
+                        color: "#121212", 
+                        fontSize: 18, 
+                        marginBottom: 8,
+                      }}
+                    >
+                      {clientDetails.companySize}
+                    </div>
+
+                    {/* Member Since */}
+                    <div style={{ color: "#888", fontSize: 16, marginTop: 12 }}>
+                      Member since {clientDetails.createdAt}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: "#888", fontSize: 16 }}>
+                    Unable to load client details
+                  </div>
+                )}
               </div>
             </div>
           </div>

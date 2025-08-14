@@ -31,6 +31,8 @@ class User(Document):
     onlineStatus = StringField(choices=["online", "offline"], default="offline")
     lastSeen = DateTimeField(default=timezone.now)
     aiPreference = StringField(choices=["yes", "no", "depends"], default="depends")
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
 
     meta = {"collection": "users", "strict": False}
 

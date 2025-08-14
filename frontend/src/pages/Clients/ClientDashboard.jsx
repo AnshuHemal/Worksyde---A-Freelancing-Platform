@@ -2,23 +2,13 @@ import React, { useEffect, useState } from "react";
 import { Outlet, useLocation } from "react-router-dom";
 import ClientHeader from "../../components/ClientHeader";
 import toast from "react-hot-toast";
+import { useUser } from "../../contexts/UserContext";
 
 const ClientDashboard = () => {
+  const { userId } = useUser();
   const location = useLocation();
   const isMessagesPage = location.pathname.includes("/ws/client/messages");
-  const [userId, setUserId] = useState(null);
   const [chatSocket, setChatSocket] = useState(null);
-
-  useEffect(() => {
-    // Fetch current user
-    fetch("/api/auth/current-user/", { credentials: "include" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.success && data.user && data.user._id) {
-          setUserId(data.user._id);
-        }
-      });
-  }, []);
 
   useEffect(() => {
     if (!userId) return;

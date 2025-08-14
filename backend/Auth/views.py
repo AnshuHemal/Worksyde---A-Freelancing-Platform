@@ -2262,7 +2262,7 @@ def upload_job_post_attachment(request):
                 )
 
             # Generate download URL
-            jobpost_link = f"http://localhost:5000/api/jobposts/attachments/{attachment.id}"
+            jobpost_link = f"http://localhost:5000/api/auth/jobposts/attachments/{attachment.id}"
 
             # Update job post with attachment link
             job_post.attachments = jobpost_link
@@ -2484,7 +2484,7 @@ def get_job_attachment_details(request, id):
             "fileName": attachment.fileName,
             "contentType": attachment.contentType,
             "fileSize": attachment.fileSize,
-            "downloadUrl": f"http://localhost:5000/api/jobposts/attachments/{attachment.id}"
+            "downloadUrl": f"http://localhost:5000/api/auth/jobposts/attachments/{attachment.id}"
         }
         
         return Response(attachment_data, status=200)
@@ -2505,8 +2505,34 @@ def get_job_post_details(request, job_id):
         if not job_post:
             return Response({"message": "Job Post not found"}, status=404)
 
+        # Get attachment details if attachment exists
+        attachment_details = None
+        if job_post.attachments:
+            try:
+                # Extract attachment ID from the URL
+                attachment_id = job_post.attachments.split('/')[-1]
+                attachment = JobAttachment.objects(id=attachment_id).first()
+                if attachment:
+                    attachment_details = {
+                        "id": str(attachment.id),
+                        "fileName": attachment.fileName,
+                        "contentType": attachment.contentType,
+                        "fileSize": attachment.fileSize,
+                        "downloadUrl": job_post.attachments
+                    }
+            except Exception as e:
+                print(f"Error fetching attachment details: {e}")
+                # If attachment details can't be fetched, still return job details
+                pass
+
         serializer = JobPostSerializer(job_post)
-        return Response(serializer.data)
+        response_data = serializer.data
+        
+        # Add attachment details to response
+        if attachment_details:
+            response_data["attachmentDetails"] = attachment_details
+
+        return Response(response_data)
 
     except Exception as e:
         print("Error getting job post:", str(e))
@@ -2775,7 +2801,7 @@ def create_job_proposal(request):
             new_attachment = ProposalAttachment.objects.create(
                 data=file.read(), contentType=file.content_type
             )
-            attachment_link = f"http://localhost:5000/api/jobproposals/attachments/{new_attachment.id}"
+            attachment_link = f"http://localhost:5000/api/auth/jobproposals/attachments/{new_attachment.id}"
 
         parsed_milestones = []
         if milestones and project_scope == "By Milestone":
