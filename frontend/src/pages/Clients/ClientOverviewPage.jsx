@@ -1092,7 +1092,7 @@ const ClientOverviewPage = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                         <span style={{ background: '#f1f8ff', color: '#007476', fontWeight: 600, fontSize: 17, borderRadius: 12, padding: '4px 14px', display: 'inline-block' }}>Open job post</span>
                         <span style={{ color: '#888', fontSize: 16 }}>
-                          Created {job.createdAt ? timeAgo(job.createdAt) : ''}
+                          {formatJobTimestamp(job)}
                         </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', margin: '10px 0 10px 0', fontSize: 15, color: '#222', fontWeight: 500 }}>
@@ -1131,7 +1131,7 @@ const ClientOverviewPage = () => {
                         }}
                         onMouseOver={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #121212 0%, #0a0a0a 100%)'; }}
                         onMouseOut={e => { e.currentTarget.style.background = 'linear-gradient(135deg, #007674 0%, #005a58 100%)'; }}
-                        onClick={e => { e.stopPropagation(); navigate(`/ws/applicants/${job.id}`); }}
+                        onClick={e => { e.stopPropagation(); navigate(`/ws/client/applicants/${job.id}`); }}
                       >
                         Find talent
                       </button>
@@ -1399,4 +1399,19 @@ function timeAgo(dateString) {
   if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
   const days = Math.floor(hours / 24);
   return `${days} day${days > 1 ? 's' : ''} ago`;
+}
+
+function formatJobTimestamp(job) {
+  if (!job.updatedAt && !job.createdAt) return '';
+  
+  const updatedAt = job.updatedAt ? new Date(job.updatedAt) : null;
+  const createdAt = job.createdAt ? new Date(job.createdAt) : null;
+  
+  // If there's an update time and it's different from creation time, show "Updated"
+  if (updatedAt && createdAt && updatedAt.getTime() !== createdAt.getTime()) {
+    return `Created ${timeAgo(job.updatedAt)}`;
+  }
+  
+  // Otherwise show "Created"
+  return `Created ${timeAgo(job.createdAt || job.updatedAt)}`;
 }
