@@ -1,9 +1,21 @@
 import React, { useEffect, useState } from "react";
 import Header2 from "../../components/Header2";
-import innovate from "../../assets/innovate.svg";
 import { HiOutlineDocumentCurrencyRupee } from "react-icons/hi2";
 import { IoCalendarOutline, IoDocumentAttach } from "react-icons/io5";
-import { BsArrowLeft, BsCheckCircle, BsPencil, BsX, BsClock, BsBriefcase } from "react-icons/bs";
+import {
+  BsArrowLeft,
+  BsCheckCircle,
+  BsPencil,
+  BsX,
+  BsClock,
+  BsBriefcase,
+  BsPerson,
+  BsGeoAlt,
+  BsQuestionCircle,
+  BsInfoCircle,
+  BsCalendar,
+  BsCurrencyRupee,
+} from "react-icons/bs";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -11,13 +23,12 @@ import { motion } from "framer-motion";
 const JobProposalSubmit = () => {
   const location = useLocation();
   const pathParts = location.pathname.split("/");
-
-  // ["", "ws", "proposals", "6842d69ab5d7d6f3b5cb99e8"]
   const jobProposalId = pathParts[3];
 
   const [jobData, setJobData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
+  const [clientDetails, setClientDetails] = useState(null);
   const navigate = useNavigate();
 
   const [showModal, setShowModal] = useState(false);
@@ -37,6 +48,7 @@ const JobProposalSubmit = () => {
   const API_URL = "http://localhost:5000/api/auth";
 
   const formatPostDate = (dateString) => {
+    if (!dateString) return "N/A";
     const createdDate = new Date(dateString);
     const today = new Date();
     const yesterday = new Date();
@@ -60,10 +72,84 @@ const JobProposalSubmit = () => {
     }
   };
 
+  const formatMemberSince = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat("en-US", {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    }).format(date);
+  };
+
+  const formatLastSeen = (lastSeenDate) => {
+    if (!lastSeenDate) return "Recently";
+    const lastSeen = new Date(lastSeenDate);
+    const now = new Date();
+    const diffInMinutes = Math.floor((now - lastSeen) / (1000 * 60));
+
+    if (diffInMinutes < 1) return "Just now";
+    if (diffInMinutes < 60) return `${diffInMinutes} minutes ago`;
+    if (diffInMinutes < 1440)
+      return `${Math.floor(diffInMinutes / 60)} hours ago`;
+    if (diffInMinutes < 2880) return "Yesterday";
+    return formatPostDate(lastSeenDate);
+  };
+
+  // Helper function to safely render values that might be objects
+  const safeRender = (value, fallback = "") => {
+    if (value === null || value === undefined) return fallback;
+    if (typeof value === "object") {
+      return value.name || value.title || value.label || fallback;
+    }
+    return String(value);
+  };
+
+  // Resolve project duration field from various possible keys
+  const getJobDuration = (jobObj) => {
+    if (!jobObj) return "";
+    const candidate =
+      jobObj.projectDuration ??
+      jobObj.duration ??
+      jobObj.project_duration ??
+      jobObj.hoursPerWeek ??
+      jobObj.weeklyHours ??
+      jobObj.workload ??
+      jobObj.timePerWeek;
+    if (!candidate) return "";
+    if (typeof candidate === "object") {
+      return candidate.name || candidate.label || candidate.title || "";
+    }
+    return String(candidate);
+  };
+
+  // Currency formatting helper (Indian locale)
+  const formatCurrency = (value) => {
+    const num = Number(value || 0);
+    return `₹${num.toLocaleString("en-IN")}`;
+  };
+
+  // Milestones parser (handles array or JSON string)
+  const parseMilestones = (milestones) => {
+    if (!milestones) return [];
+    if (Array.isArray(milestones)) return milestones;
+    if (typeof milestones === "string") {
+      try {
+        const parsed = JSON.parse(milestones);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_) {
+        return [];
+      }
+    }
+    return [];
+  };
+
   const handleEditProposal = () => {
-    navigate(`/ws/proposals/job/~${jobData.jobId.id}/edit`, {
-      state: { jobProposalId: jobData._id },
-    });
+    if (jobData?.jobId?.id) {
+      navigate(`/ws/proposals/job/~${jobData.jobId.id}/edit`, {
+        state: { jobProposalId: jobData._id },
+      });
+    }
   };
 
   useEffect(() => {
@@ -87,7 +173,20 @@ const JobProposalSubmit = () => {
             jobProposalId: jobProposalId,
           }
         );
-        setJobData(response.data.data);
+        const proposalData = response.data.data;
+        setJobData(proposalData);
+
+        // Fetch client details if we have the job data
+        if (proposalData?.jobId?.userId) {
+          try {
+            const clientResponse = await axios.get(
+              `${API_URL}/client/profile/${proposalData.jobId.userId}/`
+            );
+            setClientDetails(clientResponse.data);
+          } catch (clientError) {
+            console.error("Error fetching client details:", clientError);
+          }
+        }
       } catch (error) {
         console.error("Error fetching job post:", error);
       } finally {
@@ -117,519 +216,873 @@ const JobProposalSubmit = () => {
     );
   }
 
+  // Extract job details from the proposal data
+  const job = jobData.jobId || {};
+  const proposal = jobData;
+
+  // Determine payment verification status
+  const hasPaymentMethod = clientDetails
+    ? (clientDetails.spent && clientDetails.spent > 0) ||
+      (clientDetails.hires && clientDetails.hires > 0) ||
+      true // Default to true for now
+    : false;
+
   return (
     <>
       <Header2 />
-      <style>{`
-  .skill-tag {
-    background: linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%);
-    color: #007674;
-    border: 1px solid rgba(0, 118, 116, 0.2);
-    border-radius: 20px;
-    padding: 6px 12px;
-    font-size: 0.95rem;
-    font-weight: 600;
-    transition: all 0.3s ease;
-    cursor: pointer;
-    display: inline-block;
-  }
-  .skill-tag:hover {
-    background: linear-gradient(135deg, #007674 0%, #005a58 100%);
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 118, 116, 0.3);
-  }
-  @media (min-width: 992px) {
-    .sticky-sidebar {
-      position: sticky;
-      top: 40px;
-    }
-  }
-`}</style>
       <div
-        className="min-vh-100 section-container"
         style={{
-          backgroundColor: "#f7f8fa",
-          padding: "40px 0 80px 0",
-          fontFamily: "Urbanist, sans-serif",
-          fontWeight: 500,
+          background: "#fff",
+          minHeight: "100vh",
+          fontFamily: "Inter, Arial, sans-serif",
         }}
       >
-        <div className="container-fluid px-4">
+        <div
+          className="section-container"
+          style={{
+            maxWidth: "1400px",
+            margin: "0 auto",
+            padding: "40px 20px",
+          }}
+        >
+          {/* Header */}
           <motion.div
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
+            style={{
+              marginBottom: "40px",
+            }}
           >
-            <div className="row g-0">
-              {/* Left Column - Proposal Details */}
-              <div className="col-lg-8" style={{ padding: 30 }}>
-                {/* Header */}
-                <div className="mb-4">
-                  <h2 className="fw-semibold mb-2" style={{ color: "#121212", fontSize: "2rem" }}>
-                    Proposal Summary
-                  </h2>
-                  <p className="mb-0" style={{ fontSize: "1.1rem", color: "#666", lineHeight: "1.5" }}>
-                    Review your submitted proposal and track its status.
-                  </p>
-                </div>
-                {/* Action Bar */}
-                <div className="d-flex gap-3 mb-4 flex-wrap">
-                  <button
-                    className="btn fw-semibold px-4 py-2"
-                    style={{
-                      borderRadius: "50px",
-                      background: "linear-gradient(135deg, #007674 0%, #005a58 100%)",
-                      color: "#fff",
-                      fontSize: "1rem",
-                      boxShadow: "0 4px 15px rgba(0, 118, 116, 0.3)",
-                      border: "none",
-                      transition: "all 0.3s ease",
-                    }}
-                    onClick={handleEditProposal}
-                    onMouseEnter={e => {
-                      e.target.style.background = "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
-                      e.target.style.transform = "translateY(-2px)";
-                      e.target.style.boxShadow = "0 6px 20px rgba(18, 18, 18, 0.4)";
-                    }}
-                    onMouseLeave={e => {
-                      e.target.style.background = "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                      e.target.style.transform = "translateY(0)";
-                      e.target.style.boxShadow = "0 4px 15px rgba(0, 118, 116, 0.3)";
-                    }}
-                  >
-                    <BsPencil className="me-2" /> Edit Proposal
-                  </button>
-                  <button
-                    className="btn fw-semibold px-4 py-2"
-                    style={{
-                      borderRadius: "50px",
-                      color: "#dc3545",
-                      borderColor: "#dc3545",
-                      background: "linear-gradient(135deg, #fff5f5 0%, #fff 100%)",
-                      boxShadow: "0 2px 8px rgba(220, 53, 69, 0.1)",
-                      fontSize: "1rem",
-                      transition: "all 0.3s ease",
-                    }}
-                    onClick={() => setShowModal(true)}
-                    onMouseEnter={e => {
-                      e.target.style.background = "linear-gradient(135deg, #ffe6e6 0%, #fff5f5 100%)";
-                      e.target.style.transform = "translateY(-2px)";
-                      e.target.style.boxShadow = "0 6px 20px rgba(220, 53, 69, 0.2)";
-                    }}
-                    onMouseLeave={e => {
-                      e.target.style.background = "linear-gradient(135deg, #fff5f5 0%, #fff 100%)";
-                      e.target.style.transform = "translateY(0)";
-                      e.target.style.boxShadow = "0 2px 8px rgba(220, 53, 69, 0.1)";
-                    }}
-                  >
-                    <BsX className="me-2" /> Withdraw Proposal
-                  </button>
-                </div>
-                {/* Info Alert */}
-                <div
-                  className="alert alert-info border-0 mb-4 mx-auto"
-                  style={{
-                    maxWidth: "800px",
-                    borderRadius: "15px",
-                    background: "linear-gradient(135deg, #e8f4f4 0%, #f0f9f9 100%)",
-                    border: "1px solid rgba(0, 118, 116, 0.2)",
-                    color: "#007674",
-                    fontSize: "1rem",
-                    fontWeight: 500,
-                  }}
-                >
-                  <BsCheckCircle className="me-2" />
-                  You can edit any detail for up to 5 hours, or until your proposal is viewed.
-                </div>
-                {/* Proposal Details Card */}
-                <div className="mb-4">
-                  <div className="card border-0 shadow-lg h-100 mb-4" style={{ borderRadius: "25px", background: "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)", border: "1px solid rgba(0, 118, 116, 0.1)" }}>
-                    <div className="card-body p-5">
-                      <h4 className="fw-semibold mb-4" style={{ color: "#121212" }}>Job Details</h4>
-                      <div className="d-flex flex-wrap align-items-center mb-3 gap-3">
-                        <h5 className="fw-semibold mb-2" style={{ color: "#007674" }}>{jobData.jobId.title}</h5>
-                        <span className="text-muted" style={{ fontSize: "0.95rem", fontWeight: 500 }}>
-                          Posted {formatPostDate(jobData.createdAt)}
-                        </span>
-                      </div>
-                      <p className="mb-4" style={{ fontSize: "1.1rem", fontWeight: 500, color: "#333", lineHeight: "1.6", whiteSpace: "pre-line" }}>{jobData.jobId.description}</p>
-                      <div className="mb-3">
-                        <span className="me-3" style={{ color: "#007674", fontWeight: 600 }}>
-                          <BsClock className="me-1" /> {jobData.jobId.duration}
-                        </span>
-                        <span className="me-3" style={{ color: "#007674", fontWeight: 600 }}>
-                          <BsBriefcase className="me-1" /> {jobData.jobId.experienceLevel}
-                        </span>
-                        <span className="me-3" style={{ color: "#007674", fontWeight: 600 }}>
-                          <HiOutlineDocumentCurrencyRupee className="me-1" /> ₹{jobData.bidAmount}
-                        </span>
-                      </div>
-                      <div className="d-flex flex-wrap gap-2 mb-2">
-                        {jobData.jobId.skills.map((skill, i) => (
-                          <span key={i} className="skill-tag">{skill.name}</span>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Proposal Terms Card */}
-                  <div className="card border-0 shadow-lg h-100 mb-4" style={{ borderRadius: "25px", background: "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)", border: "1px solid rgba(0, 118, 116, 0.1)" }}>
-                    <div className="card-body p-5">
-                      <h4 className="fw-semibold mb-4" style={{ color: "#007674" }}>Your Proposed Terms</h4>
-                      <div className="row g-4">
-                        <div className="col-md-6">
-                          <div className="mb-4">
-                            <h6 className="fw-semibold mb-2" style={{ color: "#121212" }}>Payment Method</h6>
-                            <div className="p-3 rounded" style={{ background: "rgba(0, 118, 116, 0.05)", border: "1px solid rgba(0, 118, 116, 0.1)" }}>
-                              <span className="fw-semibold" style={{ color: "#007674" }}>● {jobData.projectScope}</span>
-                            </div>
-                          </div>
-                          {jobData.milestones && jobData.milestones.length > 0 && (
-                            <div className="mb-4">
-                              <h6 className="fw-semibold mb-3" style={{ color: "#121212" }}>Milestones</h6>
-                              <div className="space-y-2">
-                                {jobData.milestones.map((milestone, index) => (
-                                  <div key={index} className="p-3 rounded mb-2" style={{ background: "rgba(0, 118, 116, 0.05)", border: "1px solid rgba(0, 118, 116, 0.1)" }}>
-                                    <div className="d-flex justify-content-between align-items-center">
-                                      <span className="fw-semibold" style={{ color: "#121212" }}>{milestone.title}</span>
-                                      <span className="fw-semibold" style={{ color: "#007674" }}>₹{milestone.amount}.00</span>
-                                    </div>
-                                    <div className="text-muted" style={{ fontSize: "0.9rem" }}>Due: {formatPostDate(milestone.dueDate)}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        <div className="col-md-6">
-                          <div className="mb-4">
-                            <h6 className="fw-semibold mb-2" style={{ color: "#121212" }}>Total Project Price</h6>
-                            <p className="text-muted mb-2" style={{ fontSize: "0.9rem" }}>This includes all milestones, and is the amount your client will see.</p>
-                            <div className="p-3 rounded" style={{ background: "rgba(0, 118, 116, 0.05)", border: "1px solid rgba(0, 118, 116, 0.1)" }}>
-                              <span className="fw-bold fs-5" style={{ color: "#007674" }}>₹{jobData.bidAmount}.00</span>
-                            </div>
-                          </div>
-                          <div className="mb-4">
-                            <h6 className="fw-semibold mb-2" style={{ color: "#121212" }}>You'll Receive</h6>
-                            <p className="text-muted mb-2" style={{ fontSize: "0.9rem" }}>The estimated payment, after service fees.</p>
-                            <div className="p-3 rounded" style={{ background: "rgba(0, 118, 116, 0.05)", border: "1px solid rgba(0, 118, 116, 0.1)" }}>
-                              <span className="fw-bold fs-5" style={{ color: "#007674" }}>₹{jobData.youReceive}.00</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Cover Letter Card */}
-                  <div className="card border-0 shadow-lg h-100" style={{ borderRadius: "25px", background: "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)", border: "1px solid rgba(0, 118, 116, 0.1)" }}>
-                    <div className="card-body p-5">
-                      <h4 className="fw-semibold mb-4" style={{ color: "#007674" }}>Cover Letter</h4>
-                      <div className="p-4 rounded" style={{ background: "rgba(0, 118, 116, 0.02)", border: "1px solid rgba(0, 118, 116, 0.1)", minHeight: "120px" }}>
-                        <p className="mb-0" style={{ fontSize: "1.1rem", fontWeight: 500, color: "#333", lineHeight: "1.6", whiteSpace: "pre-line" }}>{jobData.coverLetter}</p>
-                      </div>
-                      {jobData.attachment && (
-                        <div className="mt-4">
-                          <h6 className="fw-semibold mb-3" style={{ color: "#121212" }}>Attachments</h6>
-                          <div className="d-flex align-items-center justify-content-between p-3 rounded" style={{ background: "rgba(0, 118, 116, 0.05)", border: "1px solid rgba(0, 118, 116, 0.1)", maxWidth: "400px" }}>
-                            <div className="d-flex align-items-center gap-2">
-                              <IoDocumentAttach size={20} style={{ color: "#007674" }} />
-                              <span className="fw-medium" style={{ color: "#121212" }}>Attachment.pdf</span>
-                            </div>
-                            <a href={jobData.attachment} target="_blank" rel="noopener noreferrer">
-                              <button className="btn btn-sm" style={{ borderRadius: "25px", background: "linear-gradient(135deg, #007674 0%, #005a58 100%)", color: "#fff", border: "none", fontSize: "0.9rem", fontWeight: 600, padding: "6px 16px", transition: "all 0.3s ease" }}
-                                onMouseEnter={e => { e.target.style.background = "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)"; e.target.style.transform = "translateY(-1px)"; }}
-                                onMouseLeave={e => { e.target.style.background = "linear-gradient(135deg, #007674 0%, #005a58 100%)"; e.target.style.transform = "translateY(0)"; }}
-                              >View</button>
-                            </a>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-              {/* Right Column - Sidebar */}
-              <div className="col-lg-4 sticky-sidebar" style={{ padding: 30 }}>
-                {/* Proposal Status Card */}
-                <div className="card border-0 shadow-lg mb-4" style={{ borderRadius: "25px", background: "#fff", border: "1px solid rgba(0, 118, 116, 0.1)" }}>
-                  <div className="card-body p-4">
-                    <h5 className="fw-semibold mb-3" style={{ color: "#121212" }}>Proposal Status</h5>
-                    <div className="mb-3">
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <BsCheckCircle size={18} style={{ color: "#28a745" }} />
-                        <span className="fw-semibold" style={{ color: "#28a745" }}>Submitted Successfully</span>
-                      </div>
-                      <p className="mb-0" style={{ fontSize: "0.9rem", color: "#666" }}>
-                        Your proposal has been sent to the client and is under review.
-                      </p>
-                    </div>
-                    <div className="mb-3">
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <div className="rounded-circle" style={{ width: 18, height: 18, background: "#ffc107" }} />
-                        <span className="fw-semibold" style={{ color: "#856404" }}>Pending Response</span>
-                      </div>
-                      <p className="mb-0" style={{ fontSize: "0.9rem", color: "#666" }}>
-                        Waiting for the client to review and respond to your proposal.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                {/* Client Info Card */}
-                <div className="card border-0 shadow-lg mb-4" style={{ borderRadius: "25px", background: "#fff", border: "1px solid rgba(0, 118, 116, 0.1)" }}>
-                  <div className="card-body p-4">
-                    <h5 className="fw-semibold mb-3" style={{ color: "#121212" }}>Client Information</h5>
-                    <div className="mb-2 d-flex align-items-center gap-2">
-                      <BsCheckCircle size={18} style={{ color: "#15acec" }} />
-                      <span className="fw-semibold" style={{ color: "#15acec" }}>Payment Verified</span>
-                    </div>
-                    <div className="mb-2 d-flex align-items-center gap-2">
-                      <span className="text-muted">Total Spent:</span>
-                      <span className="fw-semibold" style={{ color: "#121212" }}>₹{jobData.jobId.totalSpent || 0}+</span>
-                    </div>
-                    <div className="mb-2 d-flex align-items-center gap-2">
-                      <span className="text-muted">Member Since:</span>
-                      <span className="fw-semibold" style={{ color: "#121212" }}>{jobData.jobId.clientSince || "N/A"}</span>
-                    </div>
-                  </div>
-                </div>
-                {/* Next Steps Card */}
-                <div className="card border-0 shadow-lg" style={{ borderRadius: "25px", background: "#fff", border: "1px solid rgba(0, 118, 116, 0.1)" }}>
-                  <div className="card-body p-4">
-                    <h5 className="fw-semibold mb-3" style={{ color: "#121212" }}>Next Steps</h5>
-                    <ul className="mb-0" style={{ color: "#666", fontSize: "0.95rem" }}>
-                      <li className="mb-2">Client will review your proposal within 24-48 hours</li>
-                      <li className="mb-2">You may receive questions or requests for clarification</li>
-                      <li className="mb-2">If selected, you'll receive a contract to review</li>
-                      <li className="mb-0">You can edit your proposal until it's viewed</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-      {/* Withdraw Modal */}
-      {showModal && (
-        <div className="custom-modal-overlay">
-          <div className="custom-modal">
-            <button
-              className="modal-close"
-              onClick={() => setShowModal(false)}
+            <h1
               style={{
-                position: "absolute",
-                top: "20px",
-                right: "20px",
-                background: "none",
-                border: "none",
-                fontSize: "24px",
-                color: "#666",
-                cursor: "pointer",
-                width: "40px",
-                height: "40px",
-                borderRadius: "50%",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.2s ease",
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = "rgba(0, 0, 0, 0.1)";
-                e.target.style.color = "#333";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = "none";
-                e.target.style.color = "#666";
+                fontSize: "32px",
+                fontWeight: "600",
+                color: "#222",
+                margin: "0",
               }}
             >
-              ×
-            </button>
+              Proposal details
+            </h1>
+          </motion.div>
 
-            <h3
-              className="fw-semibold mb-4"
-              style={{ color: "#007674", fontSize: "1.5rem" }}
-            >
-              Withdraw Proposal
-            </h3>
-
-            <div className="modal-scrollable-content">
-              <p
-                className="mb-4"
+          <div style={{ display: "flex", gap: "32px" }}>
+            {/* Left Column - Main Content */}
+            <div style={{ flex: 1 }}>
+              {/* Job Details Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.6 }}
                 style={{
-                  fontSize: "1rem",
-                  color: "#666",
-                  lineHeight: "1.6",
+                  background: "#fff",
+                  border: "1px solid #e6e6e6",
+                  borderRadius: "12px",
+                  padding: "36px",
+                  marginBottom: "32px",
+                  boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
                 }}
               >
-                We will politely notify the client that you are not interested.
-                The client will be able to view the reason you've withdrawn your
-                proposal.
-              </p>
+                <h2
+                  style={{
+                    fontWeight: "600",
+                    fontSize: "26px",
+                    marginBottom: "24px",
+                    color: "#111",
+                  }}
+                >
+                  Job details
+                </h2>
 
-              <div className="mb-4">
-                <h6 className="fw-semibold mb-3" style={{ color: "#121212" }}>
-                  Reason for Withdrawal
-                </h6>
-                <div className="space-y-2">
+                {/* Job Title */}
+                <h3
+                  style={{
+                    fontWeight: "600",
+                    fontSize: "24px",
+                    marginBottom: "16px",
+                    color: "#111",
+                    lineHeight: "1.3",
+                  }}
+                >
+                  {safeRender(job.title, "Job Title Not Available")}
+                </h3>
+
+                {/* Tags and Date */}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "12px",
+                    marginBottom: "24px",
+                  }}
+                >
+                  <span
+                    style={{
+                      background: "#f8f9fa",
+                      color: "#495057",
+                      padding: "6px 12px",
+                      borderRadius: "20px",
+                      fontSize: "14px",
+                      fontWeight: "500",
+                    }}
+                  >
+                    {typeof job.category === "object"
+                      ? job.category.name
+                      : job.category || "General"}
+                  </span>
+                  <span style={{ color: "#6c757d", fontSize: "14px" }}>
+                    Posted {formatPostDate(job.createdAt)}
+                  </span>
+                </div>
+
+                {/* Job Description and Attributes */}
+                <div style={{ display: "flex", gap: "32px" }}>
+                  {/* Job Description */}
+                  <div style={{ flex: 1 }}>
+                    <p
+                      style={{
+                        color: "#495057",
+                        fontSize: "16px",
+                        lineHeight: "1.6",
+                        marginBottom: "16px",
+                      }}
+                    >
+                      {(() => {
+                        const description = safeRender(job.description, "");
+                        if (description) {
+                          return description.length > 200 ? (
+                            <>
+                              {description.substring(0, 200)}...{" "}
+                              <a
+                                href="#"
+                                style={{
+                                  color: "#007476",
+                                  textDecoration: "none",
+                                  fontWeight: "600",
+                                }}
+                              >
+                                more
+                              </a>
+                            </>
+                          ) : (
+                            description
+                          );
+                        } else {
+                          return "No description available";
+                        }
+                      })()}
+                    </p>
+
+                    <a
+                      href="#"
+                      style={{
+                        color: "#007476",
+                        textDecoration: "none",
+                        fontWeight: "600",
+                        fontSize: "16px",
+                      }}
+                    >
+                      View job posting
+                    </a>
+                  </div>
+
+                  {/* Job Attributes */}
+                  <div style={{ width: "280px" }}>
+                    <div style={{ marginBottom: "20px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        <BsBriefcase size={18} style={{ color: "#007476" }} />
+                        <span
+                          style={{
+                            fontWeight: "600",
+                            color: "#111",
+                            fontSize: "16px",
+                          }}
+                        >
+                          {typeof job.experienceLevel === "object"
+                            ? job.experienceLevel.name
+                            : job.experienceLevel || "Not specified"}
+                        </span>
+                      </div>
+                      <span style={{ color: "#6c757d", fontSize: "14px" }}>
+                        Experience level
+                      </span>
+                    </div>
+
+                    <div style={{ marginBottom: "20px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        <BsCurrencyRupee size={18} style={{ color: "#007476" }} />
+                        <span
+                          style={{
+                            fontWeight: "600",
+                            color: "#111",
+                            fontSize: "16px",
+                          }}
+                        >
+                          {job.budgetType === "fixed"
+                            ? ` ${job.fixedRate || 0}`
+                            : `${job.hourlyRateFrom || 0} - ${
+                                job.hourlyRateTo || 0
+                              }`}
+                        </span>
+                      </div>
+                      <span style={{ color: "#6c757d", fontSize: "14px" }}>
+                        {job.budgetType === "fixed"
+                          ? "Fixed Price"
+                          : "Hourly Range"}
+                      </span>
+                    </div>
+
+                    <div style={{ marginBottom: "20px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                          marginBottom: "4px",
+                        }}
+                      >
+                        <BsClock size={18} style={{ color: "#007476" }} />
+                        <span
+                          style={{
+                            fontWeight: "600",
+                            color: "#111",
+                            fontSize: "16px",
+                          }}
+                        >
+                          {getJobDuration(job) || "Not specified"}
+                        </span>
+                      </div>
+                      <span style={{ color: "#6c757d", fontSize: "14px" }}>
+                        {(() => {
+                          const duration = getJobDuration(job);
+                          // If duration looks like hours per week, label accordingly
+                          if (/hour/i.test(duration)) return "Hours per week";
+                          return "Project Duration";
+                        })()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Skills and Expertise Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2, duration: 0.6 }}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #e6e6e6",
+                  borderRadius: "12px",
+                  padding: "36px",
+                  marginBottom: "32px",
+                  boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
+                }}
+              >
+                <h2
+                  style={{
+                    fontWeight: "600",
+                    fontSize: "26px",
+                    marginBottom: "24px",
+                    color: "#111",
+                  }}
+                >
+                  Skills and expertise
+                </h2>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                  {job.skills && job.skills.length > 0 ? (
+                    job.skills.map((skill, index) => (
+                      <span
+                        key={index}
+                        style={{
+                          background: "#f8f9fa",
+                          color: "#495057",
+                          padding: "6px 12px",
+                          borderRadius: "20px",
+                          fontSize: "14px",
+                          fontWeight: "500",
+                        }}
+                      >
+                        {typeof skill === "object" ? skill.name : skill}
+                      </span>
+                    ))
+                  ) : (
+                    <span style={{ color: "#6c757d", fontSize: "16px" }}>
+                      No skills specified
+                    </span>
+                  )}
+                </div>
+              </motion.div>
+
+              {/* Your Proposed Terms Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.6 }}
+                style={{
+                  background: "#fff",
+                  border: "1px solid #e6e6e6",
+                  borderRadius: "12px",
+                  padding: "36px",
+                  marginBottom: "32px",
+                  boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
+                }}
+              >
+                <h2
+                  style={{
+                    fontWeight: "600",
+                    fontSize: "26px",
+                    marginBottom: "24px",
+                    color: "#111",
+                  }}
+                >
+                  Your proposed terms
+                </h2>
+
+                <div style={{ marginBottom: "16px" }}>
+                  <label
+                    style={{
+                      fontWeight: "600",
+                      fontSize: "18px",
+                      color: "#111",
+                      marginBottom: "8px",
+                      display: "block",
+                    }}
+                  >
+                    {proposal.budgetType === "fixed"
+                      ? proposal.scopeOfWork === "By Milestone"
+                        ? "Price by milestone"
+                        : "Fixed Price"
+                      : "Hourly Rate"}
+                  </label>
+
+                  {/* Summary caption */}
+                  <p
+                    style={{
+                      color: "#6c757d",
+                      fontSize: "16px",
+                      marginBottom: "16px",
+                    }}
+                  >
+                    {proposal.budgetType === "fixed"
+                      ? proposal.scopeOfWork === "By Milestone"
+                        ? "Milestone payments as outlined below"
+                        : "Total amount the client will see on your proposal"
+                      : "Your hourly billing rate for this job"}
+                  </p>
+
+                  {/* Amount summary */}
+                  <div
+                    style={{
+                      fontWeight: "600",
+                      color: "#111",
+                      fontSize: "24px",
+                      marginBottom: proposal.budgetType === "fixed" ? "8px" : 0,
+                    }}
+                  >
+                    {proposal.budgetType === "fixed"
+                      ? proposal.scopeOfWork === "By Milestone"
+                        ? formatCurrency(
+                            parseMilestones(proposal.milestones).reduce(
+                              (sum, m) => sum + Number(m.amount || 0),
+                              0
+                            )
+                          )
+                        : formatCurrency(proposal.bidAmount || proposal.fixedRate)
+                      : `${formatCurrency(proposal.hourlyRate || proposal.bidAmount)}/hr`}
+                  </div>
+
+                  {/* Fee and receive for fixed price */}
+                  {proposal.budgetType === "fixed" && (
+                    <div style={{ color: "#6c757d", fontSize: 14 }}>
+                      <span style={{ marginRight: 16 }}>
+                        Service fee: {formatCurrency(proposal.serviceFee)}
+                      </span>
+                      <span>
+                        You receive: {formatCurrency(proposal.youReceive)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Milestones breakdown when applicable */}
+                {proposal.budgetType === "fixed" && proposal.scopeOfWork === "By Milestone" && (
+                  <div
+                    style={{
+                      borderTop: "1px solid #e9ecef",
+                      paddingTop: 16,
+                    }}
+                  >
+                    {parseMilestones(proposal.milestones).length === 0 ? (
+                      <div style={{ color: "#6c757d" }}>No milestones added</div>
+                    ) : (
+                      <div>
+                        {parseMilestones(proposal.milestones).map((m, i) => (
+                          <div
+                            key={`${m.title || "milestone"}-${i}`}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                              padding: "10px 0",
+                              borderBottom: "1px dashed #eee",
+                            }}
+                          >
+                            <div>
+                              <div style={{ fontWeight: 600, color: "#111" }}>
+                                {m.title || `Milestone ${i + 1}`}
+                              </div>
+                              {(m.dueDate || m.date) && (
+                                <div style={{ color: "#6c757d", fontSize: 14 }}>
+                                  Due {new Date(m.dueDate || m.date).toLocaleDateString("en-GB", {
+                                    day: "2-digit",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                            <div style={{ fontWeight: 600, color: "#111" }}>
+                              {formatCurrency(m.amount)}
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Milestones total */}
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            paddingTop: 12,
+                          }}
+                        >
+                          <div style={{ color: "#111", fontWeight: 600 }}>Total</div>
+                          <div style={{ fontWeight: 700 }}>
+                            {formatCurrency(
+                              parseMilestones(proposal.milestones).reduce(
+                                (sum, m) => sum + Number(m.amount || 0),
+                                0
+                              )
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </motion.div>
+
+              {/* Cover Letter Card */}
+              {proposal.coverLetter && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.4, duration: 0.6 }}
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e6e6e6",
+                    borderRadius: "12px",
+                    padding: "36px",
+                    marginBottom: "32px",
+                    boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
+                  }}
+                >
+                  <h2
+                    style={{
+                      fontWeight: "600",
+                      fontSize: "26px",
+                      marginBottom: "24px",
+                      color: "#111",
+                    }}
+                  >
+                    Cover letter
+                  </h2>
+
+                  <p
+                    style={{
+                      color: "#495057",
+                      fontSize: "16px",
+                      lineHeight: "1.6",
+                      marginBottom: "16px",
+                    }}
+                  >
+                    {(() => {
+                      const coverLetter = safeRender(proposal.coverLetter, "");
+                      if (coverLetter) {
+                        return coverLetter.length > 300 ? (
+                          <>
+                            {coverLetter.substring(0, 300)}...{" "}
+                            <a
+                              href="#"
+                              style={{
+                                color: "#007476",
+                                textDecoration: "none",
+                                fontWeight: "600",
+                              }}
+                            >
+                              more
+                            </a>
+                          </>
+                        ) : (
+                          coverLetter
+                        );
+                      } else {
+                        return "No cover letter available";
+                      }
+                    })()}
+                  </p>
+
+                  {/* Attachment Section */}
+                  {proposal.attachments && proposal.attachments.length > 0 && (
+                    <div style={{ marginTop: "16px" }}>
+                      {proposal.attachments.map((attachment, index) => (
+                        <div
+                          key={index}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px",
+                            marginBottom: "8px",
+                          }}
+                        >
+                          <IoDocumentAttach
+                            size={16}
+                            style={{ color: "#007476" }}
+                          />
+                          <a
+                            href={attachment.url || "#"}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              color: "#007476",
+                              textDecoration: "underline",
+                              fontSize: "14px",
+                              fontWeight: "500",
+                            }}
+                          >
+                            {attachment.name || `Attachment ${index + 1}`}
+                          </a>
+                          <span
+                            style={{
+                              color: "#6c757d",
+                              fontSize: "12px",
+                              marginLeft: "8px",
+                            }}
+                          >
+                            ({attachment.size || "Unknown size"})
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Sample Attachment (for demo purposes) */}
+                  {(!proposal.attachments ||
+                    proposal.attachments.length === 0) && (
+                    <div style={{ marginTop: "16px" }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px",
+                        }}
+                      >
+                        <IoDocumentAttach
+                          size={16}
+                          style={{ color: "#007476" }}
+                        />
+                        <a
+                          href="#"
+                          style={{
+                            color: "#007476",
+                            textDecoration: "underline",
+                            fontSize: "14px",
+                            fontWeight: "500",
+                          }}
+                        >
+                          Untitled Project (4).jpg
+                        </a>
+                        <span
+                          style={{
+                            color: "#6c757d",
+                            fontSize: "12px",
+                            marginLeft: "8px",
+                          }}
+                        >
+                          (299 KB)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </div>
+
+            {/* Right Column - Sidebar */}
+            <div style={{ width: "320px" }}>
+              <motion.div
+                initial={{ opacity: 0, x: 30 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.1, duration: 0.6 }}
+                style={{ position: "sticky", top: "100px" }}
+              >
+                {/* Action Buttons Card */}
+                <div
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e6e6e6",
+                    borderRadius: "12px",
+                    padding: "24px",
+                    marginBottom: "24px",
+                    boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
+                  }}
+                >
+                  <button
+                    style={{
+                      width: "100%",
+                      background: "#007476",
+                      color: "#fff",
+                      border: "none",
+                      padding: "12px 24px",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      marginBottom: "12px",
+                      transition: "background-color 0.2s ease",
+                    }}
+                    onClick={handleEditProposal}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#005a58";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "#007476";
+                    }}
+                  >
+                    Edit proposal
+                  </button>
+
+                  <button
+                    style={{
+                      width: "100%",
+                      background: "#fff",
+                      color: "#007476",
+                      border: "2px solid #007476",
+                      padding: "12px 24px",
+                      borderRadius: "8px",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      transition: "all 0.2s ease",
+                    }}
+                    onClick={() => setShowModal(true)}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "#fff";
+                    }}
+                  >
+                    Withdraw proposal
+                  </button>
+                </div>
+
+                {/* About the Client Card */}
+                <div
+                  style={{
+                    background: "#fff",
+                    border: "1px solid #e6e6e6",
+                    borderRadius: "12px",
+                    padding: "24px",
+                    boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
+                  }}
+                >
+                  <h3
+                    style={{
+                      fontWeight: "600",
+                      fontSize: "20px",
+                      marginBottom: "20px",
+                      color: "#111",
+                    }}
+                  >
+                    About the client
+                  </h3>
+
+                  <div style={{ marginBottom: "16px" }}>
+                    <span style={{ color: "#111", fontSize: "16px" }}>
+                      Payment method{" "}
+                      {hasPaymentMethod ? "verified" : "not verified"}
+                    </span>
+                    {!hasPaymentMethod && (
+                      <BsQuestionCircle
+                        size={14}
+                        style={{ color: "#007476", marginLeft: "4px" }}
+                      />
+                    )}
+                  </div>
+
+                  {/* <div style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <BsCheckCircle size={16} style={{ color: "#007476" }} />
+                    <span style={{ color: "#111", fontSize: "16px" }}>
+                      Phone number verified
+                    </span>
+                  </div> */}
+
+                  <div style={{ marginBottom: "16px" }}>
+                    <span style={{ color: "#111", fontSize: "16px" }}>
+                      {clientDetails?.country || "India"}, <br />{" "}
+                      {clientDetails?.city || ""}{" "}
+                      {formatLastSeen(clientDetails?.lastSeen)}
+                    </span>
+                  </div>
+
+                  {/* <div style={{ marginBottom: "16px" }}>
+                    <span style={{ color: "#111", fontSize: "16px" }}>
+                      {clientDetails?.jobCount || 0} job posted
+                    </span>
+                  </div> */}
+
+                  <div style={{ marginBottom: "16px" }}>
+                    <span style={{ color: "#111", fontSize: "16px" }}>
+                      {clientDetails?.hireRate || 0}% hire rate,{" "}
+                      {clientDetails?.openJobs || 0} open job
+                    </span>
+                  </div>
+
+                  <div style={{ marginBottom: "16px" }}>
+                    <span style={{ color: "#111", fontSize: "16px" }}>
+                      Member since {formatMemberSince(clientDetails?.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Withdraw Modal */}
+      {showModal && (
+        <div
+          className="modal fade show"
+          style={{ display: "block", backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+        >
+          <div className="modal-dialog modal-dialog-centered">
+            <div
+              className="modal-content border-0 shadow-lg"
+              style={{ borderRadius: "20px" }}
+            >
+              <div className="modal-header border-0 pb-0">
+                <h5
+                  className="modal-title fw-semibold"
+                  style={{ color: "#121212" }}
+                >
+                  Withdraw Proposal
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body pt-0">
+                <p style={{ color: "#666", fontSize: "1rem" }}>
+                  Please select a reason for withdrawing your proposal:
+                </p>
+                <div className="mb-3">
                   {withdrawReasons.map((reason) => (
-                    <div key={reason} className="form-check">
+                    <div key={reason} className="form-check mb-2">
                       <input
+                        className="form-check-input"
                         type="radio"
                         name="withdrawReason"
+                        id={reason}
                         value={reason}
-                        className="form-check-input"
                         checked={selectedReason === reason}
-                        style={{
-                          accentColor: "#007674",
-                          width: 18,
-                          height: 18,
-                        }}
-                        onChange={(e) => {
-                          setSelectedReason(e.target.value);
-                          setOtherReason("");
-                        }}
+                        onChange={(e) => setSelectedReason(e.target.value)}
+                        style={{ accentColor: "#007674" }}
                       />
                       <label
-                        className="form-check-label ms-2"
-                        style={{
-                          fontWeight: 500,
-                          color:
-                            selectedReason === reason ? "#007674" : "#121212",
-                          fontSize: "1rem",
-                        }}
+                        className="form-check-label"
+                        htmlFor={reason}
+                        style={{ color: "#121212", fontSize: "1rem" }}
                       >
                         {reason}
                       </label>
                     </div>
                   ))}
                 </div>
-              </div>
-
-              {selectedReason === "Other" && (
-                <div className="mb-4">
-                  <input
-                    type="text"
-                    placeholder="Enter your reason"
-                    value={otherReason}
-                    onChange={(e) => setOtherReason(e.target.value)}
+                {selectedReason === "Other" && (
+                  <div className="mb-3">
+                    <label className="form-label" style={{ color: "#121212" }}>
+                      Please specify:
+                    </label>
+                    <textarea
+                      className="form-control"
+                      rows="3"
+                      value={otherReason}
+                      onChange={(e) => setOtherReason(e.target.value)}
+                      style={{ borderRadius: "10px" }}
+                    ></textarea>
+                  </div>
+                )}
+                <div className="mb-3">
+                  <label className="form-label" style={{ color: "#121212" }}>
+                    Optional message to client:
+                  </label>
+                  <textarea
                     className="form-control"
-                    style={{
-                      borderRadius: "12px",
-                      border: "1.5px solid #e3e3e3",
-                      padding: "12px 16px",
-                      fontSize: "1rem",
-                      fontWeight: 500,
-                    }}
-                  />
+                    rows="3"
+                    value={optionalMessage}
+                    onChange={(e) => setOptionalMessage(e.target.value)}
+                    style={{ borderRadius: "10px" }}
+                  ></textarea>
                 </div>
-              )}
-
-              <div className="mb-4">
-                <h6 className="fw-semibold mb-2" style={{ color: "#121212" }}>
-                  Optional Message
-                </h6>
-                <p
-                  className="mb-3"
-                  style={{ fontSize: "0.9rem", color: "#666" }}
-                >
-                  Add an optional message to share with the client when we
-                  notify them that this proposal has been withdrawn.
-                </p>
-                <textarea
-                  className="form-control"
-                  placeholder="Message (Optional)"
-                  value={optionalMessage}
-                  onChange={(e) => setOptionalMessage(e.target.value)}
-                  rows="6"
-                  maxLength={50000}
-                  style={{
-                    borderRadius: "12px",
-                    border: "1.5px solid #e3e3e3",
-                    padding: "12px 16px",
-                    fontSize: "1rem",
-                    fontWeight: 500,
-                    resize: "none",
-                  }}
-                />
               </div>
-            </div>
-
-            <div className="modal-actions d-flex gap-3 justify-content-end">
-              <button
-                className="btn fw-semibold px-4 py-2"
-                style={{
-                  borderRadius: "50px",
-                  color: "#007674",
-                  border: "1.5px solid #007674",
-                  background: "linear-gradient(135deg, #e8f4f4 0%, #fff 100%)",
-                  fontSize: "1rem",
-                  transition: "all 0.3s ease",
-                }}
-                onClick={() => setShowModal(false)}
-                onMouseEnter={(e) => {
-                  e.target.style.background =
-                    "linear-gradient(135deg, #c6f0f0 0%, #e8f4f4 100%)";
-                  e.target.style.transform = "translateY(-1px)";
-                }}
-                onMouseLeave={(e) => {
-                  e.target.style.background =
-                    "linear-gradient(135deg, #e8f4f4 0%, #fff 100%)";
-                  e.target.style.transform = "translateY(0)";
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className={`btn fw-semibold px-4 py-2 ${
-                  selectedReason && (selectedReason !== "Other" || otherReason)
-                    ? ""
-                    : "disabled"
-                }`}
-                style={{
-                  borderRadius: "50px",
-                  color: "#fff",
-                  background:
-                    selectedReason &&
-                    (selectedReason !== "Other" || otherReason)
-                      ? "linear-gradient(135deg, #dc3545 0%, #c82333 100%)"
-                      : "#ccc",
-                  border: "none",
-                  fontSize: "1rem",
-                  transition: "all 0.3s ease",
-                }}
-                disabled={
-                  !selectedReason ||
-                  (selectedReason === "Other" && !otherReason)
-                }
-                onClick={() => {
-                  const finalReason =
-                    selectedReason === "Other" ? otherReason : selectedReason;
-                  console.log("Withdrawn with reason:", finalReason);
-                  setShowModal(false);
-                }}
-                onMouseEnter={(e) => {
-                  if (
-                    selectedReason &&
-                    (selectedReason !== "Other" || otherReason)
-                  ) {
-                    e.target.style.background =
-                      "linear-gradient(135deg, #c82333 0%, #bd2130 100%)";
-                    e.target.style.transform = "translateY(-1px)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (
-                    selectedReason &&
-                    (selectedReason !== "Other" || otherReason)
-                  ) {
-                    e.target.style.background =
-                      "linear-gradient(135deg, #dc3545 0%, #c82333 100%)";
-                    e.target.style.transform = "translateY(0)";
-                  }
-                }}
-              >
-                Withdraw Proposal
-              </button>
+              <div className="modal-footer border-0 pt-0">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setShowModal(false)}
+                  style={{
+                    color: "#6c757d",
+                    border: "1px solid #6c757d",
+                    borderRadius: "8px",
+                    padding: "8px 20px",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn fw-semibold"
+                  style={{
+                    backgroundColor: "#dc3545",
+                    color: "#fff",
+                    borderRadius: "8px",
+                    padding: "8px 20px",
+                    border: "none",
+                  }}
+                  disabled={!selectedReason}
+                >
+                  Withdraw Proposal
+                </button>
+              </div>
             </div>
           </div>
         </div>

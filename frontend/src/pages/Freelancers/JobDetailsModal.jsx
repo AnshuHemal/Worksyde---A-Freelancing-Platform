@@ -1,21 +1,21 @@
 import React, { useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  BsArrowLeft, 
-  BsBookmark, 
-  BsBookmarkFill, 
-  BsCurrencyDollar, 
-  BsPeople, 
-  BsClock, 
-  BsGeoAlt, 
-  BsCalendar, 
-  BsLightning, 
-  BsStar, 
+import {
+  BsArrowLeft,
+  BsBookmark,
+  BsBookmarkFill,
+  BsCurrencyDollar,
+  BsPeople,
+  BsClock,
+  BsGeoAlt,
+  BsCalendar,
+  BsLightning,
+  BsStar,
   BsCheckCircle,
   BsFlag,
   BsShare,
   BsX,
-  BsCurrencyRupee
+  BsCurrencyRupee,
 } from "react-icons/bs";
 import { RiVerifiedBadgeFill } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
@@ -39,6 +39,72 @@ const JobDetailsModal = ({ show, onClose, job }) => {
       return value.name || JSON.stringify(value);
     }
     return value;
+  };
+
+  // Function to format last seen time
+  const formatLastSeen = (lastSeenDate) => {
+    if (!lastSeenDate) return "Recently";
+
+    const now = new Date();
+    const lastSeen = new Date(lastSeenDate);
+    const diffInMs = now - lastSeen;
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+    if (diffInMinutes < 1) {
+      return "Just now";
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes} minute${diffInMinutes === 1 ? "" : "s"} ago`;
+    } else if (diffInHours < 24) {
+      if (diffInHours === 1) {
+        return "1 hour ago";
+      } else {
+        return `${diffInHours} hours ago`;
+      }
+    } else if (diffInDays === 1) {
+      return "Yesterday";
+    } else if (diffInDays < 7) {
+      return `${diffInDays} days ago`;
+    } else {
+      // For older dates, show the actual date
+      const options = { day: "numeric", month: "short", year: "numeric" };
+      return lastSeen.toLocaleDateString("en-US", options);
+    }
+  };
+
+  // Function to format posted time
+  const formatPostedTime = (dateString) => {
+    if (!dateString) return "Recently";
+
+    const now = new Date();
+    const postedDate = new Date(dateString);
+    const diffInMs = now - postedDate;
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+
+    if (diffInMinutes < 1) {
+      return "Posted just now";
+    } else if (diffInMinutes < 60) {
+      return `Posted ${diffInMinutes} minute${
+        diffInMinutes === 1 ? "" : "s"
+      } ago`;
+    } else if (diffInHours < 24) {
+      if (diffInHours === 1) {
+        return "Posted 1 hour ago";
+      } else {
+        return `Posted ${diffInHours} hours ago`;
+      }
+    } else if (diffInDays === 1) {
+      return "Posted yesterday";
+    } else if (diffInDays < 7) {
+      return `Posted ${diffInDays} days ago`;
+    } else {
+      // For older posts, show the date
+      const options = { day: "numeric", month: "short", year: "numeric" };
+      return `Posted on ${postedDate.toLocaleDateString("en-US", options)}`;
+    }
   };
 
   const handleApplyClick = () => {
@@ -147,12 +213,15 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                     >
                       Job Details
                     </h4>
-                    <p className="mb-0" style={{ color: "#666", fontSize: "0.95rem" }}>
+                    <p
+                      className="mb-0"
+                      style={{ color: "#666", fontSize: "0.95rem" }}
+                    >
                       Review and apply for this opportunity
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="d-flex align-items-center gap-2 flex-shrink-1">
                   <button
                     onClick={handleBookmarkClick}
@@ -234,7 +303,14 @@ const JobDetailsModal = ({ show, onClose, job }) => {
             </motion.div>
 
             {/* Content */}
-            <div className="modal-body" style={{ padding: "0", maxHeight: "calc(90vh - 100px)", overflow: "auto" }}>
+            <div
+              className="modal-body"
+              style={{
+                padding: "0",
+                maxHeight: "calc(90vh - 100px)",
+                overflow: "auto",
+              }}
+            >
               <div className="container-fluid p-0">
                 <div className="row g-0">
                   {/* Left Column - Job Details */}
@@ -249,20 +325,23 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                       >
                         <h2
                           className="fw-semibold mb-3"
-                          style={{ 
-                            color: "#121212", 
-                            fontSize: "2rem", 
+                          style={{
+                            color: "#121212",
+                            fontSize: "2rem",
                             lineHeight: "1.3",
-                            letterSpacing: "0.3px"
+                            letterSpacing: "0.3px",
                           }}
                         >
                           {job.title}
                         </h2>
                         <div className="d-flex align-items-center gap-4 flex-wrap">
                           <div className="d-flex align-items-center gap-2">
-                            <BsCalendar size={16} style={{ color: "#007674" }} />
+                            <BsCalendar
+                              size={16}
+                              style={{ color: "#007674" }}
+                            />
                             <span style={{ color: "#666", fontSize: "1rem" }}>
-                              Posted {new Date(job.createdAt).toLocaleDateString()}
+                              {formatPostedTime(job.updatedAt)}
                             </span>
                           </div>
                           <div className="d-flex align-items-center gap-2">
@@ -285,7 +364,8 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                           <div
                             className="p-4 rounded-4 h-100"
                             style={{
-                              background: "linear-gradient(135deg, rgba(0, 118, 116, 0.05) 0%, rgba(0, 118, 116, 0.02) 100%)",
+                              background:
+                                "linear-gradient(135deg, rgba(0, 118, 116, 0.05) 0%, rgba(0, 118, 116, 0.02) 100%)",
                               border: "1px solid rgba(0, 118, 116, 0.1)",
                             }}
                           >
@@ -295,7 +375,8 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                                   width: "50px",
                                   height: "50px",
                                   borderRadius: "50%",
-                                  background: "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                                  background:
+                                    "linear-gradient(135deg, #007674 0%, #005a58 100%)",
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
@@ -305,15 +386,27 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                                 <BsCurrencyRupee size={24} />
                               </div>
                               <div>
-                                <h6 className="fw-semibold mb-1" style={{ color: "#121212" }}>
-                                  {job.budgetType === "fixed" ? "Fixed Price" : "Hourly Rate"}
+                                <h6
+                                  className="fw-semibold mb-1"
+                                  style={{ color: "#121212" }}
+                                >
+                                  {job.budgetType === "fixed"
+                                    ? "Fixed Price"
+                                    : "Hourly Rate"}
                                 </h6>
-                                <p className="mb-0" style={{ color: "#007674", fontSize: "1.1rem", fontWeight: "600" }}>
-                                  {job.budgetType === "fixed" ? (
-                                    `₹${job.fixedRate || 0}`
-                                  ) : (
-                                    `₹${job.hourlyRateFrom || 0} - ₹${job.hourlyRateTo || 0}`
-                                  )}
+                                <p
+                                  className="mb-0"
+                                  style={{
+                                    color: "#007674",
+                                    fontSize: "1.1rem",
+                                    fontWeight: "600",
+                                  }}
+                                >
+                                  {job.budgetType === "fixed"
+                                    ? `₹${job.fixedRate || 0}`
+                                    : `₹${job.hourlyRateFrom || 0} - ₹${
+                                        job.hourlyRateTo || 0
+                                      }`}
                                 </p>
                               </div>
                             </div>
@@ -323,7 +416,8 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                           <div
                             className="p-4 rounded-4 h-100"
                             style={{
-                              background: "linear-gradient(135deg, rgba(0, 118, 116, 0.05) 0%, rgba(0, 118, 116, 0.02) 100%)",
+                              background:
+                                "linear-gradient(135deg, rgba(0, 118, 116, 0.05) 0%, rgba(0, 118, 116, 0.02) 100%)",
                               border: "1px solid rgba(0, 118, 116, 0.1)",
                             }}
                           >
@@ -333,7 +427,8 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                                   width: "50px",
                                   height: "50px",
                                   borderRadius: "50%",
-                                  background: "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                                  background:
+                                    "linear-gradient(135deg, #007674 0%, #005a58 100%)",
                                   display: "flex",
                                   alignItems: "center",
                                   justifyContent: "center",
@@ -343,10 +438,20 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                                 <BsPeople size={24} />
                               </div>
                               <div>
-                                <h6 className="fw-semibold mb-1" style={{ color: "#121212" }}>
+                                <h6
+                                  className="fw-semibold mb-1"
+                                  style={{ color: "#121212" }}
+                                >
                                   Applicants
                                 </h6>
-                                <p className="mb-0" style={{ color: "#007674", fontSize: "1.1rem", fontWeight: "600" }}>
+                                <p
+                                  className="mb-0"
+                                  style={{
+                                    color: "#007674",
+                                    fontSize: "1.1rem",
+                                    fontWeight: "600",
+                                  }}
+                                >
                                   {job.applicants || 0} proposals
                                 </p>
                               </div>
@@ -362,7 +467,10 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                         transition={{ delay: 0.4, duration: 0.4 }}
                         className="mb-4"
                       >
-                        <h5 className="fw-semibold mb-3" style={{ color: "#121212", fontSize: "1.4rem" }}>
+                        <h5
+                          className="fw-semibold mb-3"
+                          style={{ color: "#121212", fontSize: "1.4rem" }}
+                        >
                           Job Description
                         </h5>
                         <div
@@ -393,17 +501,24 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                         transition={{ delay: 0.5, duration: 0.4 }}
                         className="mb-4"
                       >
-                        <h5 className="fw-semibold mb-3" style={{ color: "#121212", fontSize: "1.4rem" }}>
+                        <h5
+                          className="fw-semibold mb-3"
+                          style={{ color: "#121212", fontSize: "1.4rem" }}
+                        >
                           Skills & Expertise
                         </h5>
                         <div className="d-flex flex-wrap gap-2">
-                          {Array.isArray(job.skills) && job.skills.length > 0 ? (
+                          {Array.isArray(job.skills) &&
+                          job.skills.length > 0 ? (
                             job.skills.map((tag, i) => (
                               <motion.span
                                 key={i}
                                 initial={{ opacity: 0, scale: 0.8 }}
                                 animate={{ opacity: 1, scale: 1 }}
-                                transition={{ delay: 0.6 + i * 0.05, duration: 0.3 }}
+                                transition={{
+                                  delay: 0.6 + i * 0.05,
+                                  duration: 0.3,
+                                }}
                                 className="badge px-3 py-2"
                                 style={{
                                   backgroundColor: "rgba(0, 118, 116, 0.1)",
@@ -418,7 +533,9 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                               </motion.span>
                             ))
                           ) : (
-                            <span style={{ color: "#666", fontSize: "1rem" }}>No skills listed</span>
+                            <span style={{ color: "#666", fontSize: "1rem" }}>
+                              No skills listed
+                            </span>
                           )}
                         </div>
                       </motion.div>
@@ -430,7 +547,10 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                         transition={{ delay: 0.6, duration: 0.4 }}
                         className="mb-4"
                       >
-                        <h5 className="fw-semibold mb-3" style={{ color: "#121212", fontSize: "1.4rem" }}>
+                        <h5
+                          className="fw-semibold mb-3"
+                          style={{ color: "#121212", fontSize: "1.4rem" }}
+                        >
                           Project Details
                         </h5>
                         <div className="row g-3">
@@ -438,17 +558,26 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                             <div
                               className="p-3 rounded-3"
                               style={{
-                                background: "#f8f9fa",
+                                background: "#fff",
                                 border: "1px solid #e3e3e3",
                               }}
                             >
                               <div className="d-flex align-items-center gap-2 mb-2">
-                                <BsLightning size={16} style={{ color: "#007674" }} />
-                                <span className="fw-semibold" style={{ color: "#121212" }}>
+                                <BsLightning
+                                  size={18}
+                                  style={{ color: "#007674" }}
+                                />
+                                <span
+                                  className="fw-semibold"
+                                  style={{ color: "#121212" }}
+                                >
                                   Experience Level
                                 </span>
                               </div>
-                              <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
+                              <p
+                                className="mb-0"
+                                style={{ color: "#666", fontSize: "1rem" }}
+                              >
                                 {job.experienceLevel}
                               </p>
                             </div>
@@ -457,17 +586,26 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                             <div
                               className="p-3 rounded-3"
                               style={{
-                                background: "#f8f9fa",
+                                background: "#fff",
                                 border: "1px solid #e3e3e3",
                               }}
                             >
                               <div className="d-flex align-items-center gap-2 mb-2">
-                                <BsClock size={16} style={{ color: "#007674" }} />
-                                <span className="fw-semibold" style={{ color: "#121212" }}>
+                                <BsClock
+                                  size={18}
+                                  style={{ color: "#007674" }}
+                                />
+                                <span
+                                  className="fw-semibold"
+                                  style={{ color: "#121212" }}
+                                >
                                   Project Type
                                 </span>
                               </div>
-                              <p className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
+                              <p
+                                className="mb-0"
+                                style={{ color: "#666", fontSize: "1rem" }}
+                              >
                                 {job.projectType || "One Time Project"}
                               </p>
                             </div>
@@ -483,32 +621,44 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                         className="mb-4"
                       >
                         <div
-                          className="p-4 rounded-4"
+                          className="p-4 rounded-3"
                           style={{
-                            background: "linear-gradient(135deg, rgba(218, 133, 53, 0.05) 0%, rgba(218, 133, 53, 0.02) 100%)",
-                            border: "1px solid rgba(218, 133, 53, 0.1)",
+                            border: "1px solid #e3e3e3",
                           }}
                         >
-                          <h6 className="fw-semibold mb-3" style={{ color: "#da8535" }}>
+                          <h6
+                            className="fw-semibold mb-3"
+                            style={{ color: "#121212" }}
+                          >
                             Application Requirements
                           </h6>
                           <div className="row g-3">
                             <div className="col-md-6">
                               <div className="d-flex justify-content-between align-items-center">
-                                <span style={{ color: "#666", fontSize: "1rem" }}>
+                                <span
+                                  style={{ color: "#121212", fontSize: "1rem" }}
+                                >
                                   Required Connects:
                                 </span>
-                                <span className="fw-semibold" style={{ color: "#da8535" }}>
-                                  {job.requiredConnects || "10"}
+                                <span
+                                  className="fw-semibold"
+                                  style={{ color: "#007674" }}
+                                >
+                                  {job.ws_token || "0"}
                                 </span>
                               </div>
                             </div>
                             <div className="col-md-6">
                               <div className="d-flex justify-content-between align-items-center">
-                                <span style={{ color: "#666", fontSize: "1rem" }}>
+                                <span
+                                  style={{ color: "#121212", fontSize: "1rem" }}
+                                >
                                   Your Connects:
                                 </span>
-                                <span className="fw-semibold" style={{ color: "#da8535" }}>
+                                <span
+                                  className="fw-semibold"
+                                  style={{ color: "#007674" }}
+                                >
                                   {job.connectsAvailable || "100"}
                                 </span>
                               </div>
@@ -524,7 +674,8 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                     <div
                       style={{
                         padding: "30px",
-                        background: "linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)",
+                        background:
+                          "linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%)",
                         borderLeft: "1px solid rgba(0, 118, 116, 0.1)",
                         height: "100%",
                       }}
@@ -540,7 +691,8 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                           onClick={handleApplyClick}
                           className="btn w-100 py-3 fw-semibold"
                           style={{
-                            background: "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                            background:
+                              "linear-gradient(135deg, #007674 0%, #005a58 100%)",
                             color: "#fff",
                             borderRadius: "15px",
                             fontSize: "1.1rem",
@@ -549,14 +701,18 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                             boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
                           }}
                           onMouseEnter={(e) => {
-                            e.target.style.background = "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
+                            e.target.style.background =
+                              "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
                             e.target.style.transform = "translateY(-2px)";
-                            e.target.style.boxShadow = "0 8px 25px rgba(18, 18, 18, 0.4)";
+                            e.target.style.boxShadow =
+                              "0 8px 25px rgba(18, 18, 18, 0.4)";
                           }}
                           onMouseLeave={(e) => {
-                            e.target.style.background = "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                            e.target.style.background =
+                              "linear-gradient(135deg, #007674 0%, #005a58 100%)";
                             e.target.style.transform = "translateY(0)";
-                            e.target.style.boxShadow = "0 6px 20px rgba(0, 118, 116, 0.3)";
+                            e.target.style.boxShadow =
+                              "0 6px 20px rgba(0, 118, 116, 0.3)";
                           }}
                         >
                           Apply Now
@@ -570,7 +726,10 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                         transition={{ delay: 0.4, duration: 0.4 }}
                         className="mb-4"
                       >
-                        <h5 className="fw-semibold mb-3" style={{ color: "#121212", fontSize: "1.3rem" }}>
+                        <h5
+                          className="fw-semibold mb-3"
+                          style={{ color: "#121212", fontSize: "1.3rem" }}
+                        >
                           About the Client
                         </h5>
                         <div
@@ -582,16 +741,25 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                           }}
                         >
                           <div className="d-flex align-items-center gap-2 mb-3">
-                            <RiVerifiedBadgeFill 
-                              size={20} 
-                              style={{ 
-                                color: job.clientDetails?.paymentVerified ? "#28a745" : "#6c757d" 
-                              }} 
+                            <RiVerifiedBadgeFill
+                              size={20}
+                              style={{
+                                color: job.clientDetails?.paymentVerified
+                                  ? "#007674"
+                                  : "#6c757d",
+                              }}
                             />
-                            <span className="fw-semibold" style={{ 
-                              color: job.clientDetails?.paymentVerified ? "#28a745" : "#6c757d" 
-                            }}>
-                              {job.clientDetails?.paymentVerified ? "Payment Verified" : "Payment Not Verified"}
+                            <span
+                              className="fw-semibold"
+                              style={{
+                                color: job.clientDetails?.paymentVerified
+                                  ? "#007674"
+                                  : "#6c757d",
+                              }}
+                            >
+                              {job.clientDetails?.paymentVerified
+                                ? "Payment Verified"
+                                : "Payment Not Verified"}
                             </span>
                           </div>
                           <div className="space-y-3">
@@ -599,7 +767,10 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                               <span style={{ color: "#666", fontSize: "1rem" }}>
                                 Total Spent:
                               </span>
-                              <span className="fw-semibold" style={{ color: "#121212" }}>
+                              <span
+                                className="fw-semibold"
+                                style={{ color: "#121212" }}
+                              >
                                 ₹{job.clientDetails?.totalSpent || 0}+
                               </span>
                             </div>
@@ -607,7 +778,10 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                               <span style={{ color: "#666", fontSize: "1rem" }}>
                                 Hires:
                               </span>
-                              <span className="fw-semibold" style={{ color: "#121212" }}>
+                              <span
+                                className="fw-semibold"
+                                style={{ color: "#121212" }}
+                              >
                                 {job.clientDetails?.hires || 0}
                               </span>
                             </div>
@@ -615,17 +789,27 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                               <span style={{ color: "#666", fontSize: "1rem" }}>
                                 Phone Verified:
                               </span>
-                              <span className="fw-semibold" style={{ 
-                                color: job.clientDetails?.phoneVerified ? "#28a745" : "#6c757d" 
-                              }}>
-                                {job.clientDetails?.phoneVerified ? "Yes" : "No"}
+                              <span
+                                className="fw-semibold"
+                                style={{
+                                  color: job.clientDetails?.phoneVerified
+                                    ? "#007674"
+                                    : "#6c757d",
+                                }}
+                              >
+                                {job.clientDetails?.phoneVerified
+                                  ? "Yes"
+                                  : "No"}
                               </span>
                             </div>
                             <div className="d-flex justify-content-between align-items-center">
                               <span style={{ color: "#666", fontSize: "1rem" }}>
                                 Member Since:
                               </span>
-                              <span className="fw-semibold" style={{ color: "#121212" }}>
+                              <span
+                                className="fw-semibold"
+                                style={{ color: "#121212" }}
+                              >
                                 {job.clientDetails?.memberSince || "N/A"}
                               </span>
                             </div>
@@ -640,7 +824,10 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                         transition={{ delay: 0.5, duration: 0.4 }}
                         className="mb-4"
                       >
-                        <h5 className="fw-semibold mb-3" style={{ color: "#121212", fontSize: "1.3rem" }}>
+                        <h5
+                          className="fw-semibold mb-3"
+                          style={{ color: "#121212", fontSize: "1.3rem" }}
+                        >
                           Job Activity
                         </h5>
                         <div
@@ -656,16 +843,24 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                               <span style={{ color: "#666", fontSize: "1rem" }}>
                                 Applicants:
                               </span>
-                              <span className="fw-semibold" style={{ color: "#121212" }}>
+                              <span
+                                className="fw-semibold"
+                                style={{ color: "#121212" }}
+                              >
                                 {job.applicants || 0}
                               </span>
                             </div>
                             <div className="d-flex justify-content-between align-items-center">
                               <span style={{ color: "#666", fontSize: "1rem" }}>
-                                Last Viewed:
+                                Client Last Login:
                               </span>
-                              <span className="fw-semibold" style={{ color: "#121212" }}>
-                                {job.lastViewed || job.postedTime || "Recently"}
+                              <span
+                                className="fw-semibold"
+                                style={{ color: "#121212" }}
+                              >
+                                {job.clientDetails?.lastSeen
+                                  ? formatLastSeen(job.clientDetails.lastSeen)
+                                  : "Recently"}
                               </span>
                             </div>
                           </div>
@@ -678,21 +873,34 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.6, duration: 0.4 }}
                       >
-                        <h5 className="fw-semibold mb-3" style={{ color: "#121212", fontSize: "1.3rem" }}>
+                        <h5
+                          className="fw-semibold mb-3"
+                          style={{ color: "#121212", fontSize: "1.3rem" }}
+                        >
                           Pro Tips
                         </h5>
                         <div
-                          className="p-4 rounded-4"
+                          className="p-4 rounded-3"
                           style={{
-                            background: "linear-gradient(135deg, rgba(0, 118, 116, 0.05) 0%, rgba(0, 118, 116, 0.02) 100%)",
-                            border: "1px solid rgba(0, 118, 116, 0.1)",
+                            border: "1px solid #e3e3e3",
                           }}
                         >
-                          <ul className="mb-0" style={{ color: "#666", fontSize: "1rem" }}>
-                            <li className="mb-2">Customize your proposal for this specific job</li>
-                            <li className="mb-2">Highlight relevant experience and skills</li>
-                            <li className="mb-2">Include examples of similar work</li>
-                            <li className="mb-0">Ask thoughtful questions about the project</li>
+                          <ul
+                            className="mb-0"
+                            style={{ color: "#121212", fontSize: "1rem" }}
+                          >
+                            <li className="mb-2">
+                              Customize your proposal for this specific job
+                            </li>
+                            <li className="mb-2">
+                              Highlight relevant experience and skills
+                            </li>
+                            <li className="mb-2">
+                              Include examples of similar work
+                            </li>
+                            <li className="mb-0">
+                              Ask thoughtful questions about the project
+                            </li>
                           </ul>
                         </div>
                       </motion.div>

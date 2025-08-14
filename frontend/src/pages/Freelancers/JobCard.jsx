@@ -11,6 +11,8 @@ import {
   BsArrowRight,
   BsBriefcase,
   BsCheckCircle,
+  BsFlag,
+  BsCurrencyRupee,
 } from "react-icons/bs";
 import { RiVerifiedBadgeFill } from "react-icons/ri";
 
@@ -20,6 +22,38 @@ const JobCard = ({ job, onClick }) => {
   const firstThreeLines =
     job.description?.split("\n").slice(0, 3).join("\n") || "";
   const jobSkills = job.skills?.map((skill) => skill.name) || [];
+
+  // Function to format posted time
+  const formatPostedTime = (dateString) => {
+    if (!dateString) return "Recently";
+    
+    const now = new Date();
+    const postedDate = new Date(dateString);
+    const diffInMs = now - postedDate;
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInMinutes < 1) {
+      return "Just now";
+    } else if (diffInMinutes < 60) {
+      return `Posted ${diffInMinutes} minute${diffInMinutes === 1 ? '' : 's'} ago`;
+    } else if (diffInHours < 24) {
+      if (diffInHours === 1) {
+        return "Posted 1 hour ago";
+      } else {
+        return `Posted ${diffInHours} hours ago`;
+      }
+    } else if (diffInDays === 1) {
+      return "Posted Yesterday";
+    } else if (diffInDays < 7) {
+      return `Posted ${diffInDays} days ago`;
+    } else {
+      // For older posts, show the date
+      const options = { day: 'numeric', month: 'short', year: 'numeric' };
+      return `Posted on ${postedDate.toLocaleDateString('en-US', options)}`;
+    }
+  };
 
   const handleBookmarkClick = (e) => {
     e.stopPropagation();
@@ -153,51 +187,49 @@ const JobCard = ({ job, onClick }) => {
           }
           
           .rate-display {
-            background: linear-gradient(135deg, rgba(40, 167, 69, 0.1) 0%, rgba(40, 167, 69, 0.05) 100%);
-            border: 1px solid rgba(40, 167, 69, 0.2);
+            border: 1px solid #e3e3e3;
             border-radius: 12px;
-            padding: 8px 12px;
-            color: #28a745;
+            padding: 8px 15px;
+            color: #007674;
             font-weight: 600;
             font-size: 0.95rem;
           }
           
           .applicants-display {
-            background: linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%);
-            border: 1px solid rgba(0, 118, 116, 0.2);
+            border: 1px solid #e3e3e3;
             border-radius: 12px;
-            padding: 8px 12px;
+            padding: 8px 15px;
             color: #007674;
             font-weight: 600;
-            font-size: 1rem;
+            font-size: 0.95rem;
           }
         `}
       </style>
 
       <motion.div
         className="job-card"
-      onClick={() => onClick(job)}
+        onClick={() => onClick(job)}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
       >
         {/* Header Section */}
         <div className="d-flex justify-content-between align-items-start mb-3">
-          <div className="d-flex gap-2 flex-wrap">
-            <span className="experience-badge">
-              <BsBriefcase className="me-1" size={12} />
-            {job.experienceLevel || "Experience N/A"}
-          </span>
-            <span className="duration-badge">
-              <BsClock className="me-1" size={12} />
-            {job.duration || "Duration N/A"}
-          </span>
-        </div>
+          <div className="d-flex gap-2 flex-wrap align-items-center">
+            <span className="experience-badge d-flex align-items-center">
+              <BsBriefcase className="me-2" size={14} />
+              {job.experienceLevel || "Experience N/A"}
+            </span>
+            <span className="duration-badge d-flex align-items-center">
+              <BsClock className="me-2" size={14} />
+              {job.duration || "Duration N/A"}
+            </span>
+          </div>
           <div className="d-flex align-items-center gap-3">
             <small className="text-muted" style={{ fontSize: "0.95rem" }}>
-              Posted {new Date(job.createdAt).toLocaleDateString()}
-          </small>
-            <button
+              {formatPostedTime(job.updatedAt)}
+            </small>
+            {/* <button
               className={`bookmark-btn ${isBookmarked ? "active" : ""}`}
               onClick={handleBookmarkClick}
             >
@@ -206,9 +238,9 @@ const JobCard = ({ job, onClick }) => {
               ) : (
                 <BsBookmark size={18} />
               )}
-            </button>
+            </button> */}
           </div>
-      </div>
+        </div>
 
         {/* Job Title */}
         <motion.h3
@@ -223,7 +255,7 @@ const JobCard = ({ job, onClick }) => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.1 }}
         >
-        {job.title}
+          {job.title}
         </motion.h3>
 
         {/* Job Description */}
@@ -240,23 +272,23 @@ const JobCard = ({ job, onClick }) => {
               lineHeight: "1.6",
               marginBottom: "8px",
             }}
-      >
-        {isExpanded ? job.description : firstThreeLines}
-      </p>
+          >
+            {isExpanded ? job.description : firstThreeLines}
+          </p>
           {job.description &&
             job.description.length > firstThreeLines.length && (
               <button
                 className="read-more-btn"
-        onClick={(e) => {
-          e.stopPropagation();
-          setIsExpanded(!isExpanded);
-        }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsExpanded(!isExpanded);
+                }}
               >
                 {isExpanded ? "Show less" : "Read more"}
                 <BsArrowRight
                   className="ms-1"
                   size={12}
-            style={{
+                  style={{
                     transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)",
                     transition: "transform 0.3s ease",
                   }}
@@ -289,14 +321,14 @@ const JobCard = ({ job, onClick }) => {
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: 0.4 + index * 0.1 }}
                   whileHover={{ scale: 1.05 }}
-          >
-            {skill}
+                >
+                  {skill}
                 </motion.span>
-        ))}
+              ))}
               {jobSkills.length > 5 && (
                 <span className="skill-tag">+{jobSkills.length - 5} more</span>
               )}
-      </div>
+            </div>
           </motion.div>
         )}
 
@@ -310,24 +342,34 @@ const JobCard = ({ job, onClick }) => {
           <div className="row g-3">
             <div className="col-md-4">
               <div className="detail-item">
-                <RiVerifiedBadgeFill 
-                  size={18} 
-                  style={{ 
-                    color: job.clientDetails?.paymentVerified ? "#28a745" : "#6c757d" 
-                  }} 
+                <RiVerifiedBadgeFill
+                  size={18}
+                  style={{
+                    color: job.clientDetails?.paymentVerified
+                      ? "#007674"
+                      : "#6c757d",
+                  }}
                 />
-                <span style={{ 
-                  color: job.clientDetails?.paymentVerified ? "#28a745" : "#6c757d",
-                  fontWeight: job.clientDetails?.paymentVerified ? "600" : "400"
-                }}>
-                  {job.clientDetails?.paymentVerified ? "Payment Verified" : "Payment Not Verified"}
+                <span
+                  style={{
+                    color: job.clientDetails?.paymentVerified
+                      ? "#007674"
+                      : "#6c757d",
+                    fontWeight: job.clientDetails?.paymentVerified
+                      ? "600"
+                      : "400",
+                  }}
+                >
+                  {job.clientDetails?.paymentVerified
+                    ? "Payment Verified"
+                    : "Payment Not Verified"}
                 </span>
               </div>
             </div>
             <div className="col-md-4">
               <div className="detail-item">
-                <BsCurrencyDollar size={18} />
-                <span>₹{job.clientDetails?.totalSpent || 0}+ spent</span>
+                <BsCurrencyRupee size={18} />
+                <span>{job.clientDetails?.totalSpent || 0}+ spent</span>
               </div>
             </div>
             <div className="col-md-4">
@@ -338,47 +380,6 @@ const JobCard = ({ job, onClick }) => {
             </div>
           </div>
         </motion.div>
-
-        {/* Client Information */}
-        {job.clientDetails && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.45 }}
-            className="mb-4"
-          >
-            <div className="row g-3">
-              <div className="col-md-4">
-                <div className="detail-item">
-                  <BsPeople size={18} />
-                  <span>{job.clientDetails.hires || 0} hires</span>
-                </div>
-              </div>
-              <div className="col-md-4">
-                <div className="detail-item">
-                  <BsCheckCircle 
-                    size={18} 
-                    style={{ 
-                      color: job.clientDetails.phoneVerified ? "#28a745" : "#6c757d" 
-                    }} 
-                  />
-                  <span style={{ 
-                    color: job.clientDetails.phoneVerified ? "#28a745" : "#6c757d",
-                    fontWeight: job.clientDetails.phoneVerified ? "600" : "400"
-                  }}>
-                    {job.clientDetails.phoneVerified ? "Phone Verified" : "Phone Not Verified"}
-                  </span>
-                </div>
-              </div>
-              <div className="col-md-4">
-                <div className="detail-item">
-                  <BsClock size={18} />
-                  <span>Member since {job.clientDetails.memberSince}</span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
 
         {/* Rate and Applicants */}
         <motion.div
@@ -391,7 +392,9 @@ const JobCard = ({ job, onClick }) => {
             {job.budgetType === "fixed" ? (
               <>₹{job.fixedRate || 0} (Fixed)</>
             ) : (
-              <>₹{job.hourlyRateFrom || 0} - ₹{job.hourlyRateTo || 0} /hr</>
+              <>
+                ₹{job.hourlyRateFrom || 0} - ₹{job.hourlyRateTo || 0} /hr
+              </>
             )}
           </div>
           <div className="applicants-display">

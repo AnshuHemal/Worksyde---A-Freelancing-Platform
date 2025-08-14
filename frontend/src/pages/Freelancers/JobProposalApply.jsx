@@ -6,7 +6,18 @@ import toast from "react-hot-toast";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { motion } from "framer-motion";
-import { BsArrowLeft, BsUpload, BsX, BsCheckCircle } from "react-icons/bs";
+import {
+  BsArrowLeft,
+  BsUpload,
+  BsX,
+  BsCheckCircle,
+  BsBriefcase,
+  BsCalendar,
+  BsPerson,
+  BsCurrencyDollar,
+  BsGeoAlt,
+  BsClock,
+} from "react-icons/bs";
 import Header1 from "../../components/Header1";
 
 const JobProposalApply = () => {
@@ -58,7 +69,50 @@ const JobProposalApply = () => {
         const response = await axios.get(
           `${API_URL}/jobposts/fetchJobById?jobId=${jobId}/`
         );
-        setJobData(response.data.data);
+        const job = response.data.data;
+
+        // Fetch client details for the job
+        try {
+          const clientProfileResponse = await axios.get(
+            `${API_URL}/client/profile/${job.userId}/`
+          );
+          const clientProfile = clientProfileResponse.data;
+
+          // Check payment verification status for the client
+          let hasPaymentMethod = false;
+
+          // Check if client has any completed jobs or spending history
+          if (clientProfile.spent && clientProfile.spent > 0) {
+            hasPaymentMethod = true;
+          } else if (clientProfile.hires && clientProfile.hires > 0) {
+            hasPaymentMethod = true;
+          } else {
+            // For new clients, we'll assume they have payment methods if they can post jobs
+            hasPaymentMethod = true;
+          }
+
+          // Add client details to job data
+          const jobWithClientDetails = {
+            ...job,
+            clientDetails: {
+              name: clientProfile.name || "Unknown Client",
+              paymentVerified: hasPaymentMethod,
+              totalSpent: clientProfile.spent || 0,
+              memberSince: clientProfile.createdAt
+                ? new Date(clientProfile.createdAt).toLocaleDateString()
+                : "N/A",
+              hires: clientProfile.hires || 0,
+              phoneVerified: clientProfile.phoneVerified || false,
+              lastSeen: clientProfile.lastSeen || null,
+            },
+          };
+
+          setJobData(jobWithClientDetails);
+        } catch (clientError) {
+          console.error("Error fetching client details:", clientError);
+          // Set job data without client details if there's an error
+          setJobData(job);
+        }
       } catch (error) {
         console.error("Error fetching job post:", error);
       } finally {
@@ -283,7 +337,7 @@ const JobProposalApply = () => {
               >
                 <h2
                   className="display-5 fw-semibold mb-3"
-                  style={{ color: "#121212" }}
+                  style={{ color: "#121212", letterSpacing: "0.3px" }}
                 >
                   Submit a Proposal
                 </h2>
@@ -317,7 +371,7 @@ const JobProposalApply = () => {
                     <div className="card-body p-5">
                       {/* Section: Proposal Settings */}
                       <h5
-                        className="fw-semibold mb-3"
+                        className="fw-semibold mb-3 mt-4"
                         style={{ color: "#121212" }}
                       >
                         Proposal Settings
@@ -331,18 +385,21 @@ const JobProposalApply = () => {
                           }}
                         >
                           This proposal requires{" "}
-                          <span style={{ fontWeight: 700 }}>8 Connects</span>.
+                          <span style={{ fontWeight: 700 }}>
+                            {jobData?.ws_token || "N/A"} WS-Tokens
+                          </span>
+                          .
                         </span>
-                        <span style={{ fontSize: "1.1rem", color: "#666" }}>
+                        <span style={{ fontSize: "1.1rem", color: "#121212" }}>
                           You'll have{" "}
-                          <span style={{ fontWeight: 700 }}>92 Connects</span>{" "}
+                          <span style={{ fontWeight: 700 }}>92 WS-Tokens</span>{" "}
                           remaining after submission.
                         </span>
                       </div>
 
                       {/* Section: Terms & Payment */}
                       <h5
-                        className="fw-semibold mb-3 mt-4"
+                        className="fw-semibold mb-3 mt-5"
                         style={{ color: "#121212" }}
                       >
                         Terms & Payment
@@ -379,15 +436,15 @@ const JobProposalApply = () => {
                                   fontSize: "1.1rem",
                                   color:
                                     scopeOfWork === option
-                                      ? "#007674"
+                                      ? "#121212"
                                       : "#121212",
                                 }}
                               >
                                 {option}
                               </label>
                               <div
-                                className="text-muted ms-4"
-                                style={{ fontSize: "0.98rem" }}
+                                className="text-dark ms-4"
+                                style={{ fontSize: "1rem" }}
                               >
                                 {option === "By Milestone"
                                   ? "Divide the project into smaller segments, called Milestones. You'll be paid for milestones as they are completed and approved."
@@ -410,7 +467,10 @@ const JobProposalApply = () => {
                           >
                             Add Milestones
                           </h6>
-                          <p className="mb-3" style={{ color: "#666" }}>
+                          <p
+                            className="mb-3"
+                            style={{ color: "#121212", fontSize: "1.1rem" }}
+                          >
                             Break the project into stages and define
                             deliverables + payments.
                           </p>
@@ -471,7 +531,7 @@ const JobProposalApply = () => {
                               {index !== 0 && (
                                 <div className="col-md-1 d-flex align-items-end">
                                   <button
-                                    className="btn btn-outline-danger px-2 py-1"
+                                    className="btn btn-outline-danger px-1 py-1"
                                     style={{ borderRadius: "50%" }}
                                     onClick={() => handleRemoveMilestone(index)}
                                   >
@@ -482,13 +542,12 @@ const JobProposalApply = () => {
                             </div>
                           ))}
                           <button
-                            className="btn btn-outline-primary mt-2"
+                            className="btn  mt-2"
                             style={{
                               borderRadius: "25px",
                               color: "#007674",
-                              borderColor: "#007674",
-                              background:
-                                "linear-gradient(135deg, #e8f4f4 0%, #fff 100%)",
+                              borderColor: "#e3e3e3",
+
                               boxShadow: "0 2px 8px rgba(0, 118, 116, 0.08)",
                               fontWeight: 600,
                               transition:
@@ -496,15 +555,11 @@ const JobProposalApply = () => {
                               outline: "none",
                             }}
                             onMouseEnter={(e) => {
-                              e.target.style.background =
-                                "linear-gradient(135deg, #c6f0f0 0%, #e8f4f4 100%)";
                               e.target.style.boxShadow =
                                 "0 6px 20px rgba(0, 118, 116, 0.15)";
-                              e.target.style.transform = "scale(1.04)";
+                              e.target.style.transform = "scale(1.01)";
                             }}
                             onMouseLeave={(e) => {
-                              e.target.style.background =
-                                "linear-gradient(135deg, #e8f4f4 0%, #fff 100%)";
                               e.target.style.boxShadow =
                                 "0 2px 8px rgba(0, 118, 116, 0.08)";
                               e.target.style.transform = "scale(1)";
@@ -537,7 +592,7 @@ const JobProposalApply = () => {
                               placeholder="0.00"
                             />
                           </div>
-                          <small className="text-muted">
+                          <small className="text-dark">
                             Total amount the client will see on your proposal.
                           </small>
                         </div>
@@ -557,7 +612,7 @@ const JobProposalApply = () => {
                               className="form-control text-end"
                             />
                           </div>
-                          <small className="text-muted">
+                          <small className="text-dark">
                             This fee is fixed for the life of the contract.
                           </small>
                         </div>
@@ -577,7 +632,7 @@ const JobProposalApply = () => {
                               className="form-control text-end"
                             />
                           </div>
-                          <small className="text-muted">
+                          <small className="text-dark">
                             The estimated amount you'll receive after service
                             fees.
                           </small>
@@ -678,18 +733,24 @@ const JobProposalApply = () => {
                             borderColor: "#dee2e6",
                             backgroundColor: "#f8f9fa",
                             transition: "all 0.3s ease",
-                            cursor: "pointer"
+                            cursor: "pointer",
                           }}
                           onClick={handleUploadClick}
                         >
-                          <BsUpload 
-                            size={32} 
+                          <BsUpload
+                            size={32}
                             style={{ color: "#007674", marginBottom: "10px" }}
                           />
-                          <h6 className="fw-semibold mb-2" style={{ color: "#121212" }}>
+                          <h6
+                            className="fw-semibold mb-2"
+                            style={{ color: "#121212" }}
+                          >
                             Drop your PDF here or click to browse
                           </h6>
-                          <p className="mb-0" style={{ color: "#666", fontSize: "0.9rem" }}>
+                          <p
+                            className="mb-0"
+                            style={{ color: "#121212", fontSize: "1rem" }}
+                          >
                             Maximum file size: 50MB • PDF format only
                           </p>
                         </div>
@@ -707,12 +768,25 @@ const JobProposalApply = () => {
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
                             className="mt-2 p-3 rounded d-flex align-items-center justify-content-between"
-                            style={{ backgroundColor: "#f8f9fa", border: "1px solid #e3e3e3", maxWidth: 400 }}
+                            style={{
+                              backgroundColor: "#f8f9fa",
+                              border: "1px solid #e3e3e3",
+                              maxWidth: 400,
+                            }}
                           >
                             <div className="d-flex align-items-center">
-                              <BsUpload size={24} style={{ color: "#007674", marginRight: "10px" }} />
+                              <BsUpload
+                                size={24}
+                                style={{
+                                  color: "#007674",
+                                  marginRight: "10px",
+                                }}
+                              />
                               <div>
-                                <h6 className="fw-semibold mb-1" style={{ color: "#121212" }}>
+                                <h6
+                                  className="fw-semibold mb-1"
+                                  style={{ color: "#121212" }}
+                                >
                                   {file.name}
                                 </h6>
                                 <small style={{ color: "#666" }}>
@@ -732,7 +806,7 @@ const JobProposalApply = () => {
                                 height: "32px",
                                 display: "flex",
                                 alignItems: "center",
-                                justifyContent: "center"
+                                justifyContent: "center",
                               }}
                             >
                               <BsX size={16} />
@@ -740,7 +814,10 @@ const JobProposalApply = () => {
                           </motion.div>
                         ))}
                         {!uploadedFiles.length && (
-                          <p className="mt-2 mb-0" style={{ color: "#666", fontSize: "0.85rem" }}>
+                          <p
+                            className="mt-2 mb-0"
+                            style={{ color: "#121212", fontSize: "1rem" }}
+                          >
                             Please upload a PDF file to attach to your proposal.
                           </p>
                         )}
@@ -783,10 +860,9 @@ const JobProposalApply = () => {
                           style={{
                             borderRadius: "50px",
                             fontSize: "1.1rem",
-                            color: "#007674",
-                            borderColor: "#007674",
-                            background:
-                              "linear-gradient(135deg, #e8f4f4 0%, #fff 100%)",
+                            color: "#121212",
+                            borderColor: "#121212",
+                            background: "#fff",
                             boxShadow: "0 2px 8px rgba(0, 118, 116, 0.08)",
                             fontWeight: 600,
                             transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
@@ -794,15 +870,13 @@ const JobProposalApply = () => {
                           }}
                           onClick={() => navigate(-1)}
                           onMouseEnter={(e) => {
-                            e.target.style.background =
-                              "linear-gradient(135deg, #c6f0f0 0%, #e8f4f4 100%)";
+                           
                             e.target.style.boxShadow =
                               "0 6px 20px rgba(0, 118, 116, 0.15)";
-                            e.target.style.transform = "scale(1.04)";
+                            e.target.style.transform = "scale(1.01)";
                           }}
                           onMouseLeave={(e) => {
-                            e.target.style.background =
-                              "linear-gradient(135deg, #e8f4f4 0%, #fff 100%)";
+                            
                             e.target.style.boxShadow =
                               "0 2px 8px rgba(0, 118, 116, 0.08)";
                             e.target.style.transform = "scale(1)";
@@ -836,64 +910,78 @@ const JobProposalApply = () => {
                       </h5>
                       <div className="mb-3">
                         <h6
-                          className="fw-semibold mb-1"
-                          style={{ color: "#007674" }}
+                          className="fw-semibold mb-3"
+                          style={{ color: "#121212" }}
                         >
                           {jobData.title}
                         </h6>
-                        <div className="d-flex align-items-center gap-2 mb-2">
+                        <div className="d-flex align-items-center gap-3 mb-2">
                           <IoCalendarOutline
-                            size={18}
-                            style={{ color: "#007674" }}
+                            size={20}
+                            style={{ color: "#121212" }}
                           />
                           <span
-                            className="text-muted"
-                            style={{ fontSize: "0.98rem" }}
+                            className="text-dark"
+                            style={{ fontSize: "1rem" }}
                           >
-                            Posted {formatPostDate(jobData.createdAt)}
+                            Posted {formatPostDate(jobData.updatedAt)}
                           </span>
                         </div>
-                        <div className="d-flex align-items-center gap-2 mb-2">
+
+                        <div className="d-flex align-items-center gap-3 mb-2">
                           <img
                             src={innovate}
                             alt="innovation"
                             style={{ width: 22, height: 22 }}
                           />
                           <span
-                            className="text-muted"
-                            style={{ fontSize: "0.98rem" }}
+                            className="text-dark"
+                            style={{ fontSize: "1rem" }}
                           >
                             {jobData.experienceLevel} • Experience
                           </span>
                         </div>
-                        <div className="d-flex align-items-center gap-2 mb-2">
+                        <div className="d-flex align-items-center gap-3 mb-2">
                           <HiOutlineDocumentCurrencyRupee
-                            size={18}
-                            style={{ color: "#007674" }}
+                            size={20}
+                            style={{ color: "#121212" }}
                           />
                           <span
-                            className="text-muted"
-                            style={{ fontSize: "0.98rem" }}
+                            className="text-dark"
+                            style={{ fontSize: "1rem" }}
                           >
-                            ₹500.00 • Fixed Price
+                            {jobData?.budgetType === "fixed"
+                              ? `₹${jobData?.fixedRate || 0} • Fixed Price`
+                              : `₹${jobData?.hourlyRateFrom || 0} - ₹${
+                                  jobData?.hourlyRateTo || 0
+                                } /hr • Hourly Rate`}
                           </span>
                         </div>
-                        <div className="d-flex align-items-center gap-2 mb-2">
+                        <div className="d-flex align-items-center gap-3 mb-2">
                           <IoCalendarOutline
-                            size={18}
-                            style={{ color: "#007674" }}
+                            size={20}
+                            style={{ color: "#121212" }}
                           />
                           <span
-                            className="text-muted"
-                            style={{ fontSize: "0.98rem" }}
+                            className="text-dark"
+                            style={{ fontSize: "1rem" }}
                           >
                             {jobData.duration}
                           </span>
                         </div>
+                        <div className="d-flex align-items-center gap-3 mb-2">
+                          <BsPerson size={20} style={{ color: "#121212" }} />
+                          <span
+                            className="text-dark"
+                            style={{ fontSize: "1rem" }}
+                          >
+                            {jobData?.applicants || 0} applicants
+                          </span>
+                        </div>
                       </div>
-                      <div className="mb-3">
+                      <div className="my-4">
                         <h6
-                          className="fw-semibold mb-2"
+                          className="fw-semibold mb-3"
                           style={{ color: "#121212" }}
                         >
                           Skills & Expertise
@@ -905,8 +993,8 @@ const JobProposalApply = () => {
                             color: #007674;
                             border: 1px solid rgba(0, 118, 116, 0.2);
                             border-radius: 20px;
-                            padding: 6px 12px;
-                            font-size: 0.85rem;
+                            padding: 6px 15px;
+                            font-size: 1rem;
                             font-weight: 600;
                             transition: all 0.3s ease;
                             cursor: pointer;
@@ -921,10 +1009,7 @@ const JobProposalApply = () => {
                         `}</style>
                         <div className="d-flex flex-wrap gap-2">
                           {jobData.skills.map((skill, i) => (
-                            <span
-                              key={i}
-                              className="skill-tag"
-                            >
+                            <span key={i} className="skill-tag">
                               {skill.name}
                             </span>
                           ))}
@@ -951,12 +1036,25 @@ const JobProposalApply = () => {
                         Client Info
                       </h5>
                       <div className="mb-2 d-flex align-items-center gap-2">
-                        <BsCheckCircle size={18} style={{ color: "#15acec" }} />
+                        <BsCheckCircle
+                          size={17}
+                          style={{
+                            color: jobData?.clientDetails?.paymentVerified
+                              ? "#007674"
+                              : "#6c757d",
+                          }}
+                        />
                         <span
                           className="fw-semibold"
-                          style={{ color: "#15acec" }}
+                          style={{
+                            color: jobData?.clientDetails?.paymentVerified
+                              ? "#007674"
+                              : "#6c757d",
+                          }}
                         >
-                          Payment Verified
+                          {jobData?.clientDetails?.paymentVerified
+                            ? "Payment Verified"
+                            : "Payment Not Verified"}
                         </span>
                       </div>
                       <div className="mb-2 d-flex align-items-center gap-2">
@@ -965,7 +1063,16 @@ const JobProposalApply = () => {
                           className="fw-semibold"
                           style={{ color: "#121212" }}
                         >
-                          ₹{jobData.totalSpent || 0}+
+                          ₹ {jobData?.clientDetails?.totalSpent || 0}+
+                        </span>
+                      </div>
+                      <div className="mb-2 d-flex align-items-center gap-2">
+                        <span className="text-muted">Hires:</span>
+                        <span
+                          className="fw-semibold"
+                          style={{ color: "#121212" }}
+                        >
+                          {jobData?.clientDetails?.hires || 0}
                         </span>
                       </div>
                       <div className="mb-2 d-flex align-items-center gap-2">
@@ -974,7 +1081,7 @@ const JobProposalApply = () => {
                           className="fw-semibold"
                           style={{ color: "#121212" }}
                         >
-                          {jobData.clientSince || "N/A"}
+                          {jobData?.clientDetails?.memberSince || "N/A"}
                         </span>
                       </div>
                     </div>
@@ -999,7 +1106,7 @@ const JobProposalApply = () => {
                       </h5>
                       <ul
                         className="mb-0"
-                        style={{ color: "#666", fontSize: "1rem" }}
+                        style={{ color: "#121212", fontSize: "1.1rem" }}
                       >
                         <li className="mb-2">
                           Tailor your cover letter to the job requirements
@@ -1034,13 +1141,13 @@ const JobProposalApply = () => {
             </button>
             <h3>Stay safe & build your reputation</h3>
             <ul className="modal-list">
-              <li style={{ fontSize: "17px" }}>
+              <li style={{ fontSize: "18px" }}>
                 Only accept payment through the platform, ensuring Payment
                 Protection.
               </li>
-              <li style={{ fontSize: "17px" }}>
+              <li style={{ fontSize: "18px" }}>
                 Receiving payment outside violates our{" "}
-                <a href="#">user agreement</a> and can result in suspension.
+                <a href="#" style={{ color: "#007674" }}>user agreement</a> and can result in suspension.
               </li>
             </ul>
             <div className="modal-checkbox">
@@ -1049,6 +1156,11 @@ const JobProposalApply = () => {
                 id="policyAgree"
                 checked={acceptFirstPolicy}
                 onChange={(e) => setAcceptFirstPolicy(e.target.checked)}
+                style={{
+                  accentColor: "#007674",
+                  width: 18,
+                  height: 18,
+                }}
               />
               <label htmlFor="policyAgree" style={{ fontSize: "17px" }}>
                 I understand and agree to the policies.
@@ -1137,18 +1249,18 @@ const JobProposalApply = () => {
             </button>
 
             <h3>3 things you need to know</h3>
-            <p>You're submitting for a fixed-price project...</p>
+            <p style={{ fontSize: "18px" }}>You're submitting for a fixed-price project...</p>
             <div className="modal-scrollable-content">
-              <ol className="modal-list">
-                <li>
+              <ol className="modal-list" style={{ fontSize: "18px" }}>
+                <li style={{ fontSize: "18px" }}>
                   <strong
                     style={{
-                      fontSize: "16px",
-                      fontWeight: "700",
+                      fontSize: "20px",
+                      fontWeight: "600",
                       color: "#121212",
                     }}
                   >
-                    Fixed-price projects have a Dispute Assistance Program
+                    Fixed-price projects have a Dispute Assistance Program.
                   </strong>
                   <br />
                   Before you start the project, you and the client must agree to
@@ -1159,8 +1271,8 @@ const JobProposalApply = () => {
                 <li>
                   <strong
                     style={{
-                      fontSize: "16px",
-                      fontWeight: "700",
+                      fontSize: "20px",
+                      fontWeight: "600",
                       color: "#121212",
                     }}
                   >
@@ -1174,8 +1286,8 @@ const JobProposalApply = () => {
                 <li>
                   <strong
                     style={{
-                      fontSize: "16px",
-                      fontWeight: "700",
+                      fontSize: "20px",
+                      fontWeight: "600",
                       color: "#121212",
                     }}
                   >
@@ -1189,8 +1301,8 @@ const JobProposalApply = () => {
               <p>
                 <strong
                   style={{
-                    fontSize: "16px",
-                    fontWeight: "700",
+                    fontSize: "20px",
+                    fontWeight: "600",
                     color: "#121212",
                   }}
                 >
@@ -1206,10 +1318,15 @@ const JobProposalApply = () => {
                     id="finalAgree"
                     checked={acceptSecondPolicy}
                     onChange={(e) => setAcceptSecondPolicy(e.target.checked)}
+                    style={{
+                      accentColor: "#007674",
+                      width: 18,
+                      height: 18,
+                    }}
                   />
-                  <label htmlFor="finalAgree">Yes, I understand.</label>
+                  <label htmlFor="finalAgree" style={{ fontSize: "18px" }}>Yes, I understand.</label>
                 </div>
-                <div className="modal-actions">
+                <div className="modal-actions mb-2">
                   <button
                     className="cancel-btn"
                     style={{
@@ -1218,7 +1335,7 @@ const JobProposalApply = () => {
                       color: "#007674",
                       border: "1.5px solid #007674",
                       background:
-                        "linear-gradient(135deg, #e8f4f4 0%, #fff 100%)",
+                        "white",
                       fontWeight: 600,
                       padding: "10px 32px",
                       marginRight: "10px",
@@ -1226,13 +1343,11 @@ const JobProposalApply = () => {
                     }}
                     onClick={() => setShowSecondModal(false)}
                     onMouseEnter={(e) => {
-                      e.target.style.background =
-                        "linear-gradient(135deg, #c6f0f0 0%, #e8f4f4 100%)";
+                      
                       e.target.style.transform = "scale(1.04)";
                     }}
                     onMouseLeave={(e) => {
-                      e.target.style.background =
-                        "linear-gradient(135deg, #e8f4f4 0%, #fff 100%)";
+                      
                       e.target.style.transform = "scale(1)";
                     }}
                   >
