@@ -69,6 +69,10 @@ const ClientInfoPage = () => {
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
 
+  // Image loading states
+  const [logoLoading, setLogoLoading] = useState(false);
+  const [logoError, setLogoError] = useState(false);
+
   useEffect(() => {
     const fetchProfileData = async () => {
       if (!userId) return;
@@ -103,7 +107,7 @@ const ClientInfoPage = () => {
           size: profileResponse.data.size || "-",
           tagline: profileResponse.data.tagline || "-",
           description: profileResponse.data.description || "-",
-          logo: profileResponse.data.logo ? `http://localhost:5000${profileResponse.data.logo}` : "", // Initialize logo with full URL
+          logo: profileResponse.data.logo ? `${API_URL}/company-logo/${userId}/` : "", // Initialize logo with database endpoint
           logoFile: null // Initialize logoFile
         });
 
@@ -373,10 +377,13 @@ const ClientInfoPage = () => {
         size: profileResponse.data.size || "-",
         tagline: profileResponse.data.tagline || "-",
         description: profileResponse.data.description || "-",
-        logo: profileResponse.data.logo ? `http://localhost:5000${profileResponse.data.logo}` : "",
+        logo: profileResponse.data.logo ? `${API_URL}/company-logo/${userId}/` : "",
         logoFile: null
       }));
 
+      // Reset loading states
+      setLogoLoading(false);
+      setLogoError(false);
       setIsEditingCompany(false);
     } catch (err) {
       console.error("Error updating company:", err);
@@ -403,9 +410,12 @@ const ClientInfoPage = () => {
       size: profileData?.size || "-",
       tagline: profileData?.tagline || "-",
       description: profileData?.description || "-",
-      logo: profileData?.logo ? `http://localhost:5000${profileData.logo}` : "", // Reset logo with full URL
+      logo: profileData?.logo ? `${API_URL}/company-logo/${userId}/` : "", // Reset logo with database endpoint
       logoFile: null // Reset logoFile
     });
+    // Reset loading states
+    setLogoLoading(false);
+    setLogoError(false);
     setIsEditingCompany(false);
   };
 
@@ -418,6 +428,22 @@ const ClientInfoPage = () => {
       email: userData?.email || ""
     });
     setIsEditingAccount(false);
+  };
+
+  // Handle image loading
+  const handleLogoLoad = () => {
+    setLogoLoading(false);
+    setLogoError(false);
+  };
+
+  const handleLogoError = () => {
+    setLogoLoading(false);
+    setLogoError(true);
+  };
+
+  const handleLogoLoadStart = () => {
+    setLogoLoading(true);
+    setLogoError(false);
   };
 
   // Handle AI preference change
@@ -824,16 +850,75 @@ const ClientInfoPage = () => {
                     onClick={() => document.getElementById('company-logo-input').click()}
                   >
                     {companyForm.logo ? (
-                      <img 
-                        src={companyForm.logo} 
-                        alt="Company Logo" 
-                        style={{ 
-                          width: "100%", 
-                          height: "100%", 
-                          borderRadius: "50%",
-                          objectFit: "cover"
-                        }} 
-                      />
+                      <>
+                        {/* Loading Spinner */}
+                        {logoLoading && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: "rgba(255, 255, 255, 0.9)",
+                              zIndex: 2,
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: "20px",
+                                height: "20px",
+                                border: "2px solid #f3f3f3",
+                                borderTop: "2px solid #007476",
+                                borderRadius: "50%",
+                                animation: "spin 1s linear infinite",
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* Error State */}
+                        {logoError && (
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              background: "#f8f9fa",
+                              zIndex: 2,
+                            }}
+                          >
+                            <svg width="24" height="24" fill="#dc3545" viewBox="0 0 24 24">
+                              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            </svg>
+                          </div>
+                        )}
+                        
+                        {/* Image */}
+                        <img 
+                          src={companyForm.logo} 
+                          alt="Company Logo" 
+                          style={{ 
+                            width: "100%", 
+                            height: "100%", 
+                            borderRadius: "50%",
+                            objectFit: "cover",
+                            opacity: logoLoading ? 0.3 : 1,
+                            transition: "opacity 0.3s ease",
+                          }}
+                          onLoad={handleLogoLoad}
+                          onError={handleLogoError}
+                          onLoadStart={handleLogoLoadStart}
+                        />
+                      </>
                     ) : (
                       <svg width="24" height="24" fill="#999" viewBox="0 0 24 24">
                         <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
@@ -847,9 +932,13 @@ const ClientInfoPage = () => {
                        onChange={(e) => {
                          const file = e.target.files[0];
                          if (file) {
+                           // Reset loading states
+                           setLogoLoading(false);
+                           setLogoError(false);
+                           
                            // Store the file object for upload
                            handleCompanyFormChange("logoFile", file);
-                           // Also create a preview URL for display
+                           // Create a preview URL for display
                            const reader = new FileReader();
                            reader.onload = (e) => {
                              handleCompanyFormChange("logo", e.target.result);
@@ -1147,19 +1236,80 @@ const ClientInfoPage = () => {
                     justifyContent: "center",
                     flexShrink: 0,
                     border: "1px solid #e0e0e0",
+                    position: "relative",
+                    overflow: "hidden",
                   }}
                 >
                   {companyForm.logo ? (
-                    <img 
-                      src={companyForm.logo} 
-                      alt="Company Logo" 
-                      style={{ 
-                        width: "100%", 
-                        height: "100%", 
-                        borderRadius: "50%",
-                        objectFit: "cover"
-                      }} 
-                    />
+                    <>
+                      {/* Loading Spinner */}
+                      {logoLoading && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "rgba(255, 255, 255, 0.9)",
+                            zIndex: 2,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: "20px",
+                              height: "20px",
+                              border: "2px solid #f3f3f3",
+                              borderTop: "2px solid #007476",
+                              borderRadius: "50%",
+                              animation: "spin 1s linear infinite",
+                            }}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Error State */}
+                      {logoError && (
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "#f8f9fa",
+                            zIndex: 2,
+                          }}
+                        >
+                          <svg width="24" height="24" fill="#dc3545" viewBox="0 0 24 24">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                          </svg>
+                        </div>
+                      )}
+                      
+                      {/* Image */}
+                      <img 
+                        src={companyForm.logo} 
+                        alt="Company Logo" 
+                        style={{ 
+                          width: "100%", 
+                          height: "100%", 
+                          borderRadius: "50%",
+                          objectFit: "cover",
+                          opacity: logoLoading ? 0.3 : 1,
+                          transition: "opacity 0.3s ease",
+                        }}
+                        onLoad={handleLogoLoad}
+                        onError={handleLogoError}
+                        onLoadStart={handleLogoLoadStart}
+                      />
+                    </>
                   ) : (
                     <svg width="24" height="24" fill="#999" viewBox="0 0 24 24">
                       <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>

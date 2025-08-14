@@ -236,8 +236,8 @@ def verify_view(request):
 @verify_token
 def current_user(request):
     user = request.user
-    user_profile = Requests.objects(userId=user).first()
-    photograph = user_profile.photograph if user_profile else None
+    # Only use User model for photograph
+    photograph = True if user.profileImage else None
     
     data = {
         "success": True,
@@ -1450,28 +1450,52 @@ def add_photograph(request):
         return Response({"message": "User ID is required"}, status=400)
 
     try:
-        # Upload the file
-        filename = default_storage.save(f"uploads/{file.name}", ContentFile(file.read()))
-        photo_url = f"{settings.MEDIA_URL}{filename}"
-        full_photo_url = request.build_absolute_uri(photo_url)
+        # Read the file data
+        image_data = file.read()
+        image_content_type = file.content_type
 
-        # Save the photo URL to the user's profile
+        # Find the user
         user = User.objects(id=user_id).first()
         if not user:
             return Response({"message": "User not found"}, status=404)
 
-        req_obj = Requests.objects(userId=user).first()
-        if not req_obj:
-            req_obj = Requests(userId=user)
+        # Store image data directly in the database
+        user.profileImage = image_data
+        user.profileImageContentType = image_content_type
+        user.save()
 
-        req_obj.photograph = full_photo_url
-        req_obj.save()
+        print(f"Profile image saved to database successfully: {len(image_data)} bytes, type: {image_content_type}")
 
-        return Response({"photoUrl": full_photo_url}, status=200)
+        # Return success response with a flag indicating image is stored in database
+        return Response({
+            "message": "Profile image uploaded successfully",
+            "photoUrl": True  # Indicate image is stored in database
+        }, status=200)
 
     except Exception as e:
         print("Error uploading photograph:", e)
         return Response({"message": "Error uploading photograph", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+def get_profile_image(request, user_id):
+    """Serve profile image from database"""
+    try:
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+        
+        if not user.profileImage:
+            return Response({"message": "Profile image not found"}, status=404)
+
+        from django.http import HttpResponse
+        response = HttpResponse(user.profileImage, content_type=user.profileImageContentType)
+        response['Content-Disposition'] = 'inline'
+        return response
+
+    except Exception as e:
+        print("Error serving profile image:", e)
+        return Response({"message": "Server error", "error": str(e)}, status=500)
 
 
 @api_view(["POST"])
@@ -1542,6 +1566,10 @@ def get_profile_details(request, user_id):
         if not user_profile:
             return Response({"message": "User profile not found"}, status=404)
 
+        # Get user for profile image
+        user = User.objects(id=user_id).first()
+        has_profile_image = user and user.profileImage is not None
+
         profile = {
             "userId": str(user_profile.userId.id),
             "title": user_profile.title,
@@ -1549,7 +1577,7 @@ def get_profile_details(request, user_id):
             "bio": user_profile.bio,
             "dob": user_profile.dob,
             "phone": user_profile.phone,
-            "photograph": user_profile.photograph,
+            "photograph": True if has_profile_image else None,  # Only use User model for photograph
             "videoIntro": user_profile.videoIntro,
             "hourlyRate": float(user_profile.hourlyRate or 0),
             "status": user_profile.status,
@@ -3183,10 +3211,11 @@ def get_freelancer_summary(request, user_id):
         # Job success rate: proposals with status 'completed' / all proposals
         completed_count = sum(1 for p in proposals if getattr(p, 'status', None) == 'completed')
         job_success = int((completed_count / proposals.count()) * 100) if proposals.count() > 0 else 0
+        
         # Compose response
         data = {
             "name": user.name,
-            "photograph": req.photograph,
+            "photograph": True if user.profileImage else None,  # Only use User model for photograph
             "title": req.title,
             "country": req.country,
             "hourlyRate": float(req.hourlyRate) if hasattr(req, 'hourlyRate') and req.hourlyRate else 0,
@@ -3211,7 +3240,7 @@ def get_freelancer_profile(request, user_id):
             return Response({"message": "Profile not found"}, status=404)
         data = {
             "name": user.name,
-            "photograph": req.photograph,
+            "photograph": True if user.profileImage else None,  # Only use User model for photograph
             "title": req.title,
         }
         return Response(data)
@@ -3292,7 +3321,7 @@ def get_client_profile_details(request, user_id):
             "size": company_profile.size if company_profile else None,
             "tagline": company_profile.tagline if company_profile else None,
             "description": company_profile.description if company_profile else None,
-            "logo": company_profile.logo if company_profile else None,
+            "logo": True if company_profile and company_profile.logo else None,
             
         }
         
@@ -4537,26 +4566,19 @@ def add_company_details(request):
         # Handle logo upload
         if logo:
             print(f"Logo upload detected: {logo.name}, size: {logo.size}")
-            # Generate unique filename
-            import uuid
-            file_extension = logo.name.split('.')[-1]
-            filename = f"company_logo_{user_id}_{uuid.uuid4().hex[:8]}.{file_extension}"
-            
-            # Save file to media directory
-            file_path = f"company_logos/{filename}"
-            print(f"Saving logo to: {file_path}")
             
             try:
-                with default_storage.open(file_path, 'wb+') as destination:
-                    for chunk in logo.chunks():
-                        destination.write(chunk)
+                # Read the file data
+                logo_data = logo.read()
+                logo_content_type = logo.content_type
                 
-                # Update logo field with file path
-                company_obj.logo = f"/media/{file_path}"
-                print(f"Logo saved successfully: {company_obj.logo}")
+                # Store image data directly in database
+                company_obj.logo = logo_data
+                company_obj.logoContentType = logo_content_type
+                print(f"Logo saved to database successfully: {len(logo_data)} bytes, type: {logo_content_type}")
             except Exception as e:
-                print(f"Error saving logo: {e}")
-                return Response({"message": "Error saving logo file", "error": str(e)}, status=500)
+                print(f"Error saving logo to database: {e}")
+                return Response({"message": "Error saving logo to database", "error": str(e)}, status=500)
             
         company_obj.save()
 
@@ -4585,6 +4607,7 @@ def get_company_details(request, user_id):
             "tagline": company.tagline,
             "description": company.description,
             "logo": company.logo,
+            "logoContentType": company.logoContentType,
             "createdAt": company.createdAt,
             "updatedAt": company.updatedAt,
         }
@@ -4592,6 +4615,25 @@ def get_company_details(request, user_id):
         return Response(company_data)
     except Exception as e:
         print("Error in get_company_details:", e)
+        return Response({"message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+def get_company_logo(request, user_id):
+    """Serve company logo image from database"""
+    try:
+        company = Company.objects(userId=user_id).first()
+        if not company or not company.logo:
+            return Response({"message": "Logo not found"}, status=404)
+        
+        # Create HTTP response with image data
+        from django.http import HttpResponse
+        response = HttpResponse(company.logo, content_type=company.logoContentType)
+        response['Content-Disposition'] = 'inline'
+        return response
+        
+    except Exception as e:
+        print("Error serving company logo:", e)
         return Response({"message": "Server error", "error": str(e)}, status=500)
 
 
@@ -4723,7 +4765,7 @@ def get_verified_freelancers(request):
                     "jobSuccess": job_success,
                     "earned": earned_display,
                     "totalEarnings": total_earnings,
-                    "avatar": req.photograph if hasattr(req, 'photograph') else None,
+                    "avatar": True if user.profileImage else None,  # Only use User model for photograph
                     "skills": [{"id": str(s.id), "name": s.name} for s in getattr(req, 'skills', [])],
                     "bio": req.bio if hasattr(req, 'bio') else None,
                     "onlineStatus": user.onlineStatus if hasattr(user, 'onlineStatus') else "offline",
@@ -4981,7 +5023,7 @@ def get_freelancer_complete_profile(request, user_id):
             "title": req.title,
             "location": location,
             "hourlyRate": float(req.hourlyRate) if hasattr(req, 'hourlyRate') and req.hourlyRate else 0,
-            "photograph": req.photograph if hasattr(req, 'photograph') else None,
+            "photograph": True if user.profileImage else None,  # Only use User model for photograph
             "bio": req.bio if hasattr(req, 'bio') else None,
             "skills": [{"id": str(s.id), "name": s.name} for s in getattr(req, 'skills', [])],
             "totalEarnings": total_earnings,

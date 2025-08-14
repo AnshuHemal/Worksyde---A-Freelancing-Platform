@@ -310,26 +310,77 @@ const JobCard = ({ job, onClick }) => {
           <div className="row g-3">
             <div className="col-md-4">
               <div className="detail-item">
-                <RiVerifiedBadgeFill size={18} />
-                <span>Verified Client</span>
+                <RiVerifiedBadgeFill 
+                  size={18} 
+                  style={{ 
+                    color: job.clientDetails?.paymentVerified ? "#28a745" : "#6c757d" 
+                  }} 
+                />
+                <span style={{ 
+                  color: job.clientDetails?.paymentVerified ? "#28a745" : "#6c757d",
+                  fontWeight: job.clientDetails?.paymentVerified ? "600" : "400"
+                }}>
+                  {job.clientDetails?.paymentVerified ? "Payment Verified" : "Payment Not Verified"}
+                </span>
               </div>
             </div>
             <div className="col-md-4">
               <div className="detail-item">
                 <BsCurrencyDollar size={18} />
-                <span>₹0+ spent</span>
+                <span>₹{job.clientDetails?.totalSpent || 0}+ spent</span>
               </div>
-        </div>
+            </div>
             <div className="col-md-4">
               <div className="detail-item">
                 <BsGeoAlt size={18} />
                 <span>Remote</span>
-        </div>
-        </div>
-      </div>
+              </div>
+            </div>
+          </div>
         </motion.div>
 
-      {/* Rate and Applicants */}
+        {/* Client Information */}
+        {job.clientDetails && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.45 }}
+            className="mb-4"
+          >
+            <div className="row g-3">
+              <div className="col-md-4">
+                <div className="detail-item">
+                  <BsPeople size={18} />
+                  <span>{job.clientDetails.hires || 0} hires</span>
+                </div>
+              </div>
+              <div className="col-md-4">
+                <div className="detail-item">
+                  <BsCheckCircle 
+                    size={18} 
+                    style={{ 
+                      color: job.clientDetails.phoneVerified ? "#28a745" : "#6c757d" 
+                    }} 
+                  />
+                  <span style={{ 
+                    color: job.clientDetails.phoneVerified ? "#28a745" : "#6c757d",
+                    fontWeight: job.clientDetails.phoneVerified ? "600" : "400"
+                  }}>
+                    {job.clientDetails.phoneVerified ? "Phone Verified" : "Phone Not Verified"}
+                  </span>
+                </div>
+              </div>
+              <div className="col-md-4">
+                <div className="detail-item">
+                  <BsClock size={18} />
+                  <span>Member since {job.clientDetails.memberSince}</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Rate and Applicants */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -337,12 +388,16 @@ const JobCard = ({ job, onClick }) => {
           className="d-flex justify-content-between align-items-center"
         >
           <div className="rate-display">
-            ₹{job.hourlyRateFrom || 0} - ₹{job.hourlyRateTo || 0} /hr
-      </div>
+            {job.budgetType === "fixed" ? (
+              <>₹{job.fixedRate || 0} (Fixed)</>
+            ) : (
+              <>₹{job.hourlyRateFrom || 0} - ₹{job.hourlyRateTo || 0} /hr</>
+            )}
+          </div>
           <div className="applicants-display">
             <BsPeople className="me-1" size={16} />
             {job.applicants || 0} applicants
-    </div>
+          </div>
         </motion.div>
 
         {/* Apply Button */}

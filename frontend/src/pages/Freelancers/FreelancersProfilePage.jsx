@@ -152,6 +152,10 @@ const FreelancersProfilePage = () => {
   const [isSavingSkills, setIsSavingSkills] = useState(false);
   const [skillsSaveError, setSkillsSaveError] = useState(null);
 
+  // Profile image loading states
+  const [profileImageLoading, setProfileImageLoading] = useState(false);
+  const [profileImageError, setProfileImageError] = useState(false);
+
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
@@ -165,6 +169,10 @@ const FreelancersProfilePage = () => {
         setSummary(summaryRes.data);
         setProfile(profileRes.data);
         setEmploymentHistory(employmentRes.data.workExperience || []);
+        
+        // Reset profile image loading states
+        setProfileImageLoading(false);
+        setProfileImageError(false);
 
         // Load video introduction from profile if available
         if (
@@ -209,6 +217,22 @@ const FreelancersProfilePage = () => {
   // Handle Profile Settings navigation
   const handleProfileSettings = () => {
     navigate("/ws/settings/contact-info");
+  };
+
+  // Handle profile image loading
+  const handleProfileImageLoad = () => {
+    setProfileImageLoading(false);
+    setProfileImageError(false);
+  };
+
+  const handleProfileImageError = () => {
+    setProfileImageLoading(false);
+    setProfileImageError(true);
+  };
+
+  const handleProfileImageLoadStart = () => {
+    setProfileImageLoading(true);
+    setProfileImageError(false);
   };
 
   // Handle image file selection
@@ -439,14 +463,14 @@ const FreelancersProfilePage = () => {
       });
 
       if (response.data.photoUrl) {
-        // Update local state with new photo URL
+        // Update local state with new photo URL (now stored in database)
         setProfile((prev) => ({
           ...prev,
-          photograph: response.data.photoUrl,
+          photograph: true, // Indicate image is stored in database
         }));
         setSummary((prev) => ({
           ...prev,
-          photograph: response.data.photoUrl,
+          photograph: true, // Indicate image is stored in database
         }));
 
         // Close modal
@@ -893,8 +917,9 @@ const FreelancersProfilePage = () => {
     return <div style={{ padding: 40 }}>No data found.</div>;
 
   // Fallbacks for missing data
-  const avatar =
-    safeSummary.photograph || safeProfile.photograph || "/default-avatar.png";
+  const avatar = safeSummary.photograph === true || safeProfile.photograph === true
+    ? `${API_URL}/profile-image/${freelancerId}/`
+    : safeSummary.photograph || safeProfile.photograph || "/default-avatar.png";
   const name = safeSummary.name || safeProfile.name || "-";
   const title =
     safeSummary.title || safeProfile.title || "Interface Specialist";
@@ -2066,18 +2091,85 @@ const FreelancersProfilePage = () => {
           {/* Left: Avatar, Name, Location */}
           <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
             <div style={{ position: "relative" }}>
-              <img
-                src={avatar}
-                alt="Freelancer Avatar"
+              <div
                 style={{
                   width: 80,
                   height: 80,
                   borderRadius: "50%",
-                  objectFit: "cover",
                   border: "3px solid #f8f9fa",
                   boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                  position: "relative",
+                  overflow: "hidden",
                 }}
-              />
+              >
+                {/* Loading Spinner */}
+                {profileImageLoading && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(255, 255, 255, 0.9)",
+                      zIndex: 2,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "20px",
+                        height: "20px",
+                        border: "2px solid #f3f3f3",
+                        borderTop: "2px solid #007476",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {/* Error State */}
+                {profileImageError && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "#f8f9fa",
+                      zIndex: 2,
+                    }}
+                  >
+                    <svg width="24" height="24" fill="#dc3545" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                  </div>
+                )}
+                
+                {/* Image */}
+                <img
+                  src={avatar}
+                  alt="Freelancer Avatar"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "50%",
+                    objectFit: "cover",
+                    opacity: profileImageLoading ? 0.3 : 1,
+                    transition: "opacity 0.3s ease",
+                  }}
+                  onLoad={handleProfileImageLoad}
+                  onError={handleProfileImageError}
+                  onLoadStart={handleProfileImageLoadStart}
+                />
+              </div>
               {/* Online/Offline status dot - Read Only */}
               <div
                 style={{

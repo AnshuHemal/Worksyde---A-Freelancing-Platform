@@ -107,7 +107,73 @@ const FreelancersDashboard = () => {
         if (response.data.data && response.data.data.length > 0) {
           console.log("First job structure:", response.data.data[0]);
         }
-        setJobs(response.data.data);
+        
+        // Fetch client details for each job
+        const jobsWithClientDetails = await Promise.all(
+          response.data.data.map(async (job) => {
+            try {
+              // Fetch client profile details
+              const clientProfileResponse = await axios.get(`${API_URL}/client/profile/${job.userId}/`);
+              const clientProfile = clientProfileResponse.data;
+              
+              // Check payment verification status for the client
+              const [cardsResponse, paypalResponse] = await Promise.all([
+                axios.get(`${API_URL}/payment-cards/`, {
+                  withCredentials: true,
+                  headers: { 'X-Client-ID': job.userId }
+                }).catch(() => ({ data: { success: false, cards: [] } })),
+                axios.get(`${API_URL}/paypal-accounts/`, {
+                  withCredentials: true,
+                  headers: { 'X-Client-ID': job.userId }
+                }).catch(() => ({ data: { success: false, accounts: [] } }))
+              ]);
+
+              let hasPaymentMethod = false;
+              if (
+                cardsResponse.data.success &&
+                cardsResponse.data.cards &&
+                cardsResponse.data.cards.length > 0
+              ) {
+                hasPaymentMethod = true;
+              }
+              if (
+                !hasPaymentMethod &&
+                paypalResponse.data.success &&
+                paypalResponse.data.accounts &&
+                paypalResponse.data.accounts.length > 0
+              ) {
+                hasPaymentMethod = true;
+              }
+
+              return {
+                ...job,
+                clientDetails: {
+                  name: clientProfile.name || "Unknown Client",
+                  paymentVerified: hasPaymentMethod,
+                  totalSpent: clientProfile.spent || 0,
+                  memberSince: clientProfile.createdAt ? new Date(clientProfile.createdAt).toLocaleDateString() : "N/A",
+                  hires: clientProfile.hires || 0,
+                  phoneVerified: clientProfile.phoneVerified || false
+                }
+              };
+            } catch (error) {
+              console.error(`Error fetching client details for job ${job.id}:`, error);
+              return {
+                ...job,
+                clientDetails: {
+                  name: "Unknown Client",
+                  paymentVerified: false,
+                  totalSpent: 0,
+                  memberSince: "N/A",
+                  hires: 0,
+                  phoneVerified: false
+                }
+              };
+            }
+          })
+        );
+        
+        setJobs(jobsWithClientDetails);
       } catch (error) {
         console.error("Error fetching job posts:", error);
       }

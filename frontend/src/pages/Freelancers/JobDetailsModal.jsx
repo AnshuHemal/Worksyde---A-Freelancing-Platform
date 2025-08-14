@@ -14,7 +14,8 @@ import {
   BsCheckCircle,
   BsFlag,
   BsShare,
-  BsX
+  BsX,
+  BsCurrencyRupee
 } from "react-icons/bs";
 import { RiVerifiedBadgeFill } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
@@ -301,14 +302,18 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                                   color: "white",
                                 }}
                               >
-                                <BsCurrencyDollar size={24} />
+                                <BsCurrencyRupee size={24} />
                               </div>
                               <div>
                                 <h6 className="fw-semibold mb-1" style={{ color: "#121212" }}>
-                                  Hourly Rate
+                                  {job.budgetType === "fixed" ? "Fixed Price" : "Hourly Rate"}
                                 </h6>
                                 <p className="mb-0" style={{ color: "#007674", fontSize: "1.1rem", fontWeight: "600" }}>
-                                  ₹{job.hourlyRateFrom} - ₹{job.hourlyRateTo}
+                                  {job.budgetType === "fixed" ? (
+                                    `₹${job.fixedRate || 0}`
+                                  ) : (
+                                    `₹${job.hourlyRateFrom || 0} - ₹${job.hourlyRateTo || 0}`
+                                  )}
                                 </p>
                               </div>
                             </div>
@@ -577,9 +582,16 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                           }}
                         >
                           <div className="d-flex align-items-center gap-2 mb-3">
-                            <RiVerifiedBadgeFill size={20} style={{ color: "#15acec" }} />
-                            <span className="fw-semibold" style={{ color: "#15acec" }}>
-                              Payment Verified
+                            <RiVerifiedBadgeFill 
+                              size={20} 
+                              style={{ 
+                                color: job.clientDetails?.paymentVerified ? "#28a745" : "#6c757d" 
+                              }} 
+                            />
+                            <span className="fw-semibold" style={{ 
+                              color: job.clientDetails?.paymentVerified ? "#28a745" : "#6c757d" 
+                            }}>
+                              {job.clientDetails?.paymentVerified ? "Payment Verified" : "Payment Not Verified"}
                             </span>
                           </div>
                           <div className="space-y-3">
@@ -588,7 +600,25 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                                 Total Spent:
                               </span>
                               <span className="fw-semibold" style={{ color: "#121212" }}>
-                                ₹{job.totalSpent || 0}+
+                                ₹{job.clientDetails?.totalSpent || 0}+
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span style={{ color: "#666", fontSize: "1rem" }}>
+                                Hires:
+                              </span>
+                              <span className="fw-semibold" style={{ color: "#121212" }}>
+                                {job.clientDetails?.hires || 0}
+                              </span>
+                            </div>
+                            <div className="d-flex justify-content-between align-items-center">
+                              <span style={{ color: "#666", fontSize: "1rem" }}>
+                                Phone Verified:
+                              </span>
+                              <span className="fw-semibold" style={{ 
+                                color: job.clientDetails?.phoneVerified ? "#28a745" : "#6c757d" 
+                              }}>
+                                {job.clientDetails?.phoneVerified ? "Yes" : "No"}
                               </span>
                             </div>
                             <div className="d-flex justify-content-between align-items-center">
@@ -596,7 +626,7 @@ const JobDetailsModal = ({ show, onClose, job }) => {
                                 Member Since:
                               </span>
                               <span className="fw-semibold" style={{ color: "#121212" }}>
-                                {job.clientSince || "N/A"}
+                                {job.clientDetails?.memberSince || "N/A"}
                               </span>
                             </div>
                           </div>

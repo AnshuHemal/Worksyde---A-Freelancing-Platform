@@ -268,7 +268,12 @@ const ClientHeader = () => {
         </div>
         <div className=" d-flex align-items-center gap-4 me-3">
           <TfiHelp className="icon-hover" size={20} />
-          <BsBell className="icon-hover" size={20} />
+          <BsBell 
+            className="icon-hover" 
+            size={20} 
+            onClick={() => navigate("/ws/client/notification-alerts")}
+            style={{ cursor: "pointer" }}
+          />
           <img
             className="icon-hover"
             src={tarz}

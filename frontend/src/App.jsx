@@ -49,6 +49,7 @@ import ClientInfoPage from "./pages/Clients/ClientInfoPage";
 import ClientBillingPage from "./pages/Clients/ClientBillingPage";
 import ClientSecurityPage from "./pages/Clients/ClientSecurityPage";
 import ClientNotificationsPage from "./pages/Clients/ClientNotificationsPage";
+import ClientNotificationPage from "./pages/Clients/ClientNotificationPage";
 import ClientPasswordAndSecurityPage from "./pages/Clients/ClientPasswordAndSecurityPage";
 import FreelancerMessagesPage from "./pages/Freelancers/FreelancerMessagesPage";
 import AiToolsOverview from "./pages/Freelancers/AiToolsOverview";
@@ -62,6 +63,8 @@ import BillingAndPaymentsPage from "./pages/Freelancers/BillingAndPaymentsPage";
 import FreelancersProfileSettings from "./pages/Freelancers/FreelancersProfileSettings";
 import PasswordAndSecurityPage from "./pages/Freelancers/PasswordAndSecurityPage";
 import FreelancersProfilePage from "./pages/Freelancers/FreelancersProfilePage";
+import FreelancersNotificationPage from "./pages/Freelancers/FreelancersNotificationPage";
+import NotificationPage from "./pages/Freelancers/NotificationPage";
 import { UserProvider } from "./contexts/UserContext";
 import ClientJobDetailedPage from "./pages/Clients/ClientJobDetailedPage";
 import FreelancersProposals from "./pages/Freelancers/FreelancersProposals";
@@ -232,6 +235,7 @@ const App = () => {
             <Route path="find-work" element={<FreelancersDashboard />} />
             <Route path="messages" element={<FreelancerMessagesPage />} />
             <Route path="proposals" element={<FreelancersProposals />} />
+            <Route path="notifications" element={<NotificationPage />} />
             <Route
               path="proposals/interview/uid/:jobid"
               element={<FreelancersProposalDetails />}
@@ -261,6 +265,10 @@ const App = () => {
               element={<PasswordAndSecurityPage />}
             />
             <Route
+              path="settings/notifications"
+              element={<FreelancersNotificationPage />}
+            />
+            <Route
               path="payments/billing-methods"
               element={<BillingAndPaymentsPage />}
             />
@@ -284,6 +292,7 @@ const App = () => {
             <Route path="deposit-method" element={<ClientBillingPage />} />
             <Route path="security" element={<ClientSecurityPage />} />
             <Route path="notifications" element={<ClientNotificationsPage />} />
+            <Route path="notification-alerts" element={<ClientNotificationPage />} />
             <Route path="applicants/:jobid" element={<ClientJobDetailedPage />}>
               <Route path="job-details" element={<ClientJobDetailedPage />} />
               <Route path="suggested" element={<ClientJobDetailedPage />} />

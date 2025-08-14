@@ -15,11 +15,63 @@ import { useUser } from "../contexts/UserContext";
 
 const Header2 = () => {
   const { userId, logout } = useUser();
+  
+  // Add CSS animation for spinner
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
   const [showDropdown, setShowDropdown] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [profileImageLoading, setProfileImageLoading] = useState(false);
+  const [profileImageError, setProfileImageError] = useState(false);
   const dropdownRef = useRef(null);
+  
+  // Helper function to get profile image URL
+  const getProfileImageUrl = (user) => {
+    if (!user) return logo;
+    
+    // If photograph is true, it means image is stored in database
+    if (user.photograph === true) {
+      return `${API_URL}/profile-image/${user._id}/`;
+    }
+    
+    // If photograph is a URL string, use it directly
+    if (user.photograph && typeof user.photograph === 'string') {
+      return user.photograph;
+    }
+    
+    // Fallback to logo
+    return logo;
+  };
+
+  // Handle profile image loading
+  const handleProfileImageLoad = () => {
+    setProfileImageLoading(false);
+    setProfileImageError(false);
+  };
+
+  const handleProfileImageError = () => {
+    setProfileImageLoading(false);
+    setProfileImageError(true);
+  };
+
+  const handleProfileImageLoadStart = () => {
+    setProfileImageLoading(true);
+    setProfileImageError(false);
+  };
   const toggleDropdown = (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -79,6 +131,10 @@ const Header2 = () => {
           } else {
             setCurrentUser(data.user);
           }
+          
+          // Reset profile image loading states
+          setProfileImageLoading(false);
+          setProfileImageError(false);
         }
       } catch (error) {
         console.error("Error fetching current user:", error);
@@ -262,7 +318,13 @@ const Header2 = () => {
 
         <div className=" d-flex align-items-center gap-4 me-3">
           <TfiHelp className="icon-hover" size={20} />
-          <BsBell className="icon-hover" size={20} />
+          <BsBell 
+            className="icon-hover" 
+            size={20} 
+            style={{ cursor: "pointer" }}
+            onClick={() => navigate("/ws/notifications")}
+            title="Notifications"
+          />
           <img
             className="icon-hover"
             src={tarz}
@@ -300,14 +362,84 @@ const Header2 = () => {
               data-profile-icon
               onClick={(e) => toggleDropdown(e)}
             >
-              <img
-                src={currentUser?.photograph || logo}
-                alt="Profile"
-                className="rounded-circle"
-                height={32}
-                width={32}
-                style={{ objectFit: "cover" }}
-              />
+              <div
+                className="position-relative"
+                style={{
+                  height: 32,
+                  width: 32,
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                }}
+              >
+                {/* Loading Spinner */}
+                {profileImageLoading && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(255, 255, 255, 0.9)",
+                      zIndex: 2,
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "12px",
+                        height: "12px",
+                        border: "2px solid #f3f3f3",
+                        borderTop: "2px solid #007476",
+                        borderRadius: "50%",
+                        animation: "spin 1s linear infinite",
+                      }}
+                    />
+                  </div>
+                )}
+                
+                {/* Error State */}
+                {profileImageError && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "#f8f9fa",
+                      zIndex: 2,
+                    }}
+                  >
+                    <svg width="16" height="16" fill="#dc3545" viewBox="0 0 24 24">
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                  </div>
+                )}
+                
+                {/* Image */}
+                <img
+                  src={getProfileImageUrl(currentUser)}
+                  alt="Profile"
+                  className="rounded-circle"
+                  height={32}
+                  width={32}
+                  style={{ 
+                    objectFit: "cover",
+                    opacity: profileImageLoading ? 0.3 : 1,
+                    transition: "opacity 0.3s ease",
+                  }}
+                  onLoad={handleProfileImageLoad}
+                  onError={handleProfileImageError}
+                  onLoadStart={handleProfileImageLoadStart}
+                />
+              </div>
+              
               {/* Online Status Indicator */}
               <BsCircleFill
                 className="position-absolute"
@@ -330,13 +462,82 @@ const Header2 = () => {
           {showDropdown && (
             <div ref={dropdownRef} className="profile-dropdown shadow-sm">
               <div className="profile-header d-flex align-items-center gap-3">
-                <img
-                  src={currentUser?.photograph || logo}
-                  className="rounded-circle"
-                  height={40}
-                  width={40}
-                  style={{ objectFit: "cover" }}
-                />
+                <div
+                  className="position-relative"
+                  style={{
+                    height: 40,
+                    width: 40,
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                  }}
+                >
+                  {/* Loading Spinner */}
+                  {profileImageLoading && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "rgba(255, 255, 255, 0.9)",
+                        zIndex: 2,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: "16px",
+                          height: "16px",
+                          border: "2px solid #f3f3f3",
+                          borderTop: "2px solid #007476",
+                          borderRadius: "50%",
+                          animation: "spin 1s linear infinite",
+                        }}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* Error State */}
+                  {profileImageError && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "#f8f9fa",
+                        zIndex: 2,
+                      }}
+                    >
+                      <svg width="20" height="20" fill="#dc3545" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                      </svg>
+                    </div>
+                  )}
+                  
+                  {/* Image */}
+                  <img
+                    src={getProfileImageUrl(currentUser)}
+                    className="rounded-circle"
+                    height={40}
+                    width={40}
+                    style={{ 
+                      objectFit: "cover",
+                      opacity: profileImageLoading ? 0.3 : 1,
+                      transition: "opacity 0.3s ease",
+                    }}
+                    onLoad={handleProfileImageLoad}
+                    onError={handleProfileImageError}
+                    onLoadStart={handleProfileImageLoadStart}
+                  />
+                </div>
                 <div>
                   <div style={{ fontWeight: "600" }}>
                     {loading ? "Loading..." : currentUser?.name || "User"}

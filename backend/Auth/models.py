@@ -31,6 +31,9 @@ class User(Document):
     onlineStatus = StringField(choices=["online", "offline"], default="offline")
     lastSeen = DateTimeField(default=timezone.now)
     aiPreference = StringField(choices=["yes", "no", "depends"], default="depends")
+    # Profile image stored directly in database
+    profileImage = BinaryField()
+    profileImageContentType = StringField()
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
 
@@ -250,7 +253,8 @@ class Company(Document):
     size = StringField()
     tagline = StringField()
     description = StringField()
-    logo = StringField()  # URL to company logo
+    logo = BinaryField()  # Store image data directly in database
+    logoContentType = StringField()  # Store content type (e.g., image/jpeg, image/png)
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
 
