@@ -32,6 +32,7 @@ from Auth.models import (
     JobInvitation,
     DeclinedJobInvitation,
     JobOffer,
+    Notification,
 )
 from .serializers import (
     EducationSerializer,
@@ -5417,4 +5418,316 @@ def delete_job_offer(request, offer_id):
         
     except Exception as e:
         print("Error in delete_job_offer:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+# Notification Endpoints
+@api_view(["POST"])
+@verify_token
+def create_notification(request):
+    """Create a new notification"""
+    try:
+        data = request.data
+        user = request.user
+        
+        # Validate required fields
+        required_fields = ['recipientId', 'notificationType', 'title', 'message']
+        for field in required_fields:
+            if field not in data:
+                return Response({"success": False, "message": f"Missing required field: {field}"}, status=400)
+        
+        # Create notification
+        notification = Notification(
+            recipientId=User.objects.get(id=data['recipientId']),
+            notificationType=data['notificationType'],
+            title=data['title'],
+            message=data['message'],
+            additionalData=data.get('additionalData', {})
+        )
+        
+        # Add optional fields if provided
+        if 'senderId' in data:
+            notification.senderId = User.objects.get(id=data['senderId'])
+        if 'jobId' in data:
+            notification.jobId = JobPosts.objects.get(id=data['jobId'])
+        if 'proposalId' in data:
+            notification.proposalId = JobProposals.objects.get(id=data['proposalId'])
+        
+        notification.save()
+        
+        return Response({
+            "success": True, 
+            "message": "Notification created successfully",
+            "notificationId": str(notification.id)
+        })
+        
+    except User.DoesNotExist:
+        return Response({"success": False, "message": "User not found"}, status=404)
+    except JobPosts.DoesNotExist:
+        return Response({"success": False, "message": "Job not found"}, status=404)
+    except JobProposals.DoesNotExist:
+        return Response({"success": False, "message": "Proposal not found"}, status=404)
+    except Exception as e:
+        print("Error in create_notification:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@verify_token
+def get_user_notifications(request):
+    """Get notifications for the current user"""
+    try:
+        user = request.user
+        
+        # Get query parameters
+        page = int(request.GET.get('page', 1))
+        limit = int(request.GET.get('limit', 20))
+        notification_type = request.GET.get('type')
+        unread_only = request.GET.get('unread_only', 'false').lower() == 'true'
+        
+        # Build query
+        query = {"recipientId": user}
+        
+        if notification_type:
+            query["notificationType"] = notification_type
+        if unread_only:
+            query["isRead"] = False
+        
+        # Get notifications with pagination
+        skip = (page - 1) * limit
+        notifications = Notification.objects(**query).skip(skip).limit(limit)
+        
+        # Prepare response data
+        notifications_data = []
+        for notification in notifications:
+            notification_data = {
+                "id": str(notification.id),
+                "notificationType": notification.notificationType,
+                "title": notification.title,
+                "message": notification.message,
+                "isRead": notification.isRead,
+                "createdAt": notification.createdAt.isoformat() if notification.createdAt else None,
+                "additionalData": notification.additionalData
+            }
+            
+            # Add related data if available
+            if notification.senderId:
+                notification_data["senderId"] = str(notification.senderId.id)
+                notification_data["senderName"] = notification.senderId.name
+            if notification.jobId:
+                notification_data["jobId"] = str(notification.jobId.id)
+                notification_data["jobTitle"] = notification.jobId.title
+            if notification.proposalId:
+                notification_data["proposalId"] = str(notification.proposalId.id)
+            
+            notifications_data.append(notification_data)
+        
+        # Get total count for pagination
+        total_count = Notification.objects(**query).count()
+        
+        return Response({
+            "success": True,
+            "notifications": notifications_data,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_count,
+                "pages": (total_count + limit - 1) // limit
+            }
+        })
+        
+    except Exception as e:
+        print("Error in get_user_notifications:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["PUT"])
+@verify_token
+def mark_notification_read(request, notification_id):
+    """Mark a notification as read"""
+    try:
+        user = request.user
+        
+        # Get the notification
+        try:
+            notification = Notification.objects.get(id=notification_id, recipientId=user)
+        except Notification.DoesNotExist:
+            return Response({"success": False, "message": "Notification not found"}, status=404)
+        
+        notification.isRead = True
+        notification.save()
+        
+        return Response({"success": True, "message": "Notification marked as read"})
+        
+    except Exception as e:
+        print("Error in mark_notification_read:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["PUT"])
+@verify_token
+def mark_all_notifications_read(request):
+    """Mark all notifications as read for the current user"""
+    try:
+        user = request.user
+        
+        # Update all unread notifications for the user
+        Notification.objects(recipientId=user, isRead=False).update(isRead=True)
+        
+        return Response({"success": True, "message": "All notifications marked as read"})
+        
+    except Exception as e:
+        print("Error in mark_all_notifications_read:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["DELETE"])
+@verify_token
+def delete_notification(request, notification_id):
+    """Delete a notification"""
+    try:
+        user = request.user
+        
+        # Get the notification
+        try:
+            notification = Notification.objects.get(id=notification_id, recipientId=user)
+        except Notification.DoesNotExist:
+            return Response({"success": False, "message": "Notification not found"}, status=404)
+        
+        notification.delete()
+        
+        return Response({"success": True, "message": "Notification deleted successfully"})
+        
+    except Exception as e:
+        print("Error in delete_notification:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@verify_token
+def get_unread_notification_count(request):
+    """Get count of unread notifications for the current user"""
+    try:
+        user = request.user
+        
+        count = Notification.objects(recipientId=user, isRead=False).count()
+        
+        return Response({
+            "success": True,
+            "unreadCount": count
+        })
+        
+    except Exception as e:
+        print("Error in get_unread_notification_count:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def withdraw_proposal_with_notification(request):
+    """Withdraw a proposal and create notification for client"""
+    try:
+        data = request.data
+        user = request.user
+        
+        # Validate required fields
+        required_fields = ['proposalId', 'reason']
+        for field in required_fields:
+            if field not in data:
+                return Response({"success": False, "message": f"Missing required field: {field}"}, status=400)
+        
+        # Get the proposal
+        try:
+            proposal = JobProposals.objects.get(id=data['proposalId'], userId=user)
+        except JobProposals.DoesNotExist:
+            return Response({"success": False, "message": "Proposal not found"}, status=404)
+        
+        # Get job and client details
+        job = proposal.jobId
+        client = job.userId
+        
+        # Update proposal status
+        proposal.status = "withdrawn"
+        proposal.save()
+        
+        # Create notification for client
+        freelancer_name = user.name
+        job_title = job.title
+        reason = data['reason']
+        optional_message = data.get('message', '')
+        
+        # Build notification message
+        notification_message = f"Proposal for the job '{job_title}' has been withdrawn by {freelancer_name} due to the reason: {reason}"
+        if optional_message:
+            notification_message += f"\n\nMessage from freelancer: {optional_message}"
+        
+        notification = Notification(
+            recipientId=client,
+            senderId=user,
+            jobId=job,
+            proposalId=proposal,
+            notificationType="proposal_withdrawn",
+            title=f"Proposal Withdrawn - {job_title}",
+            message=notification_message,
+            additionalData={
+                "reason": reason,
+                "optionalMessage": optional_message,
+                "freelancerName": freelancer_name,
+                "jobTitle": job_title
+            }
+        )
+        notification.save()
+        
+        return Response({
+            "success": True,
+            "message": "Proposal withdrawn successfully and client notified"
+        })
+        
+    except Exception as e:
+        print("Error in withdraw_proposal_with_notification:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def create_simple_notification(request):
+    """Create a simple notification with userId and message"""
+    try:
+        data = request.data
+        user = request.user
+        
+        # Validate required fields
+        required_fields = ['recipientId', 'message']
+        for field in required_fields:
+            if field not in data:
+                return Response({"success": False, "message": f"Missing required field: {field}"}, status=400)
+        
+        # Get recipient user
+        try:
+            recipient = User.objects.get(id=data['recipientId'])
+        except User.DoesNotExist:
+            return Response({"success": False, "message": "Recipient user not found"}, status=404)
+        
+        # Create notification
+        notification = Notification(
+            recipientId=recipient,
+            senderId=user,
+            notificationType="client_message",
+            title=f"Message from {user.name}",
+            message=data['message'],
+            additionalData={
+                "senderName": user.name,
+                "message": data['message']
+            }
+        )
+        notification.save()
+        
+        return Response({
+            "success": True,
+            "message": "Notification created successfully",
+            "notificationId": str(notification.id)
+        })
+        
+    except Exception as e:
+        print("Error in create_simple_notification:", e)
         return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)

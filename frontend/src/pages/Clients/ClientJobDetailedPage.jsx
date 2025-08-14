@@ -214,10 +214,11 @@ const ClientJobDetailedPage = () => {
               <div style={{ position: "relative" }}>
                 <img
                   src={
-                    proposal.freelancer?.profilePicture ||
-                    `https://via.placeholder.com/56x56/4CAF50/FFFFFF?text=${
-                      proposal.freelancer?.name?.charAt(0) || "F"
-                    }`
+                    proposal.freelancer?.id || proposal.freelancer?._id
+                      ? `${API_URL}/profile-image/${proposal.freelancer.id || proposal.freelancer._id}/`
+                      : `https://via.placeholder.com/56x56/4CAF50/FFFFFF?text=${
+                          proposal.freelancer?.name?.charAt(0) || "F"
+                        }`
                   }
                   alt={proposal.freelancer?.name || "Freelancer"}
                   style={{
@@ -225,6 +226,11 @@ const ClientJobDetailedPage = () => {
                     height: 56,
                     borderRadius: "50%",
                     objectFit: "cover",
+                  }}
+                  onError={(e) => {
+                    e.target.src = `https://via.placeholder.com/56x56/4CAF50/FFFFFF?text=${
+                      proposal.freelancer?.name?.charAt(0) || "F"
+                    }`;
                   }}
                 />
                 {/* Online Status Indicator */}
@@ -304,98 +310,7 @@ const ClientJobDetailedPage = () => {
                   color: "#666",
                 }}
               >
-                <span style={{ fontSize: 18 }}>⋯</span>
-              </button>
-              <button
-                onClick={() => handleProposalAction(proposal.id, "dislike")}
-                style={{
-                  width: 40,
-                  height: 40,
-                  border: "1px solid #007674",
-                  borderRadius: "50%",
-                  background: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: "#666",
-                }}
-              >
-                <BsHandThumbsDown style={{ fontSize: 16 }} />
-              </button>
-              <button
-                onClick={() => handleProposalAction(proposal.id, "like")}
-                style={{
-                  width: 40,
-                  height: 40,
-                  border: "1px solid #007674",
-                  borderRadius: "50%",
-                  background: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: "#666",
-                }}
-              >
-                <BsHandThumbsUp style={{ fontSize: 16 }} />
-              </button>
-              <button
-                onClick={() => handleMessageClick(proposal.freelancer)}
-                style={{
-                  border: "1px solid #007674",
-                  color: "#007674",
-                  background: "#fff",
-                  borderRadius: 8,
-                  padding: "10px 20px",
-                  fontWeight: 600,
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-              >
-                Message
-              </button>
-              <button
-                onClick={() => {
-                  navigate(
-                    `/ws/client/offer/job-application/${proposal.freelancer.id}`,
-                    {
-                      state: {
-                        jobId: job?.id,
-                        job: job,
-                      },
-                    }
-                  );
-                }}
-                style={{
-                  border: "none",
-                  color: "#fff",
-                  background: "#007674",
-                  borderRadius: 8,
-                  padding: "10px 20px",
-                  fontWeight: 700,
-                  fontSize: 14,
-                  cursor: "pointer",
-                }}
-              >
-                Hire
-              </button>
-              <button
-                onClick={() => handleProposalAction(proposal.id, "favorite")}
-                style={{
-                  width: 40,
-                  height: 40,
-                  border: "1px solid #007674",
-                  borderRadius: "50%",
-                  background: "#fff",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  color: "#666",
-                }}
-              >
-                <span style={{ fontSize: 18 }}>♥</span>
+                <BsX size={20} />
               </button>
             </div>
           </div>
@@ -3933,11 +3848,12 @@ const ClientJobDetailedPage = () => {
                               >
                                 <img
                                   src={
-                                    proposal.freelancer?.profilePicture ||
-                                    `https://via.placeholder.com/60x60/4CAF50/FFFFFF?text=${
-                                      proposal.freelancer?.name?.charAt(0) ||
-                                      "F"
-                                    }`
+                                    proposal.freelancer?.id || proposal.freelancer?._id
+                                      ? `${API_URL}/profile-image/${proposal.freelancer.id || proposal.freelancer._id}/`
+                                      : `https://via.placeholder.com/60x60/4CAF50/FFFFFF?text=${
+                                          proposal.freelancer?.name?.charAt(0) ||
+                                          "F"
+                                        }`
                                   }
                                   alt={
                                     proposal.freelancer?.name || "Freelancer"
@@ -3947,6 +3863,12 @@ const ClientJobDetailedPage = () => {
                                     height: "60px",
                                     borderRadius: "50%",
                                     objectFit: "cover",
+                                  }}
+                                  onError={(e) => {
+                                    e.target.src = `https://via.placeholder.com/60x60/4CAF50/FFFFFF?text=${
+                                      proposal.freelancer?.name?.charAt(0) ||
+                                      "F"
+                                    }`;
                                   }}
                                 />
                                 {/* Online Status Dot */}
@@ -4366,146 +4288,6 @@ const ClientJobDetailedPage = () => {
                 >
                   When you message freelancers, those conversations will appear
                   here for easy access.
-                </div>
-
-                {/* View all proposals Button */}
-                <button
-                  onClick={() => handleProposalTabChange("all")}
-                  style={{
-                    background:
-                      "linear-gradient(135deg, #007674 0%, #005a58 100%)",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: 15,
-                    padding: "14px 32px",
-                    fontSize: "1rem",
-                    fontWeight: 600,
-                    transition: "all 0.3s ease",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: 8,
-                    cursor: "pointer",
-                    boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
-                    margin: "0 auto",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background =
-                      "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
-                    e.target.style.transform = "translateY(-2px)";
-                    e.target.style.boxShadow =
-                      "0 8px 25px rgba(18, 18, 18, 0.4)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background =
-                      "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                    e.target.style.transform = "translateY(0)";
-                    e.target.style.boxShadow =
-                      "0 6px 20px rgba(0, 118, 116, 0.3)";
-                  }}
-                >
-                  View all proposals
-                </button>
-              </div>
-            )}
-
-            {activeProposalTab === "messaged" && (
-              <div
-                style={{ maxWidth: 400, margin: "0 auto", textAlign: "center" }}
-              >
-                {/* Mailbox Icon */}
-                <div
-                  style={{
-                    width: 80,
-                    height: 80,
-                    margin: "0 auto 32px auto",
-                    position: "relative",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {/* Mailbox body */}
-                  <div
-                    style={{
-                      width: 50,
-                      height: 35,
-                      background: "#28a745",
-                      borderRadius: "8px 8px 12px 12px",
-                      position: "relative",
-                      boxShadow: "0 4px 12px rgba(40, 167, 69, 0.3)",
-                    }}
-                  >
-                    {/* Mailbox flag */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: -8,
-                        right: -2,
-                        width: 12,
-                        height: 20,
-                        background: "#28a745",
-                        borderRadius: "2px 8px 2px 2px",
-                        transform: "rotate(-15deg)",
-                        transformOrigin: "bottom left",
-                      }}
-                    ></div>
-
-                    {/* Mailbox lock/detail */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: 8,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: 8,
-                        height: 8,
-                        background: "#9c27b0",
-                        borderRadius: "50%",
-                      }}
-                    ></div>
-                  </div>
-
-                  {/* Mailbox pole */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      bottom: -15,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                      width: 4,
-                      height: 20,
-                      background: "#8B4513",
-                      borderRadius: "2px",
-                    }}
-                  ></div>
-                </div>
-
-                {/* Heading */}
-                <div
-                  style={{
-                    fontSize: 26,
-                    fontWeight: 700,
-                    color: "#000",
-                    marginBottom: 16,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  No messages yet
-                </div>
-
-                {/* Descriptive Text */}
-                <div
-                  style={{
-                    fontSize: 18,
-                    color: "#666",
-                    marginBottom: 40,
-                    textAlign: "center",
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Start the conversation by asking any freelancer a question
-                  about their proposal.
                 </div>
 
                 {/* View all proposals Button */}

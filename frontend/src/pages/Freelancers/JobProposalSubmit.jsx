@@ -35,6 +35,11 @@ const JobProposalSubmit = () => {
   const [selectedReason, setSelectedReason] = useState("");
   const [otherReason, setOtherReason] = useState("");
   const [optionalMessage, setOptionalMessage] = useState("");
+  
+  // Simple notification modal states
+  const [showSimpleNotificationModal, setShowSimpleNotificationModal] = useState(false);
+  const [recipientUserId, setRecipientUserId] = useState("");
+  const [notificationMessage, setNotificationMessage] = useState("");
 
   const withdrawReasons = [
     "Applied by mistake",
@@ -916,6 +921,7 @@ const JobProposalSubmit = () => {
                       fontWeight: "600",
                       cursor: "pointer",
                       transition: "all 0.2s ease",
+                      marginBottom: "12px",
                     }}
                     onClick={() => setShowModal(true)}
                     onMouseEnter={(e) => {
@@ -964,13 +970,6 @@ const JobProposalSubmit = () => {
                     )}
                   </div>
 
-                  {/* <div style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
-                    <BsCheckCircle size={16} style={{ color: "#007476" }} />
-                    <span style={{ color: "#111", fontSize: "16px" }}>
-                      Phone number verified
-                    </span>
-                  </div> */}
-
                   <div style={{ marginBottom: "16px" }}>
                     <span style={{ color: "#111", fontSize: "18px" }}>
                       {clientDetails?.country || "India"}, <br />{" "}
@@ -978,12 +977,6 @@ const JobProposalSubmit = () => {
                       {formatLastSeen(clientDetails?.lastSeen)}
                     </span>
                   </div>
-
-                  {/* <div style={{ marginBottom: "16px" }}>
-                    <span style={{ color: "#111", fontSize: "16px" }}>
-                      {clientDetails?.jobCount || 0} job posted
-                    </span>
-                  </div> */}
 
                   <div style={{ marginBottom: "16px" }}>
                     <span style={{ color: "#111", fontSize: "18px" }}>
@@ -1232,13 +1225,37 @@ const JobProposalSubmit = () => {
                 Cancel
               </motion.button>
               <motion.button
-                onClick={() => {
-                  // Handle withdraw logic here
-                  console.log("Withdrawing proposal with reason:", selectedReason);
-                  console.log("Optional message:", optionalMessage);
-                  setShowModal(false);
-                  setSelectedReason("");
-                  setOptionalMessage("");
+                onClick={async () => {
+                  try {
+                    // Call the withdraw proposal API with notification
+                    const response = await axios.post(
+                      `${API_URL}/proposals/withdraw/`,
+                      {
+                        proposalId: jobProposalId,
+                        reason: selectedReason,
+                        message: optionalMessage
+                      },
+                      { withCredentials: true }
+                    );
+
+                    if (response.data.success) {
+                      // Close modal and reset form
+                      setShowModal(false);
+                      setSelectedReason("");
+                      setOptionalMessage("");
+                      
+                      // Show success message (you can add a toast notification here)
+                      alert("Proposal withdrawn successfully and client notified!");
+                      
+                      // Optionally redirect to proposals page
+                      // navigate("/ws/proposals");
+                    } else {
+                      alert("Failed to withdraw proposal: " + response.data.message);
+                    }
+                  } catch (error) {
+                    console.error("Error withdrawing proposal:", error);
+                    alert("Error withdrawing proposal. Please try again.");
+                  }
                 }}
                 style={{
                   padding: "10px 20px",

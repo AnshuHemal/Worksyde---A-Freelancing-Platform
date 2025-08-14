@@ -544,3 +544,45 @@ class JobOffer(Document):
             self.createdAt = timezone.now()
         self.updatedAt = timezone.now()
         return super().save(*args, **kwargs)
+
+
+class Notification(Document):
+    """Model for storing notifications for users"""
+    NOTIFICATION_TYPES = [
+        ('proposal_withdrawn', 'Proposal Withdrawn'),
+        ('client_message', 'Client Message'),
+        ('job_offer', 'Job Offer'),
+        ('proposal_accepted', 'Proposal Accepted'),
+        ('proposal_declined', 'Proposal Declined'),
+        ('payment_received', 'Payment Received'),
+        ('milestone_completed', 'Milestone Completed'),
+        ('system', 'System Notification'),
+    ]
+    
+    recipientId = ReferenceField(User, required=True)  # User receiving the notification
+    senderId = ReferenceField(User)  # User sending the notification (optional for system notifications)
+    jobId = ReferenceField(JobPosts)  # Related job (optional)
+    proposalId = ReferenceField(JobProposals)  # Related proposal (optional)
+    
+    notificationType = StringField(choices=[choice[0] for choice in NOTIFICATION_TYPES], required=True)
+    title = StringField(required=True)  # Short title for the notification
+    message = StringField(required=True)  # Full message content
+    isRead = BooleanField(default=False)  # Whether the notification has been read
+    
+    # Additional data for specific notification types
+    additionalData = DictField(default={})  # Store any additional data as JSON
+    
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+    
+    meta = {
+        "collection": "notifications",
+        "indexes": ["recipientId", "notificationType", "isRead", "createdAt"],
+        "ordering": ["-createdAt"]
+    }
+    
+    def save(self, *args, **kwargs):
+        if not self.createdAt:
+            self.createdAt = timezone.now()
+        self.updatedAt = timezone.now()
+        return super().save(*args, **kwargs)
