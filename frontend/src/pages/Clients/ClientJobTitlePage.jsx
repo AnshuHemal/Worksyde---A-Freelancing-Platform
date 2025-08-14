@@ -12,6 +12,10 @@ const ClientJobTitlePage = () => {
   const [title, setTitle] = useState("");
   const [userId, setUserId] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDetectingCategory, setIsDetectingCategory] = useState(false);
+  const [detectedCategory, setDetectedCategory] = useState(null);
+  const [showCategoryInfo, setShowCategoryInfo] = useState(false);
+  const [isGeneratingTitle, setIsGeneratingTitle] = useState(false);
   const navigate = useNavigate();
 
   const API_URL = "http://localhost:5000/api/auth";
@@ -32,6 +36,36 @@ const ClientJobTitlePage = () => {
     fetchCurrentUser();
   }, []);
 
+  const generateTitleWithAI = async () => {
+    if (!title.trim()) {
+      toast.error("Please enter a job title first to improve it with AI.");
+      return;
+    }
+
+    setIsGeneratingTitle(true);
+    try {
+      const response = await axios.post(`${API_URL}/generate-job-title/`, {
+        currentTitle: title,
+      });
+
+      if (response.status === 200 && response.data.generatedTitle) {
+        setTitle(response.data.generatedTitle);
+        toast.success("AI improved your job title successfully!");
+      } else {
+        toast.error("Failed to improve title. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error generating title:", error);
+      if (error.response?.data?.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error("Failed to improve title. Please try again.");
+      }
+    } finally {
+      setIsGeneratingTitle(false);
+    }
+  };
+
   const handleNext = async () => {
     if (title.trim().length === 0) {
       toast.error("Please enter a job title.");
@@ -44,6 +78,7 @@ const ClientJobTitlePage = () => {
     }
 
     setIsLoading(true);
+    setIsDetectingCategory(true);
     try {
       const jobIdRes = await axios.post(`${API_URL}/jobposts/draft/`, {
         userId,
@@ -56,14 +91,34 @@ const ClientJobTitlePage = () => {
       });
 
       if (res.status === 200) {
-        // toast.success("Title saved successfully!");
-        navigate("/job-post/instant/skills");
+        if (res.data.categoryDetected && res.data.categoryName) {
+          setDetectedCategory({
+            id: res.data.categoryId,
+            name: res.data.categoryName
+          });
+          setShowCategoryInfo(true);
+          toast.success(`Category detected: ${res.data.categoryName}`);
+          // Wait a moment to show the category info, then navigate
+          setTimeout(() => {
+            navigate("/job-post/instant/skills");
+          }, 2000);
+        } else {
+          // toast.success("Title saved successfully!");
+          navigate("/job-post/instant/skills");
+        }
       }
     } catch (err) {
       console.error("Error saving title", err);
-      toast.error("An error occurred while saving your title.");
+      if (err.response && err.response.data && err.response.data.message) {
+        toast.error(err.response.data.message);
+      } else if (err.response && err.response.status === 500) {
+        toast.error("Server error occurred. Please try again or contact support.");
+      } else {
+        toast.error("An error occurred while saving your title.");
+      }
     } finally {
       setIsLoading(false);
+      setIsDetectingCategory(false);
     }
   };
 
@@ -257,7 +312,7 @@ const ClientJobTitlePage = () => {
                                 borderRadius: "15px",
                                 border: "2px solid #e3e3e3",
                                 padding: "15px 20px",
-                                background: "#fcfafd",
+                                background: "#fff",
                                 transition: "all 0.3s ease",
                               }}
                               onFocus={(e) => {
@@ -298,13 +353,78 @@ const ClientJobTitlePage = () => {
                                 color: "#007674",
                                 fontSize: "1rem",
                                 fontWeight: 600,
+                                transition: "all 0.3s ease",
                               }}
+                              onMouseEnter={(e) => {
+                                e.target.style.color = "#005a58";
+                                e.target.style.transform = "translateY(-1px)";
+                              }}
+                              onMouseLeave={(e) => {
+                                e.target.style.color = "#007674";
+                                e.target.style.transform = "translateY(0)";
+                              }}
+                              onClick={generateTitleWithAI}
+                              disabled={isGeneratingTitle}
                             >
-                              <RiChatSmileAiLine className="me-1" />
-                              Generate with AI
+                              {isGeneratingTitle ? (
+                                <>
+                                  <div className="spinner-border spinner-border-sm me-1" style={{ width: "0.8rem", height: "0.8rem" }} />
+                                  Improving...
+                                </>
+                              ) : (
+                                <>
+                                  <RiChatSmileAiLine className="me-1" />
+                                  Improve with AI
+                                </>
+                              )}
                             </button>
                           </div>
                         </div>
+
+                        {/* Category Detection Indicator */}
+                        {isDetectingCategory && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mb-4 p-3 rounded-3"
+                            style={{
+                              background: "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
+                              border: "1px solid rgba(0, 118, 116, 0.2)",
+                            }}
+                          >
+                            <div className="d-flex align-items-center gap-2">
+                              <div className="spinner-border spinner-border-sm" style={{ color: "#007674" }} />
+                              <span style={{ color: "#007674", fontWeight: 600 }}>
+                                AI is detecting the best category for your job...
+                              </span>
+                            </div>
+                            <small style={{ color: "#666", fontSize: "0.9rem" }}>
+                              Analyzing your job title to find the perfect match
+                            </small>
+                          </motion.div>
+                        )}
+
+                        {showCategoryInfo && detectedCategory && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="mb-4 p-3 rounded-3"
+                            style={{
+                              background: "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
+                              border: "1px solid rgba(0, 118, 116, 0.2)",
+                            }}
+                          >
+                            <div className="d-flex align-items-center gap-2">
+                              <BsCheckCircle size={20} style={{ color: "#007674" }} />
+                              <span style={{ color: "#007674", fontWeight: 600 }}>
+                                AI detected category: {detectedCategory.name}
+                              </span>
+                            </div>
+                            <small style={{ color: "#666", fontSize: "0.9rem" }}>
+                              Category automatically assigned based on your job title
+                            </small>
+                          </motion.div>
+                        )}
 
                         <motion.button
                           className="btn fw-semibold px-5 py-3 w-100"
@@ -342,13 +462,13 @@ const ClientJobTitlePage = () => {
                               role="status"
                             >
                               <span className="visually-hidden">
-                                Loading...
+                                {isDetectingCategory ? "Detecting Category..." : "Loading..."}
                               </span>
                             </div>
                           ) : (
                             <>
-                              Next, Add Skills
-                              <BsArrowRight className="ms-2" />
+                              {isDetectingCategory ? "Detecting Category..." : "Next, Add Skills"}
+                              {!isDetectingCategory && <BsArrowRight className="ms-2" />}
                             </>
                           )}
                         </motion.button>
@@ -361,6 +481,8 @@ const ClientJobTitlePage = () => {
           </div>
         </div>
       </div>
+
+
     </>
   );
 };

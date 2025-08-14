@@ -54,9 +54,12 @@ class JobPostSerializer(serializers.Serializer):
     title = serializers.CharField()
     description = serializers.CharField()
     status = serializers.CharField()
+    budgetType = serializers.CharField()
     hourlyRateFrom = serializers.DecimalField(max_digits=10, decimal_places=2)
     hourlyRateTo = serializers.DecimalField(max_digits=10, decimal_places=2)
+    fixedRate = serializers.DecimalField(max_digits=10, decimal_places=2)
     scopeOfWork = serializers.CharField()
+    ws_token = serializers.IntegerField()
     duration = serializers.CharField()
     experienceLevel = serializers.CharField()
     isContractToHire = serializers.CharField()
@@ -66,14 +69,23 @@ class JobPostSerializer(serializers.Serializer):
     createdAt = serializers.DateTimeField()
     updatedAt = serializers.DateTimeField()
     invites = serializers.IntegerField()  # <-- Added field
+    createdAt = serializers.DateTimeField()
+    updatedAt = serializers.DateTimeField()
     # If these are references:
     userId = serializers.CharField(source='userId.id', required=False)
     categoryId = serializers.CharField(source='categoryId.id', required=False)
     # For nested skill references
     skills = serializers.SerializerMethodField()
+    # For category information
+    category = serializers.SerializerMethodField()
 
     def get_skills(self, obj):
-        return [{"id": str(skill.id), "name": skill.name} for skill in obj.skills if skill] 
+        return [{"id": str(skill.id), "name": skill.name} for skill in obj.skills if skill]
+    
+    def get_category(self, obj):
+        if obj.categoryId:
+            return {"id": str(obj.categoryId.id), "name": obj.categoryId.name}
+        return None 
         
 class JobProposalSerializer(serializers.Serializer):
     id = serializers.CharField()
@@ -115,6 +127,8 @@ class JobInvitationSerializer(serializers.Serializer):
     jobSkills = serializers.SerializerMethodField()
     jobHourlyFrom = serializers.SerializerMethodField()
     jobHourlyTo = serializers.SerializerMethodField()
+    jobBudgetType = serializers.SerializerMethodField()
+    jobFixedRate = serializers.SerializerMethodField()
     jobExperienceLevel = serializers.SerializerMethodField()
     jobDuration = serializers.SerializerMethodField()
     jobCategory = serializers.SerializerMethodField()
@@ -152,6 +166,10 @@ class JobInvitationSerializer(serializers.Serializer):
         return str(getattr(obj.jobId, 'hourlyRateFrom', ''))
     def get_jobHourlyTo(self, obj):
         return str(getattr(obj.jobId, 'hourlyRateTo', ''))
+    def get_jobBudgetType(self, obj):
+        return getattr(obj.jobId, 'budgetType', 'fixed')
+    def get_jobFixedRate(self, obj):
+        return str(getattr(obj.jobId, 'fixedRate', ''))
     def get_jobExperienceLevel(self, obj):
         return getattr(obj.jobId, 'experienceLevel', None)
     def get_jobDuration(self, obj):

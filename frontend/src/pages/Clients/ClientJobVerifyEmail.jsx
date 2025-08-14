@@ -133,15 +133,15 @@ const ClientJobVerifyEmail = () => {
                     />
                     <h2
                       className="fw-semibold mb-2"
-                      style={{ color: "#121212", fontSize: "2.3rem" }}
+                      style={{ color: "#121212", fontSize: "2.3rem", letterSpacing: '0.3px' }}
                     >
                       Verify Your Email
                     </h2>
                     <p
                       className="mb-3"
                       style={{
-                        color: "#666",
-                        fontSize: "1.18rem",
+                        color: "#121212",
+                        fontSize: "1.2rem",
                         lineHeight: 1.6,
                       }}
                     >
@@ -198,32 +198,30 @@ const ClientJobVerifyEmail = () => {
                     <div
                       className="p-3 rounded-3"
                       style={{
-                        backgroundColor: "rgba(0, 118, 116, 0.05)",
-                        border: "1px solid rgba(0, 118, 116, 0.1)",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <h6
                         className="fw-semibold mb-2"
                         style={{ color: "#007674" }}
                       >
-                        <BsClock className="me-2" />
                         Review Timeline
                       </h6>
                       <div className="d-flex align-items-center mb-2">
                         <BsClock
                           className="me-2"
-                          style={{ color: "#28a745" }}
+                          style={{ color: "#007674" }}
                         />
                         <span
                           className="fw-semibold"
-                          style={{ color: "#28a745" }}
+                          style={{ color: "#007674" }}
                         >
                           5-10 Minutes
                         </span>
                       </div>
                       <p
                         className="mb-0"
-                        style={{ color: "#666", fontSize: "1rem" }}
+                        style={{ color: "#121212", fontSize: "1.1rem" }}
                       >
                         It usually takes a few minutes for the email to arrive.
                         Be sure to check your spam folder.
@@ -245,13 +243,12 @@ const ClientJobVerifyEmail = () => {
                     <div
                       className="p-3 rounded-3"
                       style={{
-                        backgroundColor: "rgba(0, 118, 116, 0.05)",
-                        border: "1px solid rgba(0, 118, 116, 0.1)",
+                        border: "1px solid #e3e3e3",
                       }}
                     >
                       <ul
                         className="mb-0"
-                        style={{ color: "#666", fontSize: "1rem" }}
+                        style={{ color: "#121212", fontSize: "1.1rem" }}
                       >
                         <li className="mb-2">
                           Check your spam or promotions folder

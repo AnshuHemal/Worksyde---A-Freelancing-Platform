@@ -747,6 +747,27 @@ def add_speciality(request):
 
 
 @api_view(["GET"])
+def get_categories(request):
+    """Get all categories for job post selection"""
+    try:
+        categories = Category.objects.all()
+        category_list = [{"id": str(cat.id), "name": cat.name} for cat in categories]
+        return Response(
+            {
+                "success": True,
+                "message": "Categories fetched successfully",
+                "categories": category_list,
+            },
+            status=200,
+        )
+    except Exception as e:
+        return Response(
+            {"success": False, "message": "Error fetching categories", "error": str(e)},
+            status=500,
+        )
+
+
+@api_view(["GET"])
 def get_category_with_speciality(request):
     try:
         categories = Category.objects.all()
@@ -1800,17 +1821,176 @@ def add_job_post_title(request):
         )
 
     try:
+        # First, try to automatically detect the category using AI
+        category = None
+        
+        # Simple keyword-based category detection as fallback
+        title_lower = title.lower()
+        
+        # Define category keywords for fallback detection
+        category_keywords = {
+            "Web, Mobile & Software Dev": ["web", "mobile", "app", "software", "developer", "programming", "coding", "mern", "react", "node", "python", "java"],
+            "Data Science & Analytics": ["data", "analytics", "science", "machine learning", "ai", "artificial intelligence", "statistics", "analysis"],
+            "Accounting & Consulting": ["accounting", "consulting", "finance", "bookkeeping", "tax", "audit", "financial"],
+            "IT & Networking": ["it", "networking", "system", "admin", "infrastructure", "server", "database", "cloud"],
+            "Sales & Marketing": ["sales", "marketing", "social media", "advertising", "promotion", "brand", "campaign"],
+            "Design & Creative": ["design", "creative", "graphic", "ui", "ux", "visual", "art", "illustration", "logo"],
+            "Admin Support": ["admin", "support", "assistant", "virtual", "administrative", "office", "secretary"],
+            "Engineering & Architecture": ["engineering", "architecture", "civil", "mechanical", "electrical", "structural"],
+            "Customer Service": ["customer", "service", "support", "help", "assistance", "care"],
+            "Legal": ["legal", "law", "attorney", "lawyer", "contract", "compliance"],
+            "Translation": ["translation", "translate", "language", "localization", "interpretation"],
+            "Writing": ["writing", "content", "copy", "blog", "article", "copywriting", "editorial"]
+        }
+        
+        try:
+            # Try AI-based detection first
+            try:
+                import sys
+                import os
+                # Get the absolute path to the tarz_chatbot directory
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                tarz_chatbot_path = os.path.join(current_dir, '..', 'tarz_chatbot')
+                sys.path.append(tarz_chatbot_path)
+                
+                from tarz_chatbot.gemini import get_gemini_response
+                print(f"Successfully imported Gemini from: {tarz_chatbot_path}")
+                
+                # Create a prompt for category detection
+                prompt = f"""
+                Based on this job title: "{title}"
+                
+                Please suggest the most appropriate category from this list:
+                - Web, Mobile & Software Dev
+                - Data Science & Analytics
+                - Accounting & Consulting
+                - IT & Networking
+                - Sales & Marketing
+                - Design & Creative
+                - Admin Support
+                - Engineering & Architecture
+                - Customer Service
+                - Legal
+                - Translation
+                - Writing
+                
+                Respond with ONLY the category name, nothing else.
+                """
+                
+                ai_response = get_gemini_response(prompt)
+                print(f"AI suggested category: {ai_response}")
+                
+                # Clean the response and find matching category
+                if ai_response and not ai_response.startswith("[Gemini API"):
+                    suggested_category = ai_response.strip()
+                    print(f"AI suggested category: '{suggested_category}'")
+                    
+                    # Try exact match first
+                    category = Category.objects(name__iexact=suggested_category).first()
+                    
+                    # If no exact match, try partial match
+                    if not category:
+                        category = Category.objects(name__icontains=suggested_category).first()
+                    
+                    # If still no match, try to find similar categories
+                    if not category:
+                        # Try to find categories that contain any word from the suggestion
+                        words = suggested_category.split()
+                        for word in words:
+                            if len(word) > 3:  # Only consider words longer than 3 characters
+                                potential_category = Category.objects(name__icontains=word).first()
+                                if potential_category:
+                                    category = potential_category
+                                    print(f"Found similar category '{potential_category.name}' for word '{word}'")
+                                    break
+                    
+                    if category:
+                        print(f"AI found matching category: {category.name} (ID: {str(category.id)})")
+                        print(f"Category object type: {type(category)}")
+                        print(f"Category object: {category}")
+                    else:
+                        print(f"AI suggestion '{suggested_category}' didn't match any category")
+                        
+            except ImportError as import_error:
+                print(f"Failed to import Gemini: {import_error}")
+                print(f"Current working directory: {os.getcwd()}")
+                print(f"Python path: {sys.path}")
+                # Continue with keyword-based detection
+            except Exception as gemini_error:
+                print(f"Gemini API error: {gemini_error}")
+                # Continue with keyword-based detection
+        
+        except Exception as ai_error:
+            print(f"AI category detection failed: {ai_error}")
+            import traceback
+            traceback.print_exc()
+            # Continue with keyword-based detection
+        
+        # Fallback to keyword-based detection if AI failed
+        if not category:
+            print("Using keyword-based category detection as fallback")
+            for category_name, keywords in category_keywords.items():
+                for keyword in keywords:
+                    if keyword in title_lower:
+                        category = Category.objects(name=category_name).first()
+                        if category:
+                            print(f"Keyword-based detection found category: {category.name} (ID: {str(category.id)}) for keyword: {keyword}")
+                            break
+                if category:
+                    break
+            
+            if not category:
+                print("No category detected using either AI or keyword-based methods")
+                # Log available categories for debugging
+                available_categories = [cat.name for cat in Category.objects.all()]
+                print(f"Available categories: {available_categories}")
+        
+        # Debug: Print final category status
+        if category:
+            print(f"Final category selected: {category.name} (ID: {category.id})")
+            print(f"Category object type: {type(category)}")
+            print(f"Category object: {category}")
+        else:
+            print("No category selected - proceeding without category")
+        
         job_post = JobPosts.objects(id=job_id).first()
 
         if job_post:
             job_post.title = title
+            if category:
+                print(f"Setting categoryId to: {category} (type: {type(category)})")
+                job_post.categoryId = category  # Use the actual Category document
+                print(f"Updated job post with category: {category.name}")
             job_post.save()  # Save the updated job post
+            print(f"Updated existing job post: {job_post.id}")
         else:
             # If job post doesn't exist, create a new one
-            JobPosts(id=job_id, title=title).save()
+            try:
+                job_post_data = {"id": job_id, "title": title}
+                if category:
+                    print(f"Adding category to job_post_data: {category} (type: {type(category)})")
+                    job_post_data["categoryId"] = category  # Use the actual Category document
+                    print(f"Creating job post with category: {category.name}")
+                else:
+                    print("Creating job post without category (AI detection failed)")
+                
+                print(f"Final job_post_data: {job_post_data}")
+                JobPosts(**job_post_data).save()
+                print(f"Successfully created new job post: {job_id}")
+            except Exception as create_error:
+                print(f"Error creating job post: {create_error}")
+                import traceback
+                traceback.print_exc()
+                raise create_error
 
         return Response(
-            {"message": "Title saved successfully"}, status=status.HTTP_200_OK
+            {
+                "message": "Title saved successfully",
+                "categoryDetected": category is not None,
+                "categoryId": str(category.id) if category else None,
+                "categoryName": category.name if category else None
+            }, 
+            status=status.HTTP_200_OK
         )
     except Exception as e:
         print("Error saving title:", e)  # More detailed logging
@@ -1824,6 +2004,7 @@ def add_job_post_title(request):
 def add_job_scope(request):
     job_id = request.data.get("jobId")
     scope_of_work = request.data.get("scopeOfWork")
+    ws_token = request.data.get("ws_token")
     duration = request.data.get("duration")
     experience_level = request.data.get("experienceLevel")
     contract_to_hire = request.data.get("contractToHire")
@@ -1832,6 +2013,7 @@ def add_job_scope(request):
         [
             job_id,
             scope_of_work,
+            ws_token is not None,
             duration,
             experience_level,
             contract_to_hire is not None,
@@ -1849,18 +2031,23 @@ def add_job_scope(request):
             # Update the job scope details
             job_post.update(
                 set__scopeOfWork=scope_of_work,
+                set__ws_token=ws_token,
                 set__duration=duration,
                 set__experienceLevel=experience_level,
                 set__isContractToHire=contract_to_hire,
+                set__updatedAt=timezone.now(),
             )
         else:
             # If job post doesn't exist, create a new one with the given details
             JobPosts(
                 id=job_id,
                 scopeOfWork=scope_of_work,
+                ws_token=ws_token,
                 duration=duration,
                 experienceLevel=experience_level,
                 isContractToHire=contract_to_hire,
+                createdAt=timezone.now(),
+                updatedAt=timezone.now(),
             ).save()
 
         return Response(
@@ -1878,38 +2065,148 @@ def add_job_scope(request):
 @api_view(["POST"])
 def add_job_budget(request):
     job_id = request.data.get("jobId")
+    budget_type = request.data.get("budgetType")
     hourly_rate_from = request.data.get("hourlyRateFrom")
     hourly_rate_to = request.data.get("hourlyRateTo")
+    
+    print(f"Received budget data: job_id={job_id}, budget_type={budget_type}, hourly_rate_from={hourly_rate_from}, hourly_rate_to={hourly_rate_to}")
 
-    if not all([job_id, hourly_rate_from, hourly_rate_to]):
+    if not all([job_id, budget_type]):
         return Response(
-            {"message": "All fields are required."}, status=status.HTTP_400_BAD_REQUEST
+            {"message": "Job ID and budget type are required."}, status=status.HTTP_400_BAD_REQUEST
         )
 
     try:
         # Fetch the job post by job_id
         job_post = JobPosts.objects(id=job_id).first()
 
+        # Set rates based on budget type
+        if budget_type == "fixed":
+            # For fixed price, properly calculate fixed rate from hourly_rate_from
+            if hourly_rate_from and str(hourly_rate_from).strip() != "":
+                try:
+                    fixed_rate = float(hourly_rate_from)
+                    # Validate fixed rate is positive and reasonable
+                    if fixed_rate <= 0:
+                        return Response(
+                            {"message": "Fixed price must be greater than 0."}, 
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    if fixed_rate > 999999:  # Maximum reasonable fixed price
+                        return Response(
+                            {"message": "Fixed price is too high. Please enter a reasonable amount."}, 
+                            status=status.HTTP_400_BAD_REQUEST
+                        )
+                    print(f"Fixed price mode: hourly_rate_from={hourly_rate_from}, calculated fixed_rate={fixed_rate}")
+                except (ValueError, TypeError):
+                    return Response(
+                        {"message": "Invalid fixed price amount. Please enter a valid number."}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+            else:
+                return Response(
+                    {"message": "Fixed price amount is required."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            # For hourly rate, set fixed rate to 0
+            fixed_rate = 0
+            # Ensure both hourly rates are provided
+            if not hourly_rate_from or not hourly_rate_to:
+                return Response(
+                    {"message": "Both hourly rate from and to are required for hourly budget type."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validate hourly rates are valid numbers
+            try:
+                hourly_from = float(hourly_rate_from)
+                hourly_to = float(hourly_rate_to)
+                
+                if hourly_from <= 0 or hourly_to <= 0:
+                    return Response(
+                        {"message": "Hourly rates must be greater than 0."}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                if hourly_from > hourly_to:
+                    return Response(
+                        {"message": "Hourly rate 'from' must be less than or equal to hourly rate 'to'."}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                if hourly_from > 9999 or hourly_to > 9999:
+                    return Response(
+                        {"message": "Hourly rates are too high. Please enter reasonable amounts."}, 
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                
+                print(f"Hourly rate mode: hourly_rate_from={hourly_from}, hourly_rate_to={hourly_to}")
+            except (ValueError, TypeError):
+                return Response(
+                    {"message": "Invalid hourly rate amounts. Please enter valid numbers."}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
         if job_post:
             # Update the job budget details
-            job_post.update(
-                set__hourlyRateFrom=hourly_rate_from,
-                set__hourlyRateTo=hourly_rate_to,
-            )
+            if budget_type == "fixed":
+                # For fixed price, set hourly rates to 0
+                job_post.update(
+                    set__budgetType=budget_type,
+                    set__hourlyRateFrom=0,
+                    set__hourlyRateTo=0,
+                    set__fixedRate=fixed_rate,
+                    set__updatedAt=timezone.now(),
+                )
+            else:
+                # For hourly rate, keep hourly rates as provided
+                job_post.update(
+                    set__budgetType=budget_type,
+                    set__hourlyRateFrom=hourly_rate_from,
+                    set__hourlyRateTo=hourly_rate_to,
+                    set__fixedRate=fixed_rate,
+                    set__updatedAt=timezone.now(),
+                )
         else:
             # If job post doesn't exist, create a new one with the given details
-            JobPosts(
-                id=job_id,
-                hourlyRateFrom=hourly_rate_from,
-                hourlyRateTo=hourly_rate_to,
-            ).save()
+            if budget_type == "fixed":
+                # For fixed price, set hourly rates to 0
+                JobPosts(
+                    id=job_id,
+                    budgetType=budget_type,
+                    hourlyRateFrom=0,
+                    hourlyRateTo=0,
+                    fixedRate=fixed_rate,
+                    createdAt=timezone.now(),
+                    updatedAt=timezone.now(),
+                ).save()
+            else:
+                # For hourly rate, keep hourly rates as provided
+                JobPosts(
+                    id=job_id,
+                    budgetType=budget_type,
+                    hourlyRateFrom=hourly_rate_from,
+                    hourlyRateTo=hourly_rate_to,
+                    fixedRate=fixed_rate,
+                    createdAt=timezone.now(),
+                    updatedAt=timezone.now(),
+                ).save()
 
+        # Prepare response message with saved values
+        if budget_type == "fixed":
+            response_message = f"Fixed price budget saved successfully: ₹{fixed_rate}"
+        else:
+            response_message = f"Hourly rate budget saved successfully: ₹{hourly_rate_from} - ₹{hourly_rate_to}"
+        
         return Response(
-            {"message": "Job budget details saved successfully"},
+            {"message": response_message},
             status=status.HTTP_200_OK,
         )
     except Exception as e:
         print("Error saving job budget:", e)
+        import traceback
+        traceback.print_exc()
         return Response(
             {"message": "Error saving job budget. Please try again later."},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1926,14 +2223,13 @@ def upload_job_post_attachment(request):
     if not job_id:
         return Response({"message": "Job ID is required"}, status=400)
 
-    if not file:
-        return Response({"message": "No file uploaded"}, status=400)
+    # File is optional, but if provided, validate it
+    if file:
+        if file.content_type != "application/pdf":
+            return Response({"message": "Only PDF files are allowed"}, status=400)
 
-    if file.content_type != "application/pdf":
-        return Response({"message": "Only PDF files are allowed"}, status=400)
-
-    if file.size > 50 * 1024 * 1024:
-        return Response({"message": "File size exceeds 50MB"}, status=400)
+        if file.size > 50 * 1024 * 1024:
+            return Response({"message": "File size exceeds 50MB"}, status=400)
 
     try:
         # Get the job post document
@@ -1941,32 +2237,54 @@ def upload_job_post_attachment(request):
         if not job_post:
             return Response({"message": "Job post not found"}, status=404)
 
-        # Check if attachment exists for this job
-        attachment = JobAttachment.objects(jobId=job_post).first()
-
-        if attachment:
-            attachment.fileName = file.name
-            attachment.contentType = file.content_type
-            attachment.data = file.read()
-            attachment.save()
-        else:
-            attachment = JobAttachment.objects.create(
-                jobId=job_post,
-                fileName=file.name,
-                contentType=file.content_type,
-                data=file.read(),
-            )
-
-        # Generate download URL
-        jobpost_link = f"http://localhost:5000/api/jobposts/attachments/{attachment.id}"
-
-        # Update job post with link and description
-        job_post.attachments = jobpost_link
+        # Update job post with description
         if description:
             job_post.description = description
-        job_post.save()
+        
+        # Handle file upload if provided
+        if file:
+            # Check if attachment exists for this job
+            attachment = JobAttachment.objects(jobId=job_post).first()
 
-        return Response({"jobpostLink": jobpost_link}, status=200)
+            if attachment:
+                attachment.fileName = file.name
+                attachment.contentType = file.content_type
+                attachment.fileSize = file.size
+                attachment.data = file.read()
+                attachment.save()
+            else:
+                attachment = JobAttachment.objects.create(
+                    jobId=job_post,
+                    fileName=file.name,
+                    contentType=file.content_type,
+                    fileSize=file.size,
+                    data=file.read(),
+                )
+
+            # Generate download URL
+            jobpost_link = f"http://localhost:5000/api/jobposts/attachments/{attachment.id}"
+
+            # Update job post with attachment link
+            job_post.attachments = jobpost_link
+            job_post.save()
+
+            attachment_response = {
+                "jobpostLink": jobpost_link,
+                "attachmentId": str(attachment.id),
+                "fileName": attachment.fileName,
+                "fileSize": attachment.fileSize,
+                "contentType": attachment.contentType
+            }
+            
+            return Response(attachment_response, status=200)
+        else:
+            # No file uploaded, just save description
+            job_post.save()
+            
+            return Response({
+                "message": "Job description saved successfully",
+                "description": description
+            }, status=200)
 
     except Exception as e:
         print("Error uploading job attachment:", traceback.format_exc())
@@ -1977,6 +2295,165 @@ def upload_job_post_attachment(request):
             },
             status=500,
         )
+
+
+@api_view(["POST"])
+def generate_job_title(request):
+    """Improve a job title using AI based on current title"""
+    try:
+        current_title = request.data.get("currentTitle")
+        
+        if not current_title or not current_title.strip():
+            return Response({"message": "Current job title is required"}, status=400)
+        
+        if len(current_title.strip()) < 5:
+            return Response({"message": "Please provide a longer job title (at least 5 characters)"}, status=400)
+        
+        if len(current_title.strip()) > 200:
+            return Response({"message": "Job title is too long (maximum 200 characters)"}, status=400)
+        
+        # Try to use Gemini AI for title improvement
+        try:
+            from tarz_chatbot.gemini import get_gemini_response
+            
+            prompt = f"""
+            Improve the following job title to make it more compelling, specific, and professional. 
+            The improved title should attract better freelancers and be more descriptive.
+            
+            Current Job Title: {current_title}
+            
+            Requirements for the improved job title:
+            1. Start with action words like "Need", "Hire", "Looking for", "Seeking"
+            2. Be specific about the role/technology (e.g., "React Developer", "Content Writer", "UI/UX Designer")
+            3. Include the purpose or context (e.g., "for Web App", "for Marketing", "for Mobile App")
+            4. Keep it under 80 characters
+            5. Make it engaging and professional
+            6. If the current title is already good, make minor improvements only
+            7. Preserve the core meaning and intent of the original title
+            
+            Generate only the improved job title, nothing else.
+            """
+            
+            ai_response = get_gemini_response(prompt)
+            
+            if ai_response and ai_response.strip():
+                generated_title = ai_response.strip()
+                # Clean up the response (remove quotes, extra spaces, etc.)
+                generated_title = generated_title.replace('"', '').replace("'", "").strip()
+                
+                # Ensure it's not too long
+                if len(generated_title) > 80:
+                    generated_title = generated_title[:77] + "..."
+                
+                return Response({
+                    "generatedTitle": generated_title,
+                    "message": "Title generated successfully"
+                }, status=200)
+            else:
+                raise Exception("AI response was empty")
+                
+        except ImportError:
+            print("Gemini AI not available, using fallback title generation")
+            # Fallback to keyword-based title generation
+            generated_title = generate_title_fallback(current_title)
+            return Response({
+                "generatedTitle": generated_title,
+                "message": "Title generated successfully (fallback method)"
+            }, status=200)
+            
+        except Exception as ai_error:
+            print(f"AI generation failed: {ai_error}")
+            # Fallback to keyword-based title generation
+            generated_title = generate_title_fallback(current_title)
+            return Response({
+                "generatedTitle": generated_title,
+                "message": "Title generated successfully (fallback method)"
+            }, status=200)
+            
+    except Exception as e:
+        print(f"Error generating job title: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            "message": "Failed to generate job title. Please try again.",
+            "error": str(e)
+        }, status=500)
+
+
+def generate_title_fallback(current_title):
+    """Fallback method to improve job title based on keywords"""
+    title_lower = current_title.lower()
+    
+    # Define keyword mappings for different job types
+    job_keywords = {
+        "web": ["web", "website", "frontend", "backend", "full stack", "mern", "react", "node", "javascript", "html", "css"],
+        "mobile": ["mobile", "app", "ios", "android", "flutter", "react native", "swift", "kotlin"],
+        "design": ["design", "ui", "ux", "graphic", "visual", "creative", "figma", "sketch", "adobe"],
+        "content": ["content", "writing", "blog", "article", "copy", "seo", "marketing"],
+        "data": ["data", "analysis", "python", "sql", "excel", "analytics", "machine learning", "ai"],
+        "marketing": ["marketing", "social media", "digital", "seo", "sem", "advertising", "campaign"],
+        "admin": ["admin", "virtual assistant", "data entry", "customer service", "support"],
+        "translation": ["translation", "language", "localization", "multilingual"],
+        "legal": ["legal", "law", "contract", "compliance", "document"],
+        "accounting": ["accounting", "bookkeeping", "finance", "tax", "quickbooks", "excel"]
+    }
+    
+    # Find the most relevant job type
+    job_type = None
+    max_matches = 0
+    
+    for category, keywords in job_keywords.items():
+        matches = sum(1 for keyword in keywords if keyword in title_lower)
+        if matches > max_matches:
+            max_matches = matches
+            job_type = category
+    
+    # Improve title based on detected job type and current title
+    if job_type == "web":
+        if "web" not in title_lower and "developer" not in title_lower:
+            return current_title.replace("Need", "Need a Web Developer for").replace("Hire", "Hire a Web Developer for")
+        return current_title
+    elif job_type == "mobile":
+        if "mobile" not in title_lower and "app" not in title_lower:
+            return current_title.replace("Need", "Need a Mobile App Developer for").replace("Hire", "Hire a Mobile App Developer for")
+        return current_title
+    elif job_type == "design":
+        if "design" not in title_lower and "ui" not in title_lower and "ux" not in title_lower:
+            return current_title.replace("Need", "Need a UI/UX Designer for").replace("Hire", "Hire a UI/UX Designer for")
+        return current_title
+    elif job_type == "content":
+        if "content" not in title_lower and "writer" not in title_lower:
+            return current_title.replace("Need", "Need a Content Writer for").replace("Hire", "Hire a Content Writer for")
+        return current_title
+    elif job_type == "data":
+        if "data" not in title_lower and "analyst" not in title_lower:
+            return current_title.replace("Need", "Need a Data Analyst for").replace("Hire", "Hire a Data Analyst for")
+        return current_title
+    elif job_type == "marketing":
+        if "marketing" not in title_lower:
+            return current_title.replace("Need", "Need a Digital Marketing Specialist for").replace("Hire", "Hire a Digital Marketing Specialist for")
+        return current_title
+    elif job_type == "admin":
+        if "admin" not in title_lower and "assistant" not in title_lower:
+            return current_title.replace("Need", "Need a Virtual Assistant for").replace("Hire", "Hire a Virtual Assistant for")
+        return current_title
+    elif job_type == "translation":
+        if "translation" not in title_lower and "translator" not in title_lower:
+            return current_title.replace("Need", "Need a Translator for").replace("Hire", "Hire a Translator for")
+        return current_title
+    elif job_type == "legal":
+        if "legal" not in title_lower and "law" not in title_lower:
+            return current_title.replace("Need", "Need a Legal Consultant for").replace("Hire", "Hire a Legal Consultant for")
+        return current_title
+    elif job_type == "accounting":
+        if "accounting" not in title_lower and "accountant" not in title_lower:
+            return current_title.replace("Need", "Need an Accountant for").replace("Hire", "Hire an Accountant for")
+        return current_title
+    else:
+        # If no specific category detected, just ensure it starts with an action word
+        if not any(word in title_lower for word in ["need", "hire", "looking", "seeking"]):
+            return f"Need {current_title}"
+        return current_title
 
 
 @api_view(["GET"])
@@ -1993,6 +2470,30 @@ def get_job_attachment(request, id):
     except Exception as e:
         return Response(
             {"message": "Error retrieving attachment", "error": str(e)}, status=500
+        )
+
+
+@api_view(["GET"])
+def get_job_attachment_details(request, id):
+    """Get attachment metadata (filename, size, etc.) without downloading the file"""
+    try:
+        attachment = JobAttachment.objects.get(id=id)
+        
+        attachment_data = {
+            "id": str(attachment.id),
+            "fileName": attachment.fileName,
+            "contentType": attachment.contentType,
+            "fileSize": attachment.fileSize,
+            "downloadUrl": f"http://localhost:5000/api/jobposts/attachments/{attachment.id}"
+        }
+        
+        return Response(attachment_data, status=200)
+
+    except JobAttachment.DoesNotExist:
+        return Response({"message": "Attachment not found"}, status=404)
+    except Exception as e:
+        return Response(
+            {"message": "Error retrieving attachment details", "error": str(e)}, status=500
         )
 
 
@@ -2025,13 +2526,70 @@ def get_draft_job_post_id(request):
         try:
             job_post = JobPosts.objects.get(userId=user_id, status="draft")
         except DoesNotExist:
-            job_post = JobPosts(userId=user_id, status="draft", title="")
+            job_post = JobPosts(
+                userId=user_id, 
+                status="draft", 
+                title="",
+                createdAt=timezone.now(),
+                updatedAt=timezone.now()
+            )
             job_post.save()
 
         return Response({"jobPostId": str(job_post.id)}, status=status.HTTP_200_OK)
 
     except Exception as e:
         print("Error fetching or creating draft job post:", e)
+        return Response(
+            {"message": "Internal server error", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+def add_job_post_category(request):
+    """Add or update category for a job post"""
+    job_id = request.data.get("jobId")
+    category_id = request.data.get("categoryId")
+
+    if not job_id or not category_id:
+        return Response(
+            {"message": "Job ID and Category ID are required"}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # Verify the category exists
+        category = Category.objects(id=category_id).first()
+        if not category:
+            return Response(
+                {"message": "Category not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get the job post
+        job_post = JobPosts.objects(id=job_id).first()
+        if not job_post:
+            return Response(
+                {"message": "Job post not found"}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Update category
+        job_post.categoryId = category
+        job_post.updatedAt = timezone.now()
+        job_post.save()
+
+        return Response(
+            {
+                "message": "Category added successfully",
+                "jobPostId": str(job_post.id),
+                "category": {"id": str(category.id), "name": category.name}
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Exception as e:
+        print("Error saving category:", e)
         return Response(
             {"message": "Internal server error", "error": str(e)},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -2467,9 +3025,12 @@ def fetch_proposals_by_freelancer(request):
                     "id": str(job.id),
                     "title": job.title,
                     "description": job.description,
+                    "budgetType": job.budgetType,
                     "hourlyRateFrom": float(job.hourlyRateFrom) if job.hourlyRateFrom else 0,
                     "hourlyRateTo": float(job.hourlyRateTo) if job.hourlyRateTo else 0,
+                    "fixedRate": float(job.fixedRate) if job.fixedRate else 0,
                     "scopeOfWork": job.scopeOfWork,
+                    "ws_token": job.ws_token,
                     "duration": job.duration,
                     "experienceLevel": job.experienceLevel,
                     "postedTime": job.postedTime.isoformat() if job.postedTime else None,

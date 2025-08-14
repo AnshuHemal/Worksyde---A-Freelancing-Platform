@@ -10,6 +10,7 @@ import toast from "react-hot-toast";
 const ClientJobScopePage = () => {
   const [userId, setUserId] = useState("");
   const [scopeOfWork, setScopeOfWork] = useState("Large");
+  const [wsToken, setWsToken] = useState(15); // Default to Large scope token
   const [duration, setDuration] = useState("1 to 3 months");
   const [experienceLevel, setExperienceLevel] = useState("Entry");
   const [contractToHire, setContractToHire] = useState("No, not at this time");
@@ -35,6 +36,16 @@ const ClientJobScopePage = () => {
     fetchCurrentUser();
   }, []);
 
+  const handleScopeSelection = (scopeValue) => {
+    setScopeOfWork(scopeValue);
+    // Find the corresponding ws_token for the selected scope
+    const selectedScope = scopeOptions.find(option => option.value === scopeValue);
+    if (selectedScope) {
+      setWsToken(selectedScope.ws_token);
+      console.log(`Selected scope: ${scopeValue}, ws_token: ${selectedScope.ws_token}`);
+    }
+  };
+
   const handleNext = async () => {
     setIsLoading(true);
     try {
@@ -42,13 +53,19 @@ const ClientJobScopePage = () => {
         userId,
       });
       const jobId = jobIdRes.data.jobPostId;
-      const res = await axios.post(`${API_URL}/add-job-scope-details/`, {
+      
+      const scopeData = {
         jobId,
         scopeOfWork,
+        ws_token: wsToken,
         duration,
         experienceLevel,
         contractToHire,
-      });
+      };
+      
+      console.log('Sending scope data:', scopeData);
+      
+      const res = await axios.post(`${API_URL}/add-job-scope-details/`, scopeData);
 
       if (res.status === 200) {
         navigate("/job-post/instant/budget");
@@ -65,19 +82,22 @@ const ClientJobScopePage = () => {
       value: "Large",
       title: "Large",
       description: "Longer term or complex initiatives (ex. design and build a full website)",
-      icon: <BsBriefcase size={20} />
+      icon: <BsBriefcase size={20} />,
+      ws_token: 15
     },
     {
       value: "Medium",
       title: "Medium",
       description: "Well-defined projects (ex. a landing page)",
-      icon: <BsBriefcase size={20} />
+      icon: <BsBriefcase size={20} />,
+      ws_token: 11
     },
     {
       value: "Small",
       title: "Small",
       description: "Quick and straightforward tasks (ex. update text and images on a webpage)",
-      icon: <BsBriefcase size={20} />
+      icon: <BsBriefcase size={20} />,
+      ws_token: 9
     }
   ];
 
@@ -206,7 +226,7 @@ const ClientJobScopePage = () => {
                                     transition: "all 0.3s ease",
                                     cursor: "pointer",
                                   }}
-                                  onClick={() => setScopeOfWork(option.value)}
+                                  onClick={() => handleScopeSelection(option.value)}
                                   onMouseEnter={(e) => {
                                     if (scopeOfWork !== option.value) {
                                       e.target.style.background = "#fff";
@@ -226,7 +246,7 @@ const ClientJobScopePage = () => {
                                       name="scope"
                                       value={option.value}
                                       checked={scopeOfWork === option.value}
-                                      onChange={(e) => setScopeOfWork(e.target.value)}
+                                      onChange={(e) => handleScopeSelection(e.target.value)}
                                       style={{
                                         accentColor: "#007674",
                                         width: 20,

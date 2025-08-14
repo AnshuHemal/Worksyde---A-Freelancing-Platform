@@ -143,6 +143,7 @@ class JobAttachment(Document):
     jobId = ReferenceField("JobPosts", required=True)
     fileName = StringField()
     contentType = StringField()
+    fileSize = IntField()  # File size in bytes
     data = BinaryField()
 
     meta = {"collection": "jobattachments"}
@@ -271,9 +272,12 @@ class JobPosts(Document):
     categoryId = ReferenceField("Category")
     description = StringField()
     status = StringField(choices=["draft", "verified", "not_verified"], default="draft")
-    hourlyRateFrom = DecimalField(precision=2)
-    hourlyRateTo = DecimalField(precision=2)
+    budgetType = StringField(choices=["hourly", "fixed"], default="fixed")
+    hourlyRateFrom = DecimalField(precision=2, default=0)
+    hourlyRateTo = DecimalField(precision=2, default=0)
+    fixedRate = DecimalField(precision=2, default=0)
     scopeOfWork = StringField()
+    ws_token = IntField()  # Numeric token for scope of work
     duration = StringField()
     experienceLevel = StringField()
     isContractToHire = StringField(
@@ -286,6 +290,8 @@ class JobPosts(Document):
     createdAt = DateTimeField()
     updatedAt = DateTimeField()
     invites = IntField(default=30)  # <-- Added field
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
 
     meta = {"collection": "jobposts", "strict": False}
 
