@@ -970,6 +970,13 @@ const JobProposalSubmit = () => {
                     )}
                   </div>
 
+                  {/* <div style={{ marginBottom: "16px", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <BsCheckCircle size={16} style={{ color: "#007476" }} />
+                    <span style={{ color: "#111", fontSize: "16px" }}>
+                      Phone number verified
+                    </span>
+                  </div> */}
+
                   <div style={{ marginBottom: "16px" }}>
                     <span style={{ color: "#111", fontSize: "18px" }}>
                       {clientDetails?.country || "India"}, <br />{" "}
@@ -977,6 +984,12 @@ const JobProposalSubmit = () => {
                       {formatLastSeen(clientDetails?.lastSeen)}
                     </span>
                   </div>
+
+                  {/* <div style={{ marginBottom: "16px" }}>
+                    <span style={{ color: "#111", fontSize: "16px" }}>
+                      {clientDetails?.jobCount || 0} job posted
+                    </span>
+                  </div> */}
 
                   <div style={{ marginBottom: "16px" }}>
                     <span style={{ color: "#111", fontSize: "18px" }}>

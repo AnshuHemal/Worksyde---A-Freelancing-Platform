@@ -129,11 +129,264 @@ const PortfolioBuilderDashboard = () => {
 
   // Remove getPortfolioTypeIcon and getPortfolioTypeLabel, only 'personal' is used
 
+  // Generate dummy data for preview
+  const generateDummyData = () => {
+    return {
+      name: "John Doe",
+      title: "Full Stack Developer",
+      description: "Passionate about creating innovative web solutions and delivering exceptional user experiences.",
+      about: "I'm a dedicated full stack developer with 3+ years of experience in building modern web applications. I specialize in React, Node.js, and cloud technologies, always striving to write clean, maintainable code that solves real-world problems.",
+      email: "john.doe@example.com",
+      phone: "+1 (555) 123-4567",
+      location: "San Francisco, CA"
+    };
+  };
+
+  // Process template with dummy data for preview
+  const processTemplateWithDummyData = async (template) => {
+    try {
+      const response = await fetch(template.filePath);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch template: ${response.status}`);
+      }
+      
+      let htmlContent = await response.text();
+      const dummyData = generateDummyData();
+      
+      // Replace placeholders with dummy data
+      const replacements = {
+        '{{name}}': dummyData.name,
+        '{{title}}': dummyData.title,
+        '{{description}}': dummyData.description,
+        '{{about}}': dummyData.about,
+        '{{email}}': dummyData.email,
+        '{{phone}}': dummyData.phone,
+        '{{location}}': dummyData.location
+      };
+      
+      Object.entries(replacements).forEach(([placeholder, value]) => {
+        htmlContent = htmlContent.replace(new RegExp(placeholder, 'g'), value);
+      });
+      
+      // Replace image paths with placeholder images for now
+      const placeholderImages = {
+        'hemal.png': 'https://via.placeholder.com/400x500/007674/ffffff?text=Profile+Photo',
+        'profile.jpg': 'https://via.placeholder.com/400x500/007674/ffffff?text=Profile+Photo',
+        'profile1.jpg': 'https://via.placeholder.com/400x500/007674/ffffff?text=Profile+Photo',
+        'profile2.png': 'https://via.placeholder.com/400x500/007674/ffffff?text=Profile+Photo',
+        'StreamBeat.jpeg': 'https://via.placeholder.com/600x400/007674/ffffff?text=StreamBeat+Project',
+        'Ledger.jpg': 'https://via.placeholder.com/600x400/007674/ffffff?text=Ledger+Project',
+        'worksyde (1).jpg': 'https://via.placeholder.com/600x400/007674/ffffff?text=Worksyde+Project',
+        'propertysense.png': 'https://via.placeholder.com/600x400/007674/ffffff?text=PropertySense+Project',
+        'web-development.png': 'https://via.placeholder.com/100x100/007674/ffffff?text=Web',
+        'app-development.png': 'https://via.placeholder.com/100x100/007674/ffffff?text=App',
+        'database-api.png': 'https://via.placeholder.com/100x100/007674/ffffff?text=API',
+        'ui-ux-design.png': 'https://via.placeholder.com/100x100/007674/ffffff?text=UI/UX',
+        'machine-learning.png': 'https://via.placeholder.com/100x100/007674/ffffff?text=ML',
+        'html.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=HTML',
+        'css.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=CSS',
+        'js.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=JS',
+        'express.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=Express',
+        'nodejs.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=Node',
+        'mongodb.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=MongoDB',
+        'react-js.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=React',
+        'android-studio.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=Android',
+        'java.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=Java',
+        'python.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=Python',
+        'tailwind-css.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=Tailwind',
+        'php.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=PHP',
+        'mysql.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=MySQL',
+        'postgresql.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=PostgreSQL',
+        'arduino.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=Arduino',
+        'nextjs.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=Next.js',
+        'bootstrap-5.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=Bootstrap',
+        'figma.png': 'https://via.placeholder.com/50x50/007674/ffffff?text=Figma'
+      };
+      
+      // Replace image sources with placeholder images
+      Object.entries(placeholderImages).forEach(([imageFile, placeholderUrl]) => {
+        const imageRegex = new RegExp(`src="images/${imageFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`, 'g');
+        htmlContent = htmlContent.replace(imageRegex, `src="${placeholderUrl}"`);
+        
+        // Also replace in srcset attributes
+        const srcsetRegex = new RegExp(`srcset="[^"]*${imageFile.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[^"]*"`, 'g');
+        htmlContent = htmlContent.replace(srcsetRegex, `srcset="${placeholderUrl}"`);
+      });
+      
+      return htmlContent;
+    } catch (error) {
+      console.error('Error processing template:', error);
+      // Return a fallback HTML with dummy data
+      return generateFallbackHTML();
+    }
+  };
+
+  // Generate fallback HTML with dummy data
+  const generateFallbackHTML = () => {
+    const dummyData = generateDummyData();
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${dummyData.name} - Portfolio</title>
+    <style>
+        body { 
+            font-family: 'Urbanist', Arial, sans-serif; 
+            margin: 0; 
+            padding: 0; 
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            color: #333;
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 40px 20px;
+        }
+        .hero {
+            background: linear-gradient(135deg, #007674 0%, #005a58 100%);
+            color: white;
+            padding: 80px 0;
+            text-align: center;
+            border-radius: 15px;
+            margin-bottom: 40px;
+        }
+        .hero h1 { 
+            font-size: 3rem; 
+            margin-bottom: 10px; 
+            font-weight: 700;
+        }
+        .hero h2 { 
+            font-size: 1.5rem; 
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+        .hero p { 
+            font-size: 1.1rem; 
+            max-width: 600px; 
+            margin: 0 auto;
+            line-height: 1.6;
+        }
+        .section { 
+            background: white; 
+            padding: 40px; 
+            border-radius: 15px; 
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .section h2 { 
+            color: #007674; 
+            margin-bottom: 20px; 
+            font-size: 2rem;
+        }
+        .section p { 
+            line-height: 1.8; 
+            color: #666; 
+            font-size: 1.1rem;
+        }
+        .contact { 
+            background: #f8f9fa; 
+            padding: 30px; 
+            border-radius: 10px; 
+            margin-top: 20px;
+            border-left: 4px solid #007674;
+        }
+        .contact h3 { 
+            color: #007674; 
+            margin-bottom: 15px;
+        }
+        .contact p { 
+            margin-bottom: 8px; 
+            color: #555;
+        }
+        .skills {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .skill-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            border: 2px solid #e9ecef;
+        }
+        .skill-item img {
+            width: 40px;
+            height: 40px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="hero">
+            <h1>${dummyData.name}</h1>
+            <h2>${dummyData.title}</h2>
+            <p>${dummyData.description}</p>
+        </div>
+        
+        <div class="section">
+            <h2>About Me</h2>
+            <p>${dummyData.about}</p>
+        </div>
+        
+        <div class="section">
+            <h2>Skills & Technologies</h2>
+            <div class="skills">
+                <div class="skill-item">
+                    <img src="https://via.placeholder.com/40x40/007674/ffffff?text=HTML" alt="HTML">
+                    <div>HTML</div>
+                </div>
+                <div class="skill-item">
+                    <img src="https://via.placeholder.com/40x40/007674/ffffff?text=CSS" alt="CSS">
+                    <div>CSS</div>
+                </div>
+                <div class="skill-item">
+                    <img src="https://via.placeholder.com/40x40/007674/ffffff?text=JS" alt="JavaScript">
+                    <div>JavaScript</div>
+                </div>
+                <div class="skill-item">
+                    <img src="https://via.placeholder.com/40x40/007674/ffffff?text=React" alt="React">
+                    <div>React</div>
+                </div>
+                <div class="skill-item">
+                    <img src="https://via.placeholder.com/40x40/007674/ffffff?text=Node" alt="Node.js">
+                    <div>Node.js</div>
+                </div>
+                <div class="skill-item">
+                    <img src="https://via.placeholder.com/40x40/007674/ffffff?text=Python" alt="Python">
+                    <div>Python</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <div class="contact">
+                <h3>Contact Information</h3>
+                <p><strong>Email:</strong> ${dummyData.email}</p>
+                <p><strong>Phone:</strong> ${dummyData.phone}</p>
+                <p><strong>Location:</strong> ${dummyData.location}</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>`;
+  };
+
   const handlePreview = () => {
     setPreviewModalOpen(true);
     setIframeKey(prev => prev + 1); // Reset iframe on open
   };
-  const handleRefreshPreview = () => {
+  
+  const handleRefreshPreview = async () => {
+    if (selectedTemplate) {
+      const processedHTML = await processTemplateWithDummyData(selectedTemplate);
+      if (processedHTML) {
+        setFormData({ html: processedHTML });
+      }
+    }
     setIframeKey(prev => prev + 1);
   };
 
@@ -672,9 +925,9 @@ const PortfolioBuilderDashboard = () => {
                     justifyContent: 'center',
                   }}
                   onClick={() => {
-                    setSelectedTemplate(template);
-                    setPreviewModalOpen(true);
-                    setIframeKey(prev => prev + 1);
+                    navigate('/ws/ai-tools/ai-portfolio-web/template-form', {
+                      state: { template }
+                    });
                   }}
                   title="Use Template"
                 >Use Template
@@ -701,8 +954,17 @@ const PortfolioBuilderDashboard = () => {
                     transition: 'opacity 0.2s, transform 0.2s',
                     zIndex: 2
                   }}
-                  onClick={() => {
+                  onClick={async () => {
                     setSelectedTemplate(template);
+                    try {
+                      const processedHTML = await processTemplateWithDummyData(template);
+                      setFormData({ html: processedHTML });
+                    } catch (error) {
+                      console.error('Error processing template for preview:', error);
+                      // Still open the modal with fallback data
+                      const fallbackHTML = generateFallbackHTML();
+                      setFormData({ html: fallbackHTML });
+                    }
                     setPreviewModalOpen(true);
                     setIframeKey(prev => prev + 1);
                   }}
@@ -944,52 +1206,123 @@ const PortfolioBuilderDashboard = () => {
             flexDirection: 'column',
             borderRadius: 0,
           }}>
-            <div style={{position: 'absolute', top: 24, right: 36, zIndex: 2, display: 'flex', gap: 12}}>
-              <button
-                onClick={handleRefreshPreview}
-                style={{
-                  background: '#f3f4f6',
-                  color: '#007674',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: 44,
-                  height: 44,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 22,
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                  marginRight: 8
-                }}
-                title="Refresh Preview"
-              >
-                <BsArrowClockwise size={22} />
-              </button>
-              <button
-                onClick={() => setPreviewModalOpen(false)}
-                style={{
-                  background: '#007674',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 8,
-                  fontWeight: 700,
-                  fontSize: 18,
-                  padding: '10px 24px',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
-                }}
-              >
-                Close Preview
-              </button>
+            {/* Modal Header */}
+            <div style={{
+              background: '#fff',
+              borderBottom: '1px solid #e5e7eb',
+              padding: '16px 24px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+              zIndex: 10,
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <span style={{
+                  fontSize: '18px',
+                  color: '#121212',
+                  marginLeft: '12px',
+                  fontWeight: '500',
+                }}>
+                  Showing Preview (with sample data)
+                </span>
+              </div>
+              
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}>
+                <div style={{
+                  background: '#f0f9ff',
+                  color: '#0369a1',
+                  padding: '4px 8px',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: '500',
+                  border: '1px solid #bae6fd'
+                }}>
+                  Sample Data
+                </div>
+                <button
+                  onClick={handleRefreshPreview}
+                  style={{
+                    background: '#f3f4f6',
+                    color: '#007674',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '40px',
+                    height: '40px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '18px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#e5e7eb';
+                    e.target.style.transform = 'scale(1.05)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = '#f3f4f6';
+                    e.target.style.transform = 'scale(1)';
+                  }}
+                  title="Refresh Preview"
+                >
+                  <BsArrowClockwise size={18} />
+                </button>
+                <button
+                  onClick={() => setPreviewModalOpen(false)}
+                  style={{
+                    background: '#007674',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = '#005a58';
+                    e.target.style.transform = 'translateY(-1px)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = '#007674';
+                    e.target.style.transform = 'translateY(0)';
+                  }}
+                >
+                  Close Preview
+                </button>
+              </div>
             </div>
-            <div style={{flex: 1, overflowY: 'auto', overflowX: 'hidden', marginTop: 0}}>
+            
+            {/* Iframe Container */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              background: '#f8f9fa',
+            }}>
               <iframe
                 key={iframeKey}
                 title="Template Preview"
                 srcDoc={formData?.html}
                 src={formData ? undefined : selectedTemplate?.filePath}
-                style={{width: '100vw', height: '100vh', border: 'none', background: '#f8f9fa', overflowX: 'hidden', overflowY: 'auto'}}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                  background: '#f8f9fa',
+                }}
               />
             </div>
           </div>
