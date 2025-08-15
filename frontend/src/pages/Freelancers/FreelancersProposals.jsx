@@ -32,9 +32,9 @@ const FreelancersProposals = () => {
         const userRes = await axios.get(`${API_URL}/current-user/`, {
           withCredentials: true,
         });
-        
+
         const freelancerId = userRes.data?.user?._id;
-        
+
         // Make all API calls in parallel
         const [invitationsRes, proposalsRes, offersRes] = await Promise.all([
           // Fetch job invitations
@@ -46,11 +46,11 @@ const FreelancersProposals = () => {
             withCredentials: true,
           }),
           // Fetch job offers (only if we have freelancer ID)
-          freelancerId ? 
-            axios.get(`${API_URL}/job-offers/freelancer/${freelancerId}/`, {
-              withCredentials: true,
-            }) : 
-            Promise.resolve({ data: { success: true, jobOffers: [] } })
+          freelancerId
+            ? axios.get(`${API_URL}/job-offers/freelancer/${freelancerId}/`, {
+                withCredentials: true,
+              })
+            : Promise.resolve({ data: { success: true, jobOffers: [] } }),
         ]);
 
         // Process invitations
@@ -73,10 +73,9 @@ const FreelancersProposals = () => {
         } else {
           setJobOffers([]);
         }
-
       } catch (err) {
         console.error("Error fetching data:", err);
-        
+
         // Set fallback values on error
         setInvitations([]);
         setSubmittedProposals([]);
@@ -93,12 +92,6 @@ const FreelancersProposals = () => {
 
     fetchAllData();
   }, []);
-
-
-
-
-
-
 
   return (
     <div
@@ -150,16 +143,13 @@ const FreelancersProposals = () => {
       {activeTab === "Active" && (
         <>
           {/* Offers */}
-          <SectionCard
-            title="Offers"
-            count={jobOffers.length}
-          >
+          <SectionCard title="Offers" count={jobOffers.length}>
             {loadingOffers ? (
-              <div style={{ padding: 32, color: "#888" }}>Loading offers...</div>
-            ) : offersError ? (
-              <div style={{ padding: 32, color: "#dc3545" }}>
-                {offersError}
+              <div style={{ padding: 32, color: "#888" }}>
+                Loading offers...
               </div>
+            ) : offersError ? (
+              <div style={{ padding: 32, color: "#dc3545" }}>{offersError}</div>
             ) : jobOffers.length > 0 ? (
               <div
                 style={{
@@ -184,7 +174,11 @@ const FreelancersProposals = () => {
                   >
                     <div style={{ flex: 1 }}>
                       <div
-                        style={{ color: "#121212", fontSize: 18, marginBottom: 2 }}
+                        style={{
+                          color: "#121212",
+                          fontSize: 18,
+                          marginBottom: 2,
+                        }}
                       >
                         Received{" "}
                         {offer.createdAt
@@ -199,7 +193,11 @@ const FreelancersProposals = () => {
                           : "Unknown date"}
                       </div>
                       <div
-                        style={{ color: "#121212", fontSize: 16, marginBottom: 8 }}
+                        style={{
+                          color: "#121212",
+                          fontSize: 16,
+                          marginBottom: 8,
+                        }}
                       >
                         {offer.createdAt ? timeAgo(offer.createdAt) : ""}
                       </div>
@@ -219,14 +217,7 @@ const FreelancersProposals = () => {
                 ))}
               </div>
             ) : (
-              <div style={{ padding: 32, textAlign: "center" }}>
-                <div style={{ color: "#888", fontSize: "16px", marginBottom: "8px" }}>
-                  No job offers received yet.
-                </div>
-                <div style={{ color: "#aaa", fontSize: "14px" }}>
-                  Keep submitting proposals to receive offers from clients!
-                </div>
-              </div>
+              <></>
             )}
           </SectionCard>
 
@@ -326,25 +317,18 @@ const FreelancersProposals = () => {
                 </div>
               ))
             ) : (
-              <div style={{ padding: 32, color: "#888" }}>
-                No invitations found.
-              </div>
+              <></>
             )}
           </SectionCard>
 
           {/* Active proposals */}
-          <SectionCard
-            title="Active proposals"
-            count={0}
-          />
+          <SectionCard title="Active proposals" count={0} />
 
           {/* Submitted proposals */}
           <SectionCard
             title="Submitted proposals"
             count={
-              submittedProposals.length > 0
-                ? submittedProposals.length
-                : 0
+              submittedProposals.length > 0 ? submittedProposals.length : 0
             }
           >
             {loadingProposals ? (
@@ -379,7 +363,11 @@ const FreelancersProposals = () => {
                   >
                     <div style={{ flex: 1 }}>
                       <div
-                        style={{ color: "#121212", fontSize: 18, marginBottom: 2 }}
+                        style={{
+                          color: "#121212",
+                          fontSize: 18,
+                          marginBottom: 2,
+                        }}
                       >
                         Initiated{" "}
                         {proposal.createdAt
@@ -394,7 +382,11 @@ const FreelancersProposals = () => {
                           : "Unknown date"}
                       </div>
                       <div
-                        style={{ color: "#121212", fontSize: 16, marginBottom: 8 }}
+                        style={{
+                          color: "#121212",
+                          fontSize: 16,
+                          marginBottom: 8,
+                        }}
                       >
                         {proposal.createdAt ? timeAgo(proposal.createdAt) : ""}
                       </div>
@@ -455,15 +447,14 @@ const FreelancersProposals = () => {
                         textAlign: "right",
                       }}
                     >
-                      Work Scope: {proposal.job?.scopeOfWork || "General Profile"}
+                      Work Scope:{" "}
+                      {proposal.job?.scopeOfWork || "General Profile"}
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ padding: 32, color: "#888" }}>
-                No submitted proposals found.
-              </div>
+              <></>
             )}
           </SectionCard>
         </>
@@ -485,10 +476,6 @@ function timeAgo(dateString) {
   const days = Math.floor(hours / 24);
   return `${days} day${days > 1 ? "s" : ""} ago`;
 }
-
-
-
-
 
 function SectionCard({ title, count, children }) {
   return (

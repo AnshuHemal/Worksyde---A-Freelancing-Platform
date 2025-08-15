@@ -12,6 +12,7 @@ from django.conf import settings
 from django.core.files.storage import default_storage
 from django.core.files.base import ContentFile
 import os
+import base64
 from .text_validation import validate_text
 
 
@@ -44,20 +45,18 @@ def chat_file_upload(request):
     file = request.FILES.get("file")
     if not file:
         return Response({"success": False, "message": "No file uploaded"}, status=400)
-    upload_dir = os.path.join(settings.MEDIA_ROOT, "chat_uploads")
-    os.makedirs(upload_dir, exist_ok=True)
-    filename = default_storage.save(
-        f"chat_uploads/{file.name}", ContentFile(file.read())
-    )
-    file_url = request.build_absolute_uri(settings.MEDIA_URL + filename)
-    if file.content_type.startswith("image/"):
-        file_type = "image"
-    else:
-        file_type = "file"
+    # Read raw bytes and encode as base64 data URI to store in DB directly
+    raw_bytes = file.read()
+    mime_type = file.content_type or "application/octet-stream"
+    b64_data = base64.b64encode(raw_bytes).decode("utf-8")
+    data_uri = f"data:{mime_type};base64,{b64_data}"
+
+    file_type = "image" if mime_type.startswith("image/") else "file"
+
     return Response(
         {
             "success": True,
-            "url": file_url,
+            "url": data_uri,  # store this string in DB via chat message
             "type": file_type,
             "name": file.name,
         }

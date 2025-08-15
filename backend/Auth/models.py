@@ -530,18 +530,25 @@ class JobOffer(Document):
     milestones = ListField(EmbeddedDocumentField(Milestone))
     attachments = StringField()  # URL to attachment
     status = StringField(choices=["pending", "accepted", "declined", "expired"], default="pending")
+    offerExpires = DateTimeField()  # When the offer expires (7 days after creation)
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
     
     meta = {
         "collection": "joboffers",
-        "indexes": ["clientId", "freelancerId", "jobId", "status"],
+        "indexes": ["clientId", "freelancerId", "jobId", "status", "offerExpires"],
         "ordering": ["-createdAt"]
     }
     
     def save(self, *args, **kwargs):
         if not self.createdAt:
             self.createdAt = timezone.now()
+        
+        # Set offer expiration to 7 days after creation if not already set
+        if not self.offerExpires:
+            from datetime import timedelta
+            self.offerExpires = self.createdAt + timedelta(days=7)
+        
         self.updatedAt = timezone.now()
         return super().save(*args, **kwargs)
 
@@ -554,6 +561,7 @@ class Notification(Document):
         ('job_offer', 'Job Offer'),
         ('proposal_accepted', 'Proposal Accepted'),
         ('proposal_declined', 'Proposal Declined'),
+        ('job_offer_declined', 'Job Offer Declined'),
         ('payment_received', 'Payment Received'),
         ('milestone_completed', 'Milestone Completed'),
         ('system', 'System Notification'),

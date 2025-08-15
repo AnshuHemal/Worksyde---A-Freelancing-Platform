@@ -72,6 +72,7 @@ import FreelancersProposalDetails from "./pages/Freelancers/FreelancersProposalD
 import OfferSendingPage from "./pages/Clients/OfferSendingPage";
 import ClientJobOfferCheckout from "./pages/Clients/ClientJobOfferCheckout";
 import ContactPage from "./pages/ContactPage";
+import FreelancersJobOfferDetails from "./pages/Freelancers/FreelancersJobOfferDetails";
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -236,6 +237,7 @@ const App = () => {
             <Route path="messages" element={<FreelancerMessagesPage />} />
             <Route path="proposals" element={<FreelancersProposals />} />
             <Route path="notifications" element={<NotificationPage />} />
+            <Route path="offers/:jobofferid" element={<FreelancersJobOfferDetails />} />
             <Route
               path="proposals/interview/uid/:jobid"
               element={<FreelancersProposalDetails />}

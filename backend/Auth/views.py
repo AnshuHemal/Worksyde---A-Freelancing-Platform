@@ -5299,6 +5299,7 @@ def get_job_offer(request, offer_id):
             "dueDate": job_offer.dueDate.isoformat() if job_offer.dueDate else None,
             "attachments": job_offer.attachments,
             "status": job_offer.status,
+            "offerExpires": job_offer.offerExpires.isoformat() if job_offer.offerExpires else None,
             "milestones": [
                 {
                     "title": milestone.title,
@@ -5343,6 +5344,7 @@ def get_client_job_offers(request, client_id):
                 "contractTitle": offer.contractTitle,
                 "projectAmount": offer.projectAmount,
                 "status": offer.status,
+                "offerExpires": offer.offerExpires.isoformat() if offer.offerExpires else None,
                 "createdAt": offer.createdAt.isoformat() if offer.createdAt else None
             }
             offers_data.append(offer_data)
@@ -5380,6 +5382,7 @@ def get_freelancer_job_offers(request, freelancer_id):
                 "contractTitle": offer.contractTitle,
                 "projectAmount": offer.projectAmount,
                 "status": offer.status,
+                "offerExpires": offer.offerExpires.isoformat() if offer.offerExpires else None,
                 "createdAt": offer.createdAt.isoformat() if offer.createdAt else None
             }
             offers_data.append(offer_data)
@@ -5430,6 +5433,16 @@ def update_job_offer(request, offer_id):
             else:
                 job_offer.dueDate = None
         
+        # Parse offer expiration date if provided
+        if 'offerExpires' in data:
+            if data['offerExpires']:
+                try:
+                    job_offer.offerExpires = datetime.fromisoformat(data['offerExpires'].replace('Z', '+00:00'))
+                except ValueError:
+                    return Response({"success": False, "message": "Invalid offer expiration date format"}, status=400)
+            else:
+                job_offer.offerExpires = None
+        
         job_offer.save()
         
         return Response({"success": True, "message": "Job offer updated successfully"})
@@ -5456,6 +5469,71 @@ def delete_job_offer(request, offer_id):
         
     except Exception as e:
         print("Error in delete_job_offer:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def decline_job_offer(request, offer_id):
+    """Decline a job offer, delete it, and create a notification"""
+    try:
+        data = request.data
+        user = request.user
+        
+        # Get the job offer
+        try:
+            job_offer = JobOffer.objects.get(id=offer_id)
+        except JobOffer.DoesNotExist:
+            return Response({"success": False, "message": "Job offer not found"}, status=404)
+        
+        # Validate that the current user is the freelancer who received the offer
+        if str(job_offer.freelancerId.id) != str(user.id):
+            return Response({"success": False, "message": "You can only decline offers sent to you"}, status=403)
+        
+        # Extract decline information
+        decline_reason = data.get('declineReason', 'No reason provided')
+        decline_message = data.get('declineMessage', '')
+        
+        # Store offer details before deletion for notification
+        client_id = job_offer.clientId.id
+        job_id = job_offer.jobId.id
+        contract_title = job_offer.contractTitle
+        project_amount = job_offer.projectAmount
+        
+        # Delete the job offer
+        job_offer.delete()
+        
+        # Create notification for the client
+        notification = Notification(
+            recipientId=User.objects.get(id=client_id),
+            senderId=user,
+            jobId=JobPosts.objects.get(id=job_id),
+            notificationType='job_offer_declined',
+            title='Job Offer Declined',
+            message=f'The freelancer has declined your job offer for "{contract_title}"',
+            additionalData={
+                'declineReason': decline_reason,
+                'declineMessage': decline_message,
+                'projectAmount': project_amount,
+                'freelancerId': str(user.id),
+                'freelancerName': user.name,
+                'jobTitle': contract_title
+            }
+        )
+        notification.save()
+        
+        return Response({
+            "success": True, 
+            "message": "Job offer declined and deleted successfully",
+            "notificationId": str(notification.id)
+        })
+        
+    except User.DoesNotExist:
+        return Response({"success": False, "message": "User not found"}, status=404)
+    except JobPosts.DoesNotExist:
+        return Response({"success": False, "message": "Job not found"}, status=404)
+    except Exception as e:
+        print("Error in decline_job_offer:", e)
         return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
 
 

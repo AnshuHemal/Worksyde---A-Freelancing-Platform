@@ -5,6 +5,8 @@ import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
 import { oneLight } from "react-syntax-highlighter/dist/esm/styles/prism";
 import ReactMarkdown from "react-markdown";
 import Header2 from "../../components/Header2";
+import ClientHeader from "../../components/ClientHeader";
+import { useUser } from "../../contexts/UserContext";
 import { FaRegCopy } from "react-icons/fa6";
 import { LuMessageCircleDashed } from "react-icons/lu";
 import { FaTrash } from "react-icons/fa";
@@ -12,6 +14,7 @@ import { FaTrash } from "react-icons/fa";
 const API_URL = "http://localhost:5000/api";
 
 const TarzDashboard = () => {
+  const { userData } = useUser();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -418,7 +421,11 @@ Title:`;
 
   return (
     <div style={{ minHeight: "100vh", background: "#f7f2fa" }}>
-      <Header2 />
+      {userData && (userData.userType === "client" || userData.role === "client") ? (
+        <ClientHeader />
+      ) : (
+        <Header2 />
+      )}
 
       <div className="container-fluid" style={{ paddingTop: "80px" }}>
         <div className="row">

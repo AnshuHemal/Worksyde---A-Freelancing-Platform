@@ -1,0 +1,1793 @@
+import React, { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import axios from "axios";
+import { useUser } from "../../contexts/UserContext";
+import { motion } from "framer-motion";
+
+const API_URL = "http://localhost:5000/api/auth";
+
+const FreelancersJobOfferDetails = () => {
+  const { jobofferid } = useParams();
+  const { userData } = useUser();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [jobOffer, setJobOffer] = useState(null);
+  const [expandedFixedPrice, setExpandedFixedPrice] = useState(false);
+  const [clientData, setClientData] = useState(null);
+
+  useEffect(() => {
+    const fetchOffer = async () => {
+      try {
+        setLoading(true);
+        setError("");
+
+        // Fetch job offer details using the correct API endpoint
+        const offerResponse = await axios.get(
+          `${API_URL}/job-offers/${jobofferid}/`,
+          {
+            withCredentials: true,
+          }
+        );
+
+        const offerData = offerResponse.data?.jobOffer || offerResponse.data;
+
+        if (!offerData) {
+          throw new Error("No job offer data received");
+        }
+
+        setJobOffer(offerData);
+
+        // Fetch additional client details if we have clientId
+        if (offerData.clientId) {
+          try {
+            const clientResponse = await axios.get(
+              `${API_URL}/client/profile/${offerData.clientId}/`,
+              {
+                withCredentials: true,
+              }
+            );
+            setClientData(clientResponse.data);
+          } catch (clientErr) {
+            console.warn("Could not fetch client details:", clientErr);
+            // Don't fail the whole request if client details fail
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load job offer", err);
+        setError(
+          err.response?.data?.message ||
+            err.message ||
+            "Failed to load job offer"
+        );
+        setJobOffer(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (jobofferid) {
+      fetchOffer();
+    }
+  }, [jobofferid]);
+
+  // Enhanced data helpers with better validation and fallbacks
+  const formatDate = (dateObj) => {
+    if (!dateObj) return "-";
+    try {
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+      const d = new Date(dateObj);
+      if (isNaN(d.getTime())) return "-";
+
+      const month = months[d.getMonth()];
+      const day = d.getDate().toString().padStart(2, "0");
+      const year = d.getFullYear();
+      return `${month} ${day}, ${year}`;
+    } catch (e) {
+      return "-";
+    }
+  };
+
+  // Parse arbitrary amount strings like "$1,234.56" or "1,234" -> number
+  const parseAmountToNumber = (value) => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return value;
+    if (typeof value !== "string") return 0;
+    // remove currency symbols, commas, spaces
+    const cleaned = value.replace(/[^0-9.-]/g, "");
+    const num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const formatCurrency = (amount) => {
+    const num =
+      typeof amount === "number" ? amount : parseAmountToNumber(amount);
+    return Number(num).toFixed(2);
+  };
+
+  // Enhanced data mapping with comprehensive fallbacks based on backend structure
+  const contractTitle =
+    jobOffer?.contractTitle ||
+    jobOffer?.jobId?.title ||
+    "Job title not available";
+
+  const projectAmount =
+    jobOffer?.projectAmount ||
+    jobOffer?.bidAmount ||
+    jobOffer?.amount ||
+    jobOffer?.budget ||
+    0;
+
+  const jobCategory =
+    jobOffer?.jobId?.category ||
+    jobOffer?.jobCategory ||
+    jobOffer?.category ||
+    "General Virtual Assistance";
+
+  const workDescription =
+    jobOffer?.workDescription ||
+    jobOffer?.description ||
+    jobOffer?.jobDescription ||
+    "No description provided";
+
+  // Enhanced date handling based on backend structure
+  const offerDateRaw =
+    jobOffer?.createdAt ||
+    jobOffer?.offerDate ||
+    jobOffer?.createdDate ||
+    jobOffer?.dateCreated;
+
+  const offerDate = offerDateRaw ? new Date(offerDateRaw) : new Date();
+
+  // Use the new offerExpires field from backend, fallback to calculated date
+  const expiryDateRaw =
+    jobOffer?.offerExpires ||
+    jobOffer?.dueDate ||
+    jobOffer?.offerExpiryDate ||
+    jobOffer?.expiresAt ||
+    jobOffer?.expiryDate ||
+    jobOffer?.validUntil;
+
+  const expiryDate = expiryDateRaw
+    ? new Date(expiryDateRaw)
+    : new Date(offerDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const status = (jobOffer?.status || "pending").toString();
+
+  // Current user information
+  const currentUserName =
+    userData?.firstName || userData?.name || userData?.username || "You";
+
+  // Calculate derived values using sanitized numeric amount
+  const projectAmountNumber = parseAmountToNumber(projectAmount);
+  const serviceFee = projectAmountNumber * 0.1;
+  const netAmount = projectAmountNumber - serviceFee;
+
+  // Accept offer modal state
+  const [showAcceptModal, setShowAcceptModal] = useState(false);
+  const [acceptMessage, setAcceptMessage] = useState("");
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [isAccepting, setIsAccepting] = useState(false);
+  const [acceptError, setAcceptError] = useState(null);
+  const [showDeclineModal, setShowDeclineModal] = useState(false);
+  const [selectedDeclineReason, setSelectedDeclineReason] = useState("");
+  const [declineMessage, setDeclineMessage] = useState("");
+  const [isDeclining, setIsDeclining] = useState(false);
+  const [declineError, setDeclineError] = useState(null);
+  const [declineSuccess, setDeclineSuccess] = useState(false);
+
+  const declineReasons = [
+    "Rate too low",
+    "Timeline too tight",
+    "Project scope unclear",
+    "Scheduling conflict",
+    "Not interested in this type of work",
+    "Other",
+  ];
+
+  const handleOpenAcceptModal = () => {
+    setAcceptError("");
+    setShowAcceptModal(true);
+  };
+
+  const handleCloseAcceptModal = () => {
+    setShowAcceptModal(false);
+    setAcceptMessage("");
+    setAgreeToTerms(false);
+    setAcceptError(null);
+  };
+
+  const handleOpenDeclineModal = () => {
+    setShowDeclineModal(true);
+    setSelectedDeclineReason("");
+    setDeclineMessage("");
+    setDeclineError(null);
+    setDeclineSuccess(false);
+  };
+
+  const handleCloseDeclineModal = () => {
+    setShowDeclineModal(false);
+    setSelectedDeclineReason("");
+    setDeclineMessage("");
+    setDeclineError(null);
+    setDeclineSuccess(false);
+  };
+
+  const handleConfirmDecline = async () => {
+    if (!selectedDeclineReason) {
+      setDeclineError("Please select a reason for declining");
+      return;
+    }
+
+    setIsDeclining(true);
+    setDeclineError(null);
+
+    try {
+      const response = await axios.post(
+        `${API_URL}/job-offers/${jobofferid}/decline/`,
+        {
+          declineReason: selectedDeclineReason,
+          declineMessage: declineMessage,
+        },
+        { withCredentials: true }
+      );
+
+      if (response.data.success) {
+        // Show success message
+        setDeclineSuccess(true);
+        // Redirect to proposals page after 2 seconds
+        setTimeout(() => {
+          window.location.href = "/ws/proposals";
+        }, 2000);
+      } else {
+        setDeclineError(response.data.message || "Failed to decline offer");
+      }
+    } catch (error) {
+      console.error("Error declining offer:", error);
+      setDeclineError(
+        error.response?.data?.message ||
+          "Error declining offer. Please try again."
+      );
+    } finally {
+      setIsDeclining(false);
+    }
+  };
+
+  const handleConfirmAccept = async () => {
+    if (!agreeToTerms) {
+      setAcceptError("Please agree to the terms to continue.");
+      return;
+    }
+    try {
+      setIsAccepting(true);
+      setAcceptError("");
+      await axios.put(
+        `${API_URL}/job-offers/${jobofferid}/update/`,
+        {
+          status: "accepted",
+          acceptanceMessage: acceptMessage,
+        },
+        { withCredentials: true }
+      );
+      // Optimistically update local state
+      setJobOffer((prev) => ({ ...(prev || {}), status: "accepted" }));
+      handleCloseAcceptModal();
+    } catch (err) {
+      setAcceptError(
+        err?.response?.data?.message || "Failed to accept the offer."
+      );
+    } finally {
+      setIsAccepting(false);
+    }
+  };
+
+  // Prepare milestones: treat empty or zero-only entries as "no milestones"
+  const milestonesArray = Array.isArray(jobOffer?.milestones)
+    ? jobOffer.milestones
+    : [];
+  const validMilestones = milestonesArray.filter((milestone) => {
+    const title = (milestone?.title || "").trim();
+    const amountNum = parseAmountToNumber(
+      milestone?.amount ??
+        milestone?.amountValue ??
+        milestone?.price ??
+        milestone?.budget ??
+        milestone?.total ??
+        0
+    );
+    const hasDueDate = Boolean(milestone?.dueDate);
+    return title.length > 0 || amountNum > 0 || hasDueDate;
+  });
+
+  // Enhanced loading state
+  if (loading) {
+    return (
+      <div
+        className="section-container"
+        style={{ maxWidth: 1400, margin: "60px auto 0 auto", padding: 24 }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "400px",
+            gap: "20px",
+          }}
+        >
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              border: "4px solid #f3f3f3",
+              borderTop: "4px solid #007674",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+            }}
+          ></div>
+          <div
+            style={{ color: "#007674", fontSize: "18px", fontWeight: "500" }}
+          >
+            Loading job offer details...
+          </div>
+        </div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div
+        className="section-container"
+        style={{ maxWidth: 1400, margin: "60px auto 0 auto", padding: 24 }}
+      >
+        <div
+          style={{
+            padding: "40px",
+            textAlign: "center",
+            backgroundColor: "#fff",
+            borderRadius: "8px",
+            border: "1px solid #e0e0e0",
+          }}
+        >
+          <div
+            style={{ color: "#dc3545", fontSize: "24px", marginBottom: "16px" }}
+          >
+            ⚠️ Error Loading Job Offer
+          </div>
+          <div
+            style={{ color: "#6c757d", fontSize: "16px", marginBottom: "24px" }}
+          >
+            {error}
+          </div>
+          <Link
+            to="/ws/proposals"
+            style={{
+              color: "#007674",
+              textDecoration: "underline",
+              fontWeight: "600",
+              fontSize: "16",
+            }}
+          >
+            ← Back to proposals
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!jobOffer) {
+    return (
+      <div
+        className="section-container"
+        style={{ maxWidth: 1400, margin: "60px auto 0 auto", padding: 24 }}
+      >
+        <div
+          style={{
+            padding: "40px",
+            textAlign: "center",
+            backgroundColor: "#fff",
+            borderRadius: "8px",
+            border: "1px solid #e0e0e0",
+          }}
+        >
+          <div
+            style={{ color: "#6c757d", fontSize: "24px", marginBottom: "16px" }}
+          >
+            📄 No Job Offer Found
+          </div>
+          <div
+            style={{ color: "#6c757d", fontSize: "16px", marginBottom: "24px" }}
+          >
+            The job offer you're looking for doesn't exist or has been removed.
+          </div>
+          <Link
+            to="/ws/proposals"
+            style={{
+              color: "#007674",
+              textDecoration: "underline",
+              fontWeight: "600",
+              fontSize: "16",
+            }}
+          >
+            ← Back to proposals
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="section-container"
+      style={{ maxWidth: 1400, margin: "60px auto 0 auto", padding: 24 }}
+    >
+      {/* Back to proposals link */}
+      <div
+        style={{
+          marginBottom: 24,
+          display: "flex",
+          justifyContent: "flex-start",
+          marginTop: 24,
+        }}
+      >
+        <Link
+          to="/ws/proposals"
+          style={{
+            color: "#007674",
+            textDecoration: "underline",
+            fontWeight: 600,
+            fontSize: 18,
+          }}
+        >
+          ← Back to proposals
+        </Link>
+      </div>
+      {/* Accept Offer Modal */}
+      {showAcceptModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={() => setShowAcceptModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "800px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "26px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
+                  letterSpacing: "0.3px",
+                }}
+              >
+                Accept offer
+              </h3>
+              <motion.button
+                onClick={() => setShowAcceptModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#121212",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  color: "#121212",
+                  background: "#fff",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+      </div>
+
+            {/* Modal Body */}
+            <div style={{ marginBottom: "24px" }}>
+              {/* Introductory Text */}
+              <p
+                style={{
+                  margin: "0 0 12px 0",
+                  fontSize: "18px",
+                  color: "#121212",
+                  lineHeight: "1.5",
+                }}
+              >
+                You're about to accept this job offer. Please review the terms and add any message you'd like to share with the client.
+              </p>
+
+              {/* Message Section */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "20px",
+                    fontWeight: "600",
+                    color: "#121212",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Message to Client
+                </label>
+                <p
+                  style={{
+                    fontSize: "18px",
+                    color: "#121212",
+                    marginBottom: "12px",
+                  }}
+                >
+                  Add an optional message to share with the client when you accept this offer.
+                </p>
+                <textarea
+                  value={acceptMessage}
+                  onChange={(e) => setAcceptMessage(e.target.value)}
+                  placeholder="Message"
+                  style={{
+                    width: "100%",
+                    minHeight: "100px",
+                    padding: "12px 16px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "18px",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                    boxSizing: "border-box",
+                    fontFamily: "inherit",
+                    resize: "vertical",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007674";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                />
+              </div>
+
+              {/* Terms Section */}
+              <div style={{ marginBottom: "24px" }}>
+                <label
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: "20px",
+                    fontWeight: "600",
+                    color: "#121212",
+                    cursor: "pointer",
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={agreeToTerms}
+                    onChange={(e) => setAgreeToTerms(e.target.checked)}
+                    style={{
+                      marginRight: "12px",
+                      width: "18px",
+                      height: "18px",
+                      accentColor: "#007674",
+                    }}
+                  />
+                  I agree to the terms and conditions of this offer
+                </label>
+              </div>
+
+              {/* Error Message */}
+              {acceptError && (
+                <div
+                  style={{
+                    color: "#dc2626",
+                    fontSize: "14px",
+                    marginTop: "8px",
+                    fontWeight: "500",
+                    padding: "8px 12px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: "6px",
+                  }}
+                >
+                  {acceptError}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "12px",
+              }}
+            >
+              <motion.button
+                onClick={() => setShowAcceptModal(false)}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: "none",
+                  color: "#007674",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                Cancel
+              </motion.button>
+              <motion.button
+                onClick={handleConfirmAccept}
+                disabled={isAccepting || !agreeToTerms}
+                style={{
+                  padding: "10px 20px",
+                  border: "none",
+                  background: !agreeToTerms || isAccepting ? "#ccc" : "#007674",
+                  color: "#fff",
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  cursor: !agreeToTerms || isAccepting ? "not-allowed" : "pointer",
+                  borderRadius: "6px",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={agreeToTerms && !isAccepting ? {
+                  background: "#005a58",
+                } : {}}
+                whileTap={agreeToTerms && !isAccepting ? { scale: 0.95 } : {}}
+              >
+                {isAccepting ? "Accepting..." : "Accept offer"}
+              </motion.button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+      {/* Decline Offer Modal */}
+      {showDeclineModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={() => setShowDeclineModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
+            style={{
+        background: "#fff", 
+              borderRadius: "12px",
+              padding: "24px",
+              width: "100%",
+              maxWidth: "800px",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "20px",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "26px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
+                  letterSpacing: "0.3px",
+                }}
+              >
+                Decline offer
+              </h3>
+              <motion.button
+                onClick={() => !declineSuccess && setShowDeclineModal(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: declineSuccess ? "#ccc" : "#121212",
+                  cursor: declineSuccess ? "not-allowed" : "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={!declineSuccess ? {
+                  color: "#121212",
+                  background: "#fff",
+                } : {}}
+                whileTap={!declineSuccess ? { scale: 0.95 } : {}}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ marginBottom: "24px" }}>
+              {/* Introductory Text */}
+              <p
+                style={{
+                  margin: "0 0 12px 0",
+                  fontSize: "18px",
+                  color: "#121212",
+                  lineHeight: "1.5",
+                }}
+              >
+                We will politely notify the client that you are not interested
+                in this offer. The client will be able to view the reason you've
+                declined.
+              </p>
+
+              {/* Reason Section */}
+              <div style={{ marginBottom: "20px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "20px",
+                    fontWeight: "600",
+                    color: "#121212",
+                    marginBottom: "12px",
+                  }}
+                >
+                  Reason
+                </label>
+                <div>
+                  {declineReasons.map((reason) => (
+                    <div
+                      key={reason}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        marginBottom: "8px",
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        id={reason}
+                        name="declineReason"
+                        value={reason}
+                        checked={selectedDeclineReason === reason}
+                        onChange={(e) =>
+                          setSelectedDeclineReason(e.target.value)
+                        }
+                        style={{
+                          marginRight: "12px",
+                          width: "16px",
+                          height: "16px",
+                          accentColor: "#007674",
+                        }}
+                      />
+                      <label
+                        htmlFor={reason}
+                        style={{
+                          color: "#1a1a1a",
+                          fontSize: "18px",
+                          cursor: "pointer",
+                          margin: 0,
+                        }}
+                      >
+                        {reason}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Message Section */}
+              <div style={{ marginBottom: "24px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    fontSize: "20px",
+                    fontWeight: "600",
+                    color: "#121212",
+                    marginBottom: "8px",
+                  }}
+                >
+                  Message
+                </label>
+                <p
+                  style={{
+                    fontSize: "18px",
+                    color: "#121212",
+                    marginBottom: "12px",
+                  }}
+                >
+                  Add an optional message to share with the client when we
+                  notify them that this offer has been declined.
+                </p>
+                <textarea
+                  value={declineMessage}
+                  onChange={(e) => setDeclineMessage(e.target.value)}
+                  placeholder="Message"
+                  style={{
+                    width: "100%",
+                    minHeight: "100px",
+                    padding: "12px 16px",
+                    border: "1px solid #d1d5db",
+                    borderRadius: "8px",
+                    fontSize: "18px",
+                    outline: "none",
+                    transition: "border-color 0.2s ease",
+                    boxSizing: "border-box",
+                    fontFamily: "inherit",
+                    resize: "vertical",
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = "#007674";
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = "#d1d5db";
+                  }}
+                />
+              </div>
+
+              {/* Error Message */}
+              {declineError && (
+                <div
+                  style={{
+                    color: "#dc2626",
+                    fontSize: "14px",
+                    marginTop: "8px",
+                    fontWeight: "500",
+                    padding: "8px 12px",
+                    background: "#fef2f2",
+                    border: "1px solid #fecaca",
+                    borderRadius: "6px",
+                  }}
+                >
+                  {declineError}
+                </div>
+              )}
+
+              {/* Success Message */}
+              {declineSuccess && (
+                <div
+                  style={{
+                    color: "#059669",
+                    fontSize: "14px",
+                    marginTop: "8px",
+                    fontWeight: "500",
+                    padding: "8px 12px",
+                    background: "#f0fdf4",
+                    border: "1px solid #bbf7d0",
+                    borderRadius: "6px",
+                  }}
+                >
+                  ✓ Offer declined successfully! Redirecting to proposals page...
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            {!declineSuccess ? (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "12px",
+                }}
+              >
+                <motion.button
+                  onClick={() => setShowDeclineModal(false)}
+                  style={{
+                    padding: "10px 20px",
+                    border: "none",
+                    background: "none",
+                    color: "#007674",
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    cursor: "pointer",
+                    borderRadius: "6px",
+                    transition: "all 0.2s ease",
+                  }}
+                  whileHover={{
+                    background: "#f8f9fa",
+                  }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  Cancel
+                </motion.button>
+                <motion.button
+                  onClick={handleConfirmDecline}
+                  disabled={isDeclining || !selectedDeclineReason}
+                  style={{
+                    padding: "10px 20px",
+                    border: "none",
+                    background:
+                      !selectedDeclineReason || isDeclining ? "#ccc" : "#007674",
+                    color: "#fff",
+                    fontSize: "16px",
+                    fontWeight: "600",
+                    cursor:
+                      !selectedDeclineReason || isDeclining
+                        ? "not-allowed"
+                        : "pointer",
+                    borderRadius: "6px",
+                    transition: "all 0.2s ease",
+                  }}
+                  whileHover={
+                    selectedDeclineReason && !isDeclining
+                      ? {
+                          background: "#005a58",
+                        }
+                      : {}
+                  }
+                  whileTap={
+                    selectedDeclineReason && !isDeclining ? { scale: 0.95 } : {}
+                  }
+                >
+                  {isDeclining ? "Declining..." : "Decline offer"}
+                </motion.button>
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  padding: "10px 0",
+                }}
+              >
+                <div style={{ color: "#059669", fontSize: "16px", fontWeight: "500" }}>
+                  Redirecting in 2 seconds...
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
+      {/* Main Offer Container */}
+      <div
+        style={{
+          backgroundColor: "#fff",
+          minHeight: "100vh",
+        }}
+      >
+        {/* Header Section with Envelope Icon */}
+        <div
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            marginBottom: 30,
+            gap: 24,
+            padding: "32px 0",
+          }}
+        >
+          {/* Envelope Icon with Sparkles */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <div
+              style={{
+                width: 80,
+                height: 80,
+                background: "#f8f9fa",
+              borderRadius: "50%", 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center",
+                border: "2px solid #e9ecef",
+                position: "relative",
+              }}
+            >
+              {/* Envelope */}
+              <div
+                style={{
+                  width: 44,
+                  height: 30,
+                  background: "#d1d3e2",
+                  borderRadius: "6px 6px 0 0",
+                  position: "relative",
+                }}
+              >
+                {/* White letter peeking out */}
+                <div
+                  style={{
+                  position: "absolute",
+                    top: 4,
+                    left: 4,
+                    width: 36,
+                    height: 24,
+                  background: "#ffffff",
+                    borderRadius: "3px 3px 0 0",
+                    border: "1px solid #e9ecef",
+                  }}
+                ></div>
+                {/* Green ribbon */}
+                <div
+                  style={{
+                  position: "absolute",
+                    top: -14,
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                    width: 22,
+                    height: 14,
+                  background: "#28a745",
+                    borderRadius: "7px 7px 0 0",
+                  }}
+                ></div>
+              </div>
+            </div>
+            
+            {/* Sparkles around envelope */}
+            <div
+              style={{
+              position: "absolute",
+                top: -12,
+                right: -12,
+                width: 18,
+                height: 18,
+                background: "#ffd700",
+                borderRadius: "50%",
+                transform: "rotate(45deg)",
+                boxShadow: "0 0 10px rgba(255, 215, 0, 0.7)",
+              }}
+            ></div>
+            <div
+              style={{
+                position: "absolute",
+                top: 18,
+                right: -14,
+              width: 14,
+              height: 14,
+              background: "#ffd700",
+              borderRadius: "50%",
+                boxShadow: "0 0 8px rgba(255, 215, 0, 0.7)",
+              }}
+            ></div>
+            <div
+              style={{
+              position: "absolute",
+                bottom: 12,
+                right: -8,
+                width: 16,
+                height: 16,
+              background: "#ffd700",
+              borderRadius: "50%",
+                transform: "rotate(30deg)",
+                boxShadow: "0 0 8px rgba(255, 215, 0, 0.7)",
+              }}
+            ></div>
+          </div>
+          
+          {/* Header Text */}
+          <div style={{ flex: 1, paddingTop: 8 }}>
+            <h1
+              style={{
+                fontSize: 38,
+                fontWeight: 600,
+              color: "#121212", 
+                margin: "0 0 16px 0",
+                lineHeight: 1.1,
+                letterSpacing: 0.3,
+              }}
+            >
+              {currentUserName.split(" ")[0]}, you received an offer!
+            </h1>
+            <p
+              style={{
+                fontSize: 18,
+                color: "#6c757d",
+              margin: 0,
+                lineHeight: 1.4,
+              }}
+            >
+              Review the contract terms for your fixed-price offer from the
+              Client.
+            </p>
+          </div>
+        </div>
+
+        {/* Job Title */}
+        <div style={{ marginBottom: 30 }}>
+          <h2
+            style={{
+              fontSize: 28,
+            fontWeight: 600, 
+            color: "#121212", 
+            margin: 0,
+              lineHeight: 1.3,
+              letterSpacing: 0.3,
+            }}
+          >
+            {contractTitle}
+          </h2>
+        </div>
+
+        {/* Main Content Grid */}
+        <div
+          style={{
+          display: "grid", 
+            gridTemplateColumns: "1fr 420px",
+            gap: 40,
+            alignItems: "flex-start",
+            marginBottom: 40,
+          }}
+        >
+          {/* Left Column - Payment Details & Offer Description */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+            {/* Payment Details Section */}
+            <div
+              style={{
+              background: "#fff", 
+                border: "1px solid #e0e0e0",
+                borderRadius: "8px",
+                padding: 32,
+                position: "relative",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: 24,
+                fontWeight: 600, 
+                color: "#121212", 
+                  letterSpacing: 0.3,
+                  margin: "0 0 24px 0",
+                }}
+              >
+                Payment details
+              </h3>
+              
+              <div style={{ marginBottom: 24 }}>
+                <div
+                  style={{
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  alignItems: "center",
+                    marginBottom: 6,
+                  }}
+                >
+                  <span
+                    style={{ fontSize: 18, color: "#121212", fontWeight: 500 }}
+                  >
+                    Bid
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 20,
+                    fontWeight: 700, 
+                      color: "#121212",
+                    }}
+                  >
+                    {formatCurrency(projectAmount)}
+                  </span>
+                </div>
+                <div
+                  style={{
+                    fontSize: 16,
+                    color: "#121212",
+                    fontStyle: "italic",
+                  }}
+                >
+                  (What the client will see)
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 24 }}>
+                <div
+                  style={{
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  alignItems: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <span
+                    style={{ fontSize: 18, color: "#121212", fontWeight: 500 }}
+                  >
+                    10% Worksyde service fee
+                  </span>
+                  <span
+                    style={{ fontSize: 18, color: "#121212", fontWeight: 600 }}
+                  >
+                    - {formatCurrency(serviceFee)}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  borderTop: "1px solid #f0f0f0",
+                  paddingTop: 24,
+                  marginTop: 24,
+                }}
+              >
+                <div
+                  style={{
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  alignItems: "center",
+                    marginBottom: 8,
+                  }}
+                >
+                  <span
+                    style={{ fontSize: 18, color: "#121212", fontWeight: 500 }}
+                  >
+                    Expected amount you'll receive
+                    <span
+                      style={{
+                        marginLeft: 10,
+                        color: "#121212",
+                      cursor: "pointer",
+                        width: 20,
+                        height: 20,
+                        background: "#f0f0f0",
+                      borderRadius: "50%",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 12,
+                        fontWeight: "bold",
+                        border: "1px solid #e3e3e3",
+                      }}
+                    >
+                      ?
+                  </span>
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 22,
+                    fontWeight: 700, 
+                      color: "#007674",
+                    }}
+                  >
+                    {formatCurrency(netAmount)}
+                  </span>
+                </div>
+                <div style={{ fontSize: 16, color: "#121212", marginTop: 6 }}>
+                  The first milestone has been funded (
+                  {formatCurrency(projectAmount)})
+                </div>
+              </div>
+            </div>
+
+            {/* Offer Description Section */}
+            <div
+              style={{
+              background: "#fff", 
+                border: "1px solid #e0e0e0",
+                borderRadius: "8px",
+                padding: 32,
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: 24,
+                fontWeight: 600, 
+                color: "#121212", 
+                  margin: "0 0 24px 0",
+                  letterSpacing: 0.3,
+                }}
+              >
+                Offer description
+              </h3>
+              <div
+                style={{
+                  fontSize: 18,
+                  lineHeight: 1.7,
+                  color: "#121212",
+                }}
+              >
+                {workDescription}
+              </div>
+            </div>
+
+            {/* Milestones Section */}
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e0e0e0",
+                borderRadius: "8px",
+                padding: 0,
+                overflow: "hidden",
+              }}
+            >
+              <div style={{ padding: 24 }}>
+                <h3
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 600,
+                    color: "#121212",
+                    margin: 0,
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  Milestones
+                </h3>
+              </div>
+              <div style={{ borderTop: "1px solid #f0f0f0" }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "2fr 1fr 1fr",
+                    padding: "14px 24px",
+                    color: "#121212",
+                    fontWeight: 600,
+                    fontSize: 18,
+                  }}
+                >
+                  <div>Milestone</div>
+                  <div style={{ textAlign: "center" }}>Due date</div>
+                  <div style={{ textAlign: "right" }}>Amount</div>
+                </div>
+                {validMilestones.length > 0 ? (
+                  validMilestones.map((milestone, index) => (
+                    <div key={index} style={{ borderTop: "1px solid #f0f0f0" }}>
+                      <div
+                        style={{
+                          display: "grid",
+                          gridTemplateColumns: "2fr 1fr 1fr",
+                          padding: "16px 24px",
+                          alignItems: "center",
+                          color: "#121212",
+                        }}
+                      >
+                        <div style={{ lineHeight: 1.5 }}>
+                          {milestone.title || contractTitle}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 18,
+                            color: "#121212",
+                            fontWeight: 500,
+                            textAlign: "center",
+                          }}
+                        >
+                          {milestone.dueDate
+                            ? formatDate(new Date(milestone.dueDate))
+                            : "-"}
+                        </div>
+                        <div style={{ fontWeight: 600, textAlign: "right" }}>
+                          {formatCurrency(
+                            parseAmountToNumber(
+                              milestone?.amount ??
+                                milestone?.amountValue ??
+                                milestone?.price ??
+                                milestone?.budget ??
+                                milestone?.total ??
+                                0
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ borderTop: "1px solid #f0f0f0" }}>
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "2fr 1fr 1fr",
+                        padding: "16px 24px",
+                        alignItems: "center",
+                        color: "#121212",
+                      }}
+                    >
+                      <div style={{ lineHeight: 1.5 }}>{contractTitle}</div>
+                      <div
+                        style={{
+                          fontSize: 18,
+                          color: "#121212",
+                          fontWeight: 500,
+                          textAlign: "center",
+                        }}
+                      >
+                        {jobOffer?.dueDate
+                          ? formatDate(new Date(jobOffer.dueDate))
+                          : "-"}
+                      </div>
+                      <div style={{ fontWeight: 600, textAlign: "right" }}>
+                        {formatCurrency(projectAmountNumber)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+            </div>
+          </div>
+
+            {/* Contract details Section */}
+            <div
+              style={{
+            background: "#fff", 
+                border: "1px solid #e0e0e0",
+                borderRadius: "8px",
+                padding: 0,
+                overflow: "hidden",
+              }}
+            >
+              <div style={{ padding: 24 }}>
+                <h3
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 600,
+                    color: "#121212",
+                    margin: 0,
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  Contract details
+                </h3>
+              </div>
+              <div style={{ borderTop: "1px solid #f0f0f0" }}>
+                {/* Status Row */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 2fr",
+                    padding: "16px 24px",
+                    alignItems: "center",
+                    borderBottom: "1px solid #f0f0f0",
+                  }}
+                >
+                  <div style={{ color: "#121212" }}>Status</div>
+                  <div
+                    style={{
+                display: "flex",
+                alignItems: "center",
+                      gap: 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span
+                      style={{
+                        background: "#3b5bdb",
+                        color: "#fff",
+                        padding: "6px 12px",
+                        borderRadius: 8,
+                        fontSize: 14,
+                        fontWeight: 600,
+                      }}
+                    >
+                      {status}
+                    </span>
+                    <span style={{ color: "#121212", fontSize: 14 }}>
+                      Expires on {formatDate(expiryDate)}
+                    </span>
+                  </div>
+              </div>
+              
+                {/* Job category */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 2fr",
+                    padding: "16px 24px",
+                    alignItems: "center",
+                    borderBottom: "1px solid #f0f0f0",
+                  }}
+                >
+                  <div style={{ color: "#121212" }}>Job category</div>
+                  <div style={{ color: "#121212" }}>{jobCategory}</div>
+              </div>
+
+                {/* Offer expires */}
+                <div
+                  style={{ 
+                    display: "grid",
+                    gridTemplateColumns: "1fr 2fr",
+                    padding: "16px 24px",
+                    alignItems: "center",
+                    borderBottom: "1px solid #f0f0f0",
+                  }}
+                >
+                  <div style={{ color: "#121212" }}>Offer expires</div>
+                  <div style={{ color: "#121212" }}>
+                    {formatDate(expiryDate)}
+                  </div>
+              </div>
+
+                {/* Payment Schedule */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 2fr",
+                    padding: "16px 24px",
+                    alignItems: "center",
+                    borderBottom: "1px solid #f0f0f0",
+                  }}
+                >
+                  <div style={{ color: "#121212" }}>Payment Schedule</div>
+                  <div
+                    style={{ color: "#121212", textTransform: "capitalize" }}
+                  >
+                    {jobOffer?.paymentSchedule || "Fixed Price"}
+                  </div>
+                </div>
+
+                {/* Offer date */}
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "1fr 2fr",
+                    padding: "16px 24px",
+                    alignItems: "center",
+                  }}
+                >
+                  <div style={{ color: "#121212" }}>Offer date</div>
+                  <div style={{ color: "#121212" }}>
+                    {formatDate(offerDate)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Fixed-price contracts explainer */}
+            <div
+              style={{
+                background: "#fff",
+                border: "1px solid #e0e0e0",
+                borderRadius: "8px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                onClick={() => setExpandedFixedPrice(!expandedFixedPrice)}
+                style={{
+                  padding: "16px 20px",
+                  borderBottom: "1px solid #f0f0f0",
+                cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span
+                  style={{ fontSize: 20, fontWeight: 600, color: "#121212" }}
+                >
+                  How do fixed-price contracts work?
+                </span>
+                <span
+                  style={{
+                    fontSize: 14,
+                    color: "#666",
+                    transform: expandedFixedPrice
+                      ? "rotate(180deg)"
+                      : "rotate(0deg)",
+                    transition: "transform 0.2s",
+                  }}
+                >
+                  ▼
+                </span>
+              </div>
+              <div
+                style={{
+                  maxHeight: expandedFixedPrice ? "500px" : "0px",
+                  overflow: "hidden",
+                  transition: "max-height 0.3s ease-in-out",
+                  backgroundColor: "#fff",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "20px",
+                    opacity: expandedFixedPrice ? 1 : 0,
+                    transform: expandedFixedPrice
+                      ? "translateY(0)"
+                      : "translateY(-10px)",
+                    transition:
+                      "opacity 0.3s ease-in-out, transform 0.3s ease-in-out",
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize: 18,
+                      color: "#121212",
+                      lineHeight: 1.6,
+                      margin: "0 0 16px 0",
+                    }}
+                  >
+                    Fixed-price contracts differ from hourly contracts because
+                    they have milestones, which break down larger projects into
+                    manageable chunks. Before work begins, agree on milestones
+                    with your client. The client deposits money into project
+                    funds, a neutral holding place that protects the payment
+                    while the work is in progress.
+                  </p>
+                  <p
+                    style={{
+                      fontSize: 18,
+                      color: "#121212",
+                      lineHeight: 1.6,
+                      margin: 0,
+                    }}
+                  >
+                    Over the course of the contract, the client will release
+                    funds for each approved milestone. If a milestone submission
+                    isn’t addressed within 14 days, it’s deemed approved and
+                    payment is automatically released.
+                  </p>
+                </div>
+            </div>
+          </div>
+          </div>
+
+          {/* Right Column - Client Information Sidebar */}
+          <div
+            style={{
+              backgroundColor: "#fff",
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px",
+              padding: 24,
+              position: "sticky",
+              top: 24,
+            }}
+          >
+            <div
+              style={{
+                textAlign: "center",
+                padding: "10px 0",
+              }}
+            >
+              {/* Main Message */}
+              <div
+                style={{
+                  fontSize: 18,
+                  color: "#121212",
+                  marginBottom: 32,
+                  lineHeight: 1.5,
+                }}
+              >
+                Once you accept, you can begin working right away.
+        </div>
+
+        {/* Action Buttons */}
+              <div
+                style={{
+          display: "flex", 
+                  gap: 20,
+                  justifyContent: "center",
+                  marginBottom: 24,
+                }}
+              >
+                <button
+                  style={{
+                    background: "#007674",
+            color: "white",
+            border: "none",
+                    padding: "10px 20px",
+                    borderRadius: "25px",
+            fontSize: 16,
+            fontWeight: 600,
+            cursor: "pointer",
+                    minWidth: 140,
+                    transition: "all 0.3s ease-in-out",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.transform = "translateY(-2px)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.transform = "translateY(0)";
+                  }}
+                  onClick={handleOpenAcceptModal}
+                >
+                  Accept offer
+          </button>
+                <button
+                  style={{
+            background: "transparent",
+                    color: "#007674",
+                    border: "none",
+                    padding: "10px 20px",
+                    borderRadius: "25px",
+            fontSize: 16,
+            fontWeight: 600,
+            cursor: "pointer",
+                    minWidth: 140,
+                    transition: "all 0.3s ease-in-out",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.target.style.background = "#f8f9fa";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.target.style.background = "transparent";
+                  }}
+                  onClick={handleOpenDeclineModal}
+                >
+                  Decline offer
+          </button>
+              </div>
+
+              {/* Offer Expiration */}
+              <div
+                style={{
+                  fontSize: 16,
+                  color: "#121212",
+                  lineHeight: 1.4,
+                }}
+              >
+                This offer expires {formatDate(expiryDate)}.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FreelancersJobOfferDetails;

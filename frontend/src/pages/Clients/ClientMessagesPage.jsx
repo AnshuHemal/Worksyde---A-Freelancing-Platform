@@ -143,12 +143,16 @@ const ClientMessagesPage = () => {
         axios
           .get(`/api/auth/freelancer/profile/${chat.other_user_id}/`)
           .then((res) => {
+            const hasPhoto = res.data && res.data.photograph === true;
+            const avatarUrl = hasPhoto
+              ? `/api/auth/profile-image/${chat.other_user_id}/`
+              : null;
             setChatList((prev) => {
               const updated = [...prev];
               updated[idx] = {
                 ...updated[idx],
                 freelancer_name: res.data.name,
-                freelancer_avatar: res.data.photograph,
+                freelancer_avatar: avatarUrl,
                 freelancer_title: res.data.title,
               };
               return updated;
@@ -189,18 +193,18 @@ const ClientMessagesPage = () => {
   useEffect(() => {
     if (!selectedChat || !selectedChat.other_user_id) return;
     // Only fetch if not already present
-    if (
-      !selectedChat.freelancer_name ||
-      !selectedChat.freelancer_avatar ||
-      !selectedChat.freelancer_title
-    ) {
+    if (!selectedChat.freelancer_name || !selectedChat.freelancer_title || !selectedChat.freelancer_avatar) {
       axios
         .get(`/api/auth/freelancer/profile/${selectedChat.other_user_id}/`)
         .then((res) => {
+          const hasPhoto = res.data && res.data.photograph === true;
+          const avatarUrl = hasPhoto
+            ? `/api/auth/profile-image/${selectedChat.other_user_id}/`
+            : null;
           setSelectedChat((chat) => ({
             ...chat,
             freelancer_name: res.data.name,
-            freelancer_avatar: res.data.photograph,
+            freelancer_avatar: avatarUrl,
             freelancer_title: res.data.title,
           }));
         })
@@ -761,16 +765,18 @@ const ClientMessagesPage = () => {
       // Assume response: { url, type: 'image'|'file', name }
       const { url, type, name } = res.data;
       
-      // Test if the uploaded file is accessible
-      try {
-        const testResponse = await fetch(url, { method: 'HEAD' });
-        if (!testResponse.ok) {
-          console.warn("Uploaded file may not be accessible:", url);
-        } else {
-          console.log("Uploaded file is accessible:", url);
+      // Skip accessibility check for data URIs; otherwise, test with HEAD
+      if (typeof url === 'string' && !url.startsWith('data:')) {
+        try {
+          const testResponse = await fetch(url, { method: 'HEAD' });
+          if (!testResponse.ok) {
+            console.warn("Uploaded file may not be accessible:", url);
+          } else {
+            console.log("Uploaded file is accessible:", url);
+          }
+        } catch (testErr) {
+          console.warn("Could not verify uploaded file accessibility:", testErr);
         }
-      } catch (testErr) {
-        console.warn("Could not verify uploaded file accessibility:", testErr);
       }
       
       // Send message with attachment

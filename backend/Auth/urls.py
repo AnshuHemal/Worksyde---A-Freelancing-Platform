@@ -134,6 +134,7 @@ urlpatterns = [
     path('job-offers/freelancer/<str:freelancer_id>/', views.get_freelancer_job_offers, name='get_freelancer_job_offers'),
     path('job-offers/<str:offer_id>/update/', views.update_job_offer, name='update_job_offer'),
     path('job-offers/<str:offer_id>/delete/', views.delete_job_offer, name='delete_job_offer'),
+    path('job-offers/<str:offer_id>/decline/', views.decline_job_offer, name='decline_job_offer'),
     
     # Notifications
     path('notifications/create/', views.create_notification, name='create_notification'),

@@ -16,10 +16,12 @@ import { CgProfile } from "react-icons/cg";
 
 const ClientHeader = () => {
   const { userId, logout } = useUser();
+
   const [showDropdown, setShowDropdown] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const dropdownRef = useRef(null);
   const toggleDropdown = (e) => {
     e.preventDefault();
@@ -53,16 +55,14 @@ const ClientHeader = () => {
           if (!data.user.photograph) {
             try {
               // Use the appropriate endpoint based on user type
-              const endpoint = data.user.userType === 'client' 
-                ? `/api/auth/client/profile-details/${data.user._id}/`
-                : `/api/auth/profile/${data.user._id}/`;
-              
-              const profileResponse = await fetch(
-                endpoint,
-                {
-                  credentials: "include",
-                }
-              );
+              const endpoint =
+                data.user.userType === "client"
+                  ? `/api/auth/client/profile-details/${data.user._id}/`
+                  : `/api/auth/profile/${data.user._id}/`;
+
+              const profileResponse = await fetch(endpoint, {
+                credentials: "include",
+              });
 
               if (profileResponse.ok) {
                 const profileData = await profileResponse.json();
@@ -92,14 +92,77 @@ const ClientHeader = () => {
     fetchCurrentUser();
   }, []);
 
+  // Fetch unread notification count
+  useEffect(() => {
+    const fetchUnreadNotificationCount = async () => {
+      if (!userId) return;
+
+      try {
+        const response = await axios.get(
+          `${API_URL}/notifications/unread-count/`,
+          { withCredentials: true }
+        );
+        if (response.data.success) {
+          setUnreadNotificationCount(response.data.unreadCount);
+        }
+      } catch (error) {
+        // Silently ignore notification count errors
+      }
+    };
+
+    fetchUnreadNotificationCount();
+
+    // Set up interval to refresh notification count every 30 seconds
+    const interval = setInterval(fetchUnreadNotificationCount, 30000);
+
+    // Refresh notification count when page becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchUnreadNotificationCount();
+      }
+    };
+
+    // Listen for custom events when notifications are marked as read or deleted
+    const handleNotificationRead = () => {
+      setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
+    };
+
+    const handleNotificationDeleted = () => {
+      setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
+    };
+
+    const handleAllNotificationsRead = () => {
+      setUnreadNotificationCount(0);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("notification-read", handleNotificationRead);
+    document.addEventListener("notification-deleted", handleNotificationDeleted);
+    document.addEventListener(
+      "all-notifications-read",
+      handleAllNotificationsRead
+    );
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("notification-read", handleNotificationRead);
+      document.removeEventListener("notification-deleted", handleNotificationDeleted);
+      document.removeEventListener(
+        "all-notifications-read",
+        handleAllNotificationsRead
+      );
+    };
+  }, [userId]);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       // Check if the click is on the profile icon or its children
-      const profileIcon = event.target.closest('[data-profile-icon]');
+      const profileIcon = event.target.closest("[data-profile-icon]");
       if (profileIcon) {
         return; // Don't close if clicking on the profile icon
       }
-      
+
       // Close dropdown if clicking outside
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowDropdown(false);
@@ -170,15 +233,16 @@ const ClientHeader = () => {
           onlineStatus: newStatus,
           lastSeen: response.data.user.lastSeen,
         }));
-        
+
         // Dispatch custom event to notify other components about status change
-        window.dispatchEvent(new CustomEvent('onlineStatusChanged', {
-          detail: { status: newStatus }
-        }));
-        
+        window.dispatchEvent(
+          new CustomEvent("onlineStatusChanged", {
+            detail: { status: newStatus },
+          })
+        );
+
         // Also update localStorage for cross-tab communication
-        localStorage.setItem('onlineStatus', newStatus);
-        
+        localStorage.setItem("onlineStatus", newStatus);
       }
     } catch (error) {
       console.error("Error updating status:", error);
@@ -216,7 +280,7 @@ const ClientHeader = () => {
           <div className="offcanvas-body">
             <ul className="navbar-nav justify-content-center flex-grow-1 pe-3">
               <li className="nav-item">
-                <Link 
+                <Link
                   className={`nav-link mx-lg-2${
                     location.pathname.startsWith("/ws/client/dashboard")
                       ? " active"
@@ -228,11 +292,9 @@ const ClientHeader = () => {
                 </Link>
               </li>
               <li className="nav-item">
-                <Link 
+                <Link
                   className={`nav-link mx-lg-2${
-                    location.pathname.startsWith("/job-post")
-                      ? " active"
-                      : ""
+                    location.pathname.startsWith("/job-post") ? " active" : ""
                   }`}
                   to={"/job-post/instant/welcome"}
                 >
@@ -240,7 +302,7 @@ const ClientHeader = () => {
                 </Link>
               </li>
               <li className="nav-item">
-                <Link 
+                <Link
                   className={`nav-link mx-lg-2${
                     location.pathname.startsWith("/ws/client/messages")
                       ? " active"
@@ -252,7 +314,7 @@ const ClientHeader = () => {
                 </Link>
               </li>
               <li className="nav-item">
-                <Link 
+                <Link
                   className={`nav-link mx-lg-2${
                     location.pathname.startsWith("/client/my-jobs")
                       ? " active"
@@ -268,12 +330,35 @@ const ClientHeader = () => {
         </div>
         <div className=" d-flex align-items-center gap-4 me-3">
           <TfiHelp className="icon-hover" size={20} />
-          <BsBell 
-            className="icon-hover" 
-            size={20} 
-            onClick={() => navigate("/ws/client/notification-alerts")}
-            style={{ cursor: "pointer" }}
-          />
+          <div className="position-relative" style={{ cursor: "pointer" }}>
+            <BsBell
+              className="icon-hover"
+              size={20}
+              onClick={() => {
+                // Clear notification count when navigating to notifications
+                setUnreadNotificationCount(0);
+                navigate("/ws/client/notification-alerts");
+              }}
+              style={{ cursor: "pointer" }}
+            />
+            {/* Red dot notification indicator */}
+            {unreadNotificationCount > 0 && (
+              <div
+                className="position-absolute"
+                style={{
+                  top: 0,
+                  right: -5,
+                  width: "10px",
+                  height: "10px",
+                  backgroundColor: "#dc2626",
+                  borderRadius: "50%",
+                  border: "2px solid #fff",
+                  boxShadow: "0 2px 4px rgba(220, 38, 38, 0.3)",
+                  zIndex: 1000,
+                }}
+              />
+            )}
+          </div>
           <img
             className="icon-hover"
             src={tarz}
@@ -319,7 +404,10 @@ const ClientHeader = () => {
                 width={32}
                 style={{ objectFit: "cover" }}
               /> */}
-              <CgProfile style={{width: "22px", height: "32px"}} className="rounded-circle" />
+              <CgProfile
+                style={{ width: "22px", height: "32px" }}
+                className="rounded-circle"
+              />
               {/* Online Status Indicator */}
               <BsCircleFill
                 className="position-absolute"
@@ -342,7 +430,10 @@ const ClientHeader = () => {
           {showDropdown && (
             <div ref={dropdownRef} className="profile-dropdown shadow-sm">
               <div className="profile-header d-flex align-items-center gap-3">
-              <CgProfile style={{width: "22px", height: "32px"}} className="rounded-circle" />
+                <CgProfile
+                  style={{ width: "22px", height: "32px" }}
+                  className="rounded-circle"
+                />
 
                 <div>
                   <div style={{ fontWeight: "600" }}>
@@ -377,7 +468,11 @@ const ClientHeader = () => {
               </div>
               <div className="dropdown-divider mb-2" />
 
-              <Link to={`/ws/client/info`} className="dropdown-item align-items-center" onClick={closeDropdown}>
+              <Link
+                to={`/ws/client/info`}
+                className="dropdown-item align-items-center"
+                onClick={closeDropdown}
+              >
                 <LuCircleUser
                   style={{ width: "20px", height: "18px" }}
                   className="me-2"
@@ -400,7 +495,11 @@ const ClientHeader = () => {
                   />
                 </div>
               </div>
-              <Link to="/ws/client/info" className="dropdown-item" onClick={closeDropdown}>
+              <Link
+                to="/ws/client/info"
+                className="dropdown-item"
+                onClick={closeDropdown}
+              >
                 <LuSettings
                   style={{ width: "20px", height: "18px" }}
                   className="me-2"
@@ -409,10 +508,13 @@ const ClientHeader = () => {
               </Link>
 
               <div className="dropdown-divider my-2" />
-              <a className="dropdown-item text-danger" onClick={(e) => {
-                handleLogout(e);
-                closeDropdown();
-              }}>
+              <a
+                className="dropdown-item text-danger"
+                onClick={(e) => {
+                  handleLogout(e);
+                  closeDropdown();
+                }}
+              >
                 <FiLogOut
                   style={{ width: "20px", height: "18px" }}
                   className="me-2 logout-icon"
@@ -437,4 +539,4 @@ const ClientHeader = () => {
   );
 };
 
-export default ClientHeader; 
+export default ClientHeader;
