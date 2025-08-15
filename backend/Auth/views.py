@@ -5224,6 +5224,44 @@ def create_job_offer(request):
         job_offer.save()
         print("Debug - Job offer saved successfully")
         
+        # Delete the corresponding job proposal if it exists
+        try:
+            from Auth.models import JobProposals
+            # Find and delete the job proposal from this freelancer for this job
+            proposal = JobProposals.objects(jobId=job, userId=freelancer).first()
+            if proposal:
+                print(f"Debug - Found job proposal {proposal.id}, deleting it")
+                proposal.delete()
+                print("Debug - Job proposal deleted successfully")
+                
+                # Decrement the applicants count for the job
+                job.applicants = max(0, job.applicants - 1)
+                job.save()
+                print(f"Debug - Updated job applicants count to {job.applicants}")
+                
+                # Create a notification for the freelancer
+                try:
+                    from Auth.models import Notification
+                    notification = Notification(
+                        recipientId=freelancer,
+                        senderId=client,
+                        notificationType="proposal_accepted",
+                        title="Proposal Accepted!",
+                        message=f"Your proposal for '{job.title}' has been accepted and converted to a job offer by {client.name}.",
+                        jobId=job,
+                        additionalData={"offerId": str(job_offer.id)}
+                    )
+                    notification.save()
+                    print("Debug - Notification created for freelancer")
+                except Exception as notif_error:
+                    print(f"Warning: Error creating notification: {notif_error}")
+                    # Don't fail the job offer creation if notification creation fails
+            else:
+                print("Debug - No job proposal found to delete")
+        except Exception as proposal_error:
+            print(f"Warning: Error deleting job proposal: {proposal_error}")
+            # Don't fail the job offer creation if proposal deletion fails
+        
         return Response({
             "success": True, 
             "message": "Job offer created successfully",
@@ -5649,6 +5687,9 @@ def withdraw_proposal_with_notification(request):
         # Update proposal status
         proposal.status = "withdrawn"
         proposal.save()
+        
+        # Decrement applicants count for the job
+        JobPosts.objects(id=job.id).update(dec__applicants=1)
         
         # Create notification for client
         freelancer_name = user.name

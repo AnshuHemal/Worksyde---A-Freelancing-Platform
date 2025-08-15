@@ -43,6 +43,7 @@ const ClientOverviewPage = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
 
+
   // Phone verification modal states
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [showOtpModal, setShowOtpModal] = useState(false);
@@ -193,6 +194,8 @@ const ClientOverviewPage = () => {
       .catch(() => toast.error("Failed to fetch jobs"))
       .finally(() => setLoadingJobs(false));
   }, [userId]);
+
+
 
   const handleJobClick = (job) => {
     setSelectedJob(job);
@@ -1299,7 +1302,12 @@ const ClientOverviewPage = () => {
                               gap: 4,
                             }}
                           >
-                            <BsPeople style={{ fontSize: 17 }} /> 0
+                            <BsPeople style={{ fontSize: 17 }} /> 
+                            {loadingJobs ? (
+                              <span style={{ fontSize: "14px", color: "#6b7280" }}>...</span>
+                            ) : (
+                              job.applicants !== undefined && job.applicants !== null ? job.applicants : 0
+                            )}
                           </div>
                         </div>
                         <div style={{ textAlign: "center", flex: 1 }}>

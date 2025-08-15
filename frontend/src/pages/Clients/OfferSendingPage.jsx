@@ -7,6 +7,15 @@ import { createPortal } from "react-dom";
 
 const API_URL = "http://localhost:5000/api/auth";
 
+// Utility function to format file size
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
+
 // DatePicker Component
 const DatePicker = ({
   isOpen,
@@ -16,6 +25,24 @@ const DatePicker = ({
   onNavigateMonth,
   fieldId = null,
 }) => {
+  // Function to validate if a date is in the future
+  const handleDateSelect = (date, fieldId) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day
+
+    if (date < today) {
+      // Don't allow selection of past dates
+      return;
+    }
+
+    onDateSelect(date, fieldId);
+  };
+
+  // Function to handle past date clicks
+  const handlePastDateClick = () => {
+    // You could add a toast notification here if you want
+    console.log("Past dates cannot be selected");
+  };
   if (!isOpen) return null;
 
   const getDaysInMonth = (date) => {
@@ -107,6 +134,7 @@ const DatePicker = ({
               fontSize: "18px",
               color: "#666",
             }}
+            title="Previous month"
           >
             ‹
           </button>
@@ -134,6 +162,7 @@ const DatePicker = ({
               fontSize: "18px",
               color: "#666",
             }}
+            title="Next month"
           >
             ›
           </button>
@@ -171,35 +200,58 @@ const DatePicker = ({
             padding: "8px",
           }}
         >
-          {getDaysInMonth(currentDate).map((dayObj, index) => (
-            <button
-              key={index}
-              onClick={() => onDateSelect(dayObj.date, fieldId)}
-              style={{
-                background: "none",
-                border: "none",
-                padding: "8px",
-                cursor: "pointer",
-                fontSize: "14px",
-                color: dayObj.isCurrentMonth ? "#121212" : "#ccc",
-                borderRadius: "4px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                minHeight: "32px",
-              }}
-              onMouseEnter={(e) => {
-                if (dayObj.isCurrentMonth) {
-                  e.target.style.backgroundColor = "#f0f0f0";
+          {getDaysInMonth(currentDate).map((dayObj, index) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // Reset time to start of day
+            const isPastDate = dayObj.date < today;
+            const isToday = dayObj.date.getTime() === today.getTime();
+            const isSelectable = dayObj.isCurrentMonth && !isPastDate;
+
+            return (
+              <button
+                key={index}
+                onClick={() =>
+                  isSelectable
+                    ? handleDateSelect(dayObj.date, fieldId)
+                    : handlePastDateClick()
                 }
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.backgroundColor = "transparent";
-              }}
-            >
-              {dayObj.date.getDate()}
-            </button>
-          ))}
+                style={{
+                  background: isToday ? "#007674" : "none",
+                  border: isToday ? "1px solid #007674" : "none",
+                  padding: "8px",
+                  cursor: isSelectable ? "pointer" : "not-allowed",
+                  fontSize: "14px",
+                  color: isToday ? "#fff" : isSelectable ? "#121212" : "#ccc",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: "32px",
+                  opacity: isSelectable ? 1 : 0.5,
+                  fontWeight: isToday ? "600" : "normal",
+                }}
+                onMouseEnter={(e) => {
+                  if (isSelectable) {
+                    if (isToday) {
+                      e.target.style.backgroundColor = "#005a58"; // Darker shade of brand color on hover
+                    } else {
+                      e.target.style.backgroundColor = "#f0f0f0";
+                    }
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (isToday) {
+                    e.target.style.backgroundColor = "#007674"; // Restore today's color
+                  } else {
+                    e.target.style.backgroundColor = "transparent";
+                  }
+                }}
+                disabled={!isSelectable}
+              >
+                {dayObj.date.getDate()}
+              </button>
+            );
+          })}
         </div>
 
         {/* Footer */}
@@ -207,22 +259,87 @@ const DatePicker = ({
           style={{
             padding: "12px 16px",
             borderTop: "1px solid #f0f0f0",
-            textAlign: "right",
           }}
         >
-          <button
-            onClick={onClose}
+          <div
             style={{
-              background: "none",
-              border: "none",
-              color: "#28a745",
-              cursor: "pointer",
-              fontSize: "14px",
-              fontWeight: 500,
+              fontSize: "12px",
+              color: "#666",
+              textAlign: "center",
+              marginBottom: "8px",
+              fontStyle: "italic",
             }}
           >
-            Clear
-          </button>
+            Only future dates can be selected
+          </div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: "12px",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#999",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "12px",
+                    height: "12px",
+                    backgroundColor: "#ccc",
+                    borderRadius: "2px",
+                    opacity: 0.5,
+                  }}
+                />
+                Past dates
+              </div>
+              <div
+                style={{
+                  fontSize: "12px",
+                  color: "#007674",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "12px",
+                    height: "12px",
+                    backgroundColor: "#007674",
+                    borderRadius: "2px",
+                  }}
+                />
+                Today
+              </div>
+            </div>
+            <button
+              onClick={onClose}
+              style={{
+                background: "none",
+                border: "none",
+                color: "#28a745",
+                cursor: "pointer",
+                fontSize: "14px",
+                fontWeight: 500,
+              }}
+            >
+              Clear
+            </button>
+          </div>
         </div>
       </div>
     </>
@@ -238,7 +355,9 @@ const OfferSendingPage = () => {
 
   const [freelancer, setFreelancer] = useState(null);
   const [job, setJob] = useState(null);
+  const [attachmentDetails, setAttachmentDetails] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
   const [offerData, setOfferData] = useState({
     contractTitle: "",
     workDescription: "",
@@ -283,7 +402,7 @@ const OfferSendingPage = () => {
         // First, try to get jobId from URL params
         if (jobId) {
           try {
-            const jobResponse = await axios.get(`${API_URL}/job/${jobId}`);
+            const jobResponse = await axios.get(`${API_URL}/jobpost/${jobId}/`);
             jobData = jobResponse.data;
           } catch (error) {
             console.error("Error fetching job from API:", error);
@@ -299,7 +418,7 @@ const OfferSendingPage = () => {
         if (!jobData && location.state?.jobId) {
           try {
             const jobResponse = await axios.get(
-              `${API_URL}/job/${location.state.jobId}`
+              `${API_URL}/jobpost/${location.state.jobId}/`
             );
             jobData = jobResponse.data;
           } catch (error) {
@@ -312,13 +431,37 @@ const OfferSendingPage = () => {
 
         // Set job data if found
         if (jobData) {
-          setJob(jobData);
+          console.log("Job data received:", jobData); // Debug log
+
+          // Handle different response structures
+          const jobInfo = jobData.data || jobData; // Some APIs wrap data in .data
+
+          setJob(jobInfo);
           setOfferData((prev) => ({
             ...prev,
-            contractTitle: jobData.title || "",
-            workDescription: jobData.description || "",
-            attachments: jobData.attachments || "",
+            contractTitle: jobInfo.title || "",
+            workDescription: jobInfo.description || "",
+            attachments: jobInfo.attachments || "",
           }));
+
+          // If we have attachments but no attachment details, fetch them
+          if (jobInfo.attachments && !jobInfo.attachmentDetails) {
+            setLoadingAttachments(true);
+            try {
+              const attachmentDetails = await fetchAttachmentDetails(
+                jobInfo.attachments
+              );
+              if (attachmentDetails) {
+                setJob((prevJob) => ({
+                  ...prevJob,
+                  attachmentDetails: attachmentDetails,
+                }));
+                setAttachmentDetails(attachmentDetails);
+              }
+            } finally {
+              setLoadingAttachments(false);
+            }
+          }
         } else {
           // Set fallback data
           setJob({
@@ -356,6 +499,28 @@ const OfferSendingPage = () => {
 
     fetchData();
   }, [freelancerId, jobId, location.state]);
+
+  // Function to fetch attachment details if not included in job data
+  const fetchAttachmentDetails = async (attachmentUrl) => {
+    if (!attachmentUrl) return null;
+
+    try {
+      // Extract attachment ID from URL
+      const attachmentId = attachmentUrl.split("/").pop();
+      if (!attachmentId) return null;
+
+      // Fetch attachment details from the backend
+      const response = await axios.get(
+        `${API_URL}/jobposts/attachments/${attachmentId}/details/`
+      );
+      if (response.data) {
+        return response.data;
+      }
+    } catch (error) {
+      console.error("Error fetching attachment details:", error);
+    }
+    return null;
+  };
 
   // Close date picker when clicking outside
   useEffect(() => {
@@ -399,7 +564,6 @@ const OfferSendingPage = () => {
       );
 
       if (response.data.success) {
-        // Navigate to checkout page with the job offer ID
         navigate(`/ws/client/payments/checkout/${response.data.jobOfferId}`);
       }
     } catch (error) {
@@ -866,8 +1030,10 @@ const OfferSendingPage = () => {
 
                 {/* File Attachment Section */}
                 {offerData.attachments &&
-                typeof offerData.attachments === "string" &&
-                offerData.attachments.trim() !== "" ? (
+                ((typeof offerData.attachments === "string" &&
+                  offerData.attachments.trim() !== "") ||
+                  (Array.isArray(offerData.attachments) &&
+                    offerData.attachments.length > 0)) ? (
                   <div style={{ marginBottom: 40 }}>
                     <h2
                       style={{
@@ -881,57 +1047,200 @@ const OfferSendingPage = () => {
                       Attachments
                     </h2>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "16px 20px",
-                        backgroundColor: "#f8f9fa",
-                        borderRadius: "8px",
-                        border: "1px solid #e0e0e0",
-                        cursor: "pointer",
-                        transition: "all 0.2s ease",
-                      }}
-                      onClick={() =>
-                        window.open(offerData.attachments, "_blank")
-                      }
-                      onMouseEnter={(e) => {
-                        e.target.style.backgroundColor = "#f0f8f8";
-                        e.target.style.borderColor = "#007674";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.target.style.backgroundColor = "#f8f9fa";
-                        e.target.style.borderColor = "#e0e0e0";
-                      }}
-                    >
-                      <BsPaperclip
-                        style={{
-                          color: "#007674",
-                          fontSize: 24,
-                          marginRight: 16,
-                        }}
-                      />
-                      <div>
+                    {(() => {
+                      // Handle both single attachment (string) and multiple attachments (array)
+                      const attachments = Array.isArray(offerData.attachments)
+                        ? offerData.attachments
+                        : [offerData.attachments];
+
+                      return attachments.map((attachment, index) => (
                         <div
+                          key={index}
                           style={{
-                            fontSize: 18,
-                            color: "#121212",
-                            fontWeight: 500,
-                            marginBottom: 4,
+                            display: "flex",
+                            alignItems: "center",
+                            padding: "16px 20px",
+                            backgroundColor: "#fff",
+                            borderRadius: "8px",
+                            border: "1px solid #e3e3e3",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                            marginBottom:
+                              index < attachments.length - 1 ? "12px" : "0",
+                          }}
+                          onClick={() => window.open(attachment, "_blank")}
+                          onMouseEnter={(e) => {
+                            e.target.style.borderColor = "#007674";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.borderColor = "#e0e0e0";
                           }}
                         >
-                          View Attachment
+                          {(() => {
+                            // Get file extension and show appropriate icon
+                            const url = attachment;
+                            let fileExtension = "";
+
+                            if (url) {
+                              try {
+                                const cleanUrl = url.split("?")[0];
+                                const urlParts = cleanUrl.split("/");
+                                const filename =
+                                  urlParts[urlParts.length - 1] || "";
+                                fileExtension =
+                                  filename.split(".").pop()?.toLowerCase() ||
+                                  "";
+                              } catch (error) {
+                                console.error(
+                                  "Error parsing file extension:",
+                                  error
+                                );
+                              }
+                            }
+
+                            // Show different icons based on file type
+                            let iconColor = "#007674";
+                            let iconSize = 24;
+
+                            if (fileExtension) {
+                              if (["pdf"].includes(fileExtension)) {
+                                iconColor = "#dc3545"; // Red for PDF
+                              } else if (
+                                ["doc", "docx"].includes(fileExtension)
+                              ) {
+                                iconColor = "#007bff"; // Blue for Word docs
+                              } else if (
+                                ["xls", "xlsx"].includes(fileExtension)
+                              ) {
+                                iconColor = "#28a745"; // Green for Excel
+                              } else if (
+                                ["jpg", "jpeg", "png", "gif", "webp"].includes(
+                                  fileExtension
+                                )
+                              ) {
+                                iconColor = "#ffc107"; // Yellow for images
+                              } else if (
+                                ["zip", "rar", "7z"].includes(fileExtension)
+                              ) {
+                                iconColor = "#6f42c1"; // Purple for archives
+                              }
+                            }
+
+                            return (
+                              <BsPaperclip
+                                style={{
+                                  color: iconColor,
+                                  fontSize: iconSize,
+                                  marginRight: 16,
+                                }}
+                              />
+                            );
+                          })()}
+                          <div style={{ flex: 1 }}>
+                            <div
+                              style={{
+                                fontSize: 20,
+                                color: "#121212",
+                                fontWeight: 500,
+                                marginBottom: 4,
+                              }}
+                            >
+                              {(() => {
+                                // Show loading state if attachments are being fetched
+                                if (loadingAttachments) {
+                                  return "Loading filename...";
+                                }
+
+                                // First try to get filename from attachment details state
+                                if (attachmentDetails?.fileName) {
+                                  return attachmentDetails.fileName;
+                                }
+
+                                // Then try to get filename from job data
+                                if (job?.attachmentDetails?.fileName) {
+                                  return job.attachmentDetails.fileName;
+                                }
+
+                                // Fallback: Extract filename from URL
+                                const url = attachment;
+                                let filename = "Attachment";
+
+                                if (url) {
+                                  try {
+                                    // Remove query parameters and get the last part of the URL
+                                    const cleanUrl = url.split("?")[0];
+                                    const urlParts = cleanUrl.split("/");
+                                    filename =
+                                      urlParts[urlParts.length - 1] ||
+                                      "Attachment";
+
+                                    // If filename is empty or just extension, try to get a better name
+                                    if (!filename || filename.includes(".")) {
+                                      if (job?.title) {
+                                        filename = `${job.title}_attachment`;
+                                      }
+                                    }
+                                  } catch (error) {
+                                    console.error(
+                                      "Error parsing attachment URL:",
+                                      error
+                                    );
+                                    filename = "Attachment";
+                                  }
+                                }
+
+                                return filename;
+                              })()}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 16,
+                                color: "#666",
+                                marginBottom: 4,
+                              }}
+                            >
+                              {(() => {
+                                // Show loading state if attachments are being fetched
+                                if (loadingAttachments) {
+                                  return "Loading file details...";
+                                }
+
+                                // First try to get file size from attachment details state
+                                if (attachmentDetails?.fileSize) {
+                                  return formatFileSize(
+                                    attachmentDetails.fileSize
+                                  );
+                                }
+
+                                // Then try to get file size from job data
+                                if (job?.attachmentDetails?.fileSize) {
+                                  return formatFileSize(
+                                    job.attachmentDetails.fileSize
+                                  );
+                                }
+
+                                // Fallback: Try to get file size from the job data if available
+                                if (job?.attachmentSize) {
+                                  return formatFileSize(job.attachmentSize);
+                                }
+
+                                // If no size available, show a placeholder
+                                return "File size not available";
+                              })()}
+                            </div>
+                            <div
+                              style={{
+                                fontSize: 16,
+                                color: "#007674",
+                                fontWeight: 500,
+                              }}
+                            >
+                              Click to open file
+                            </div>
+                          </div>
                         </div>
-                        <div
-                          style={{
-                            fontSize: 14,
-                            color: "#666",
-                          }}
-                        >
-                          Click to open file
-                        </div>
-                      </div>
-                    </div>
+                      ));
+                    })()}
                   </div>
                 ) : null}
 
@@ -1086,7 +1395,8 @@ const OfferSendingPage = () => {
                         display: "block",
                       }}
                     >
-                      This is the price you and {freelancer?.name || "Hemal K."}{" "}
+                      This is the price you and{" "}
+                      <strong>{freelancer?.name || "Freelancer"} </strong>
                       have agreed upon.
                     </span>
                   </div>
@@ -2144,9 +2454,7 @@ const OfferSendingPage = () => {
                       margin: "0 0 4px 0",
                     }}
                   >
-                    {loading
-                      ? "Loading..."
-                      : freelancer.location || "Location not available"}
+                    {loading ? "Loading..." : freelancer.location || "INDIA"}
                   </p>
                   <p
                     style={{

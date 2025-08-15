@@ -4,51 +4,6 @@ import axios from "axios";
 
 const API_URL = "http://localhost:5000/api/auth";
 
-const sampleData = {
-  offers: [],
-  featuredInvites: [],
-  active: [],
-  submitted: [
-    {
-      id: "1",
-      createdAt: "2025-08-07T10:30:00Z",
-      job: {
-        title: "Freelancing Website Development Project",
-        scopeOfWork: "General Profile",
-      },
-      viewedByClient: true,
-    },
-    {
-      id: "2",
-      createdAt: "2025-08-06T14:20:00Z",
-      job: {
-        title:
-          "Create a Detailed 3D Model from My Toy Design (Photoshop Files Provided)",
-        scopeOfWork: "General Profile",
-      },
-      viewedByClient: false,
-    },
-    {
-      id: "3",
-      createdAt: "2025-08-06T09:15:00Z",
-      job: {
-        title: "3D/2D CAD Design for PCB Enclosure with laser Sensor",
-        scopeOfWork: "General Profile",
-      },
-      viewedByClient: false,
-    },
-    {
-      id: "4",
-      createdAt: "2025-08-04T16:45:00Z",
-      job: {
-        title: "Design a Website",
-        scopeOfWork: "General Profile",
-      },
-      viewedByClient: false,
-    },
-  ],
-};
-
 const tabList = ["Active", "Referrals"];
 
 const FreelancersProposals = () => {
@@ -58,52 +13,92 @@ const FreelancersProposals = () => {
   const [submittedProposals, setSubmittedProposals] = useState([]);
   const [loadingProposals, setLoadingProposals] = useState(true);
   const [proposalsError, setProposalsError] = useState("");
+  const [jobOffers, setJobOffers] = useState([]);
+  const [loadingOffers, setLoadingOffers] = useState(true);
+  const [offersError, setOffersError] = useState("");
 
   useEffect(() => {
-    // Fetch job invitations for the current freelancer
-    const fetchInvitations = async () => {
-      setLoadingInvites(true);
+    // Fetch all data in parallel for faster loading
+    const fetchAllData = async () => {
       try {
-        const res = await axios.get(`${API_URL}/job-invite/freelancer/`, {
+        // Set all loading states to true at once
+        setLoadingInvites(true);
+        setLoadingProposals(true);
+        setLoadingOffers(true);
+        setProposalsError("");
+        setOffersError("");
+
+        // Get current user first (needed for job offers)
+        const userRes = await axios.get(`${API_URL}/current-user/`, {
           withCredentials: true,
         });
-        if (res.data && res.data.invitations) {
-          setInvitations(res.data.invitations);
+        
+        const freelancerId = userRes.data?.user?._id;
+        
+        // Make all API calls in parallel
+        const [invitationsRes, proposalsRes, offersRes] = await Promise.all([
+          // Fetch job invitations
+          axios.get(`${API_URL}/job-invite/freelancer/`, {
+            withCredentials: true,
+          }),
+          // Fetch submitted proposals
+          axios.get(`${API_URL}/jobproposals/freelancer/`, {
+            withCredentials: true,
+          }),
+          // Fetch job offers (only if we have freelancer ID)
+          freelancerId ? 
+            axios.get(`${API_URL}/job-offers/freelancer/${freelancerId}/`, {
+              withCredentials: true,
+            }) : 
+            Promise.resolve({ data: { success: true, jobOffers: [] } })
+        ]);
+
+        // Process invitations
+        if (invitationsRes.data && invitationsRes.data.invitations) {
+          setInvitations(invitationsRes.data.invitations);
         } else {
           setInvitations([]);
         }
-      } catch (err) {
-        setInvitations([]);
-      } finally {
-        setLoadingInvites(false);
-      }
-    };
 
-    // Fetch submitted proposals for the current freelancer
-    const fetchSubmittedProposals = async () => {
-      setLoadingProposals(true);
-      setProposalsError("");
-      try {
-        const res = await axios.get(`${API_URL}/jobproposals/freelancer/`, {
-          withCredentials: true,
-        });
-        if (res.data && res.data.success) {
-          setSubmittedProposals(res.data.proposals || []);
+        // Process proposals
+        if (proposalsRes.data && proposalsRes.data.success) {
+          setSubmittedProposals(proposalsRes.data.proposals || []);
         } else {
           setSubmittedProposals([]);
         }
+
+        // Process offers
+        if (offersRes.data && offersRes.data.success) {
+          setJobOffers(offersRes.data.jobOffers || []);
+        } else {
+          setJobOffers([]);
+        }
+
       } catch (err) {
-        console.error("Error fetching submitted proposals:", err);
-        setProposalsError("Failed to load submitted proposals");
+        console.error("Error fetching data:", err);
+        
+        // Set fallback values on error
+        setInvitations([]);
         setSubmittedProposals([]);
+        setJobOffers([]);
+        setProposalsError("Failed to load submitted proposals");
+        setOffersError("Failed to load job offers");
       } finally {
+        // Set all loading states to false at once
+        setLoadingInvites(false);
         setLoadingProposals(false);
+        setLoadingOffers(false);
       }
     };
 
-    fetchInvitations();
-    fetchSubmittedProposals();
+    fetchAllData();
   }, []);
+
+
+
+
+
+
 
   return (
     <div
@@ -155,7 +150,85 @@ const FreelancersProposals = () => {
       {activeTab === "Active" && (
         <>
           {/* Offers */}
-          <SectionCard title="Offers" count={0} />
+          <SectionCard
+            title="Offers"
+            count={jobOffers.length}
+          >
+            {loadingOffers ? (
+              <div style={{ padding: 32, color: "#888" }}>Loading offers...</div>
+            ) : offersError ? (
+              <div style={{ padding: 32, color: "#dc3545" }}>
+                {offersError}
+              </div>
+            ) : jobOffers.length > 0 ? (
+              <div
+                style={{
+                  background: "#fff",
+                  borderTop: "1px solid #eee",
+                  margin: "18px 0 0 0",
+                  padding: 0,
+                }}
+              >
+                {jobOffers.map((offer, idx) => (
+                  <div
+                    key={offer.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "18px 24px",
+                      borderBottom:
+                        idx !== jobOffers.length - 1
+                          ? "1px solid #f0f0f0"
+                          : "none",
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{ color: "#121212", fontSize: 18, marginBottom: 2 }}
+                      >
+                        Received{" "}
+                        {offer.createdAt
+                          ? new Date(offer.createdAt).toLocaleDateString(
+                              "en-GB",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )
+                          : "Unknown date"}
+                      </div>
+                      <div
+                        style={{ color: "#121212", fontSize: 16, marginBottom: 8 }}
+                      >
+                        {offer.createdAt ? timeAgo(offer.createdAt) : ""}
+                      </div>
+                      <Link
+                        to={`/ws/offers/${offer.id}`}
+                        style={{
+                          color: "#007674",
+                          fontWeight: 600,
+                          fontSize: 20,
+                          textDecoration: "underline",
+                        }}
+                      >
+                        {offer.jobTitle || offer.contractTitle || "Job Offer"}
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: 32, textAlign: "center" }}>
+                <div style={{ color: "#888", fontSize: "16px", marginBottom: "8px" }}>
+                  No job offers received yet.
+                </div>
+                <div style={{ color: "#aaa", fontSize: "14px" }}>
+                  Keep submitting proposals to receive offers from clients!
+                </div>
+              </div>
+            )}
+          </SectionCard>
 
           {/* Invitation to interview */}
           <SectionCard
@@ -259,16 +332,10 @@ const FreelancersProposals = () => {
             )}
           </SectionCard>
 
-          {/* Invitations from Featured Jobs */}
-          <SectionCard
-            title="Invitations from Featured Jobs"
-            count={sampleData.featuredInvites.length}
-          />
-
           {/* Active proposals */}
           <SectionCard
             title="Active proposals"
-            count={sampleData.active.length}
+            count={0}
           />
 
           {/* Submitted proposals */}
@@ -277,7 +344,7 @@ const FreelancersProposals = () => {
             count={
               submittedProposals.length > 0
                 ? submittedProposals.length
-                : sampleData.submitted.length
+                : 0
             }
           >
             {loadingProposals ? (
@@ -398,126 +465,6 @@ const FreelancersProposals = () => {
                 No submitted proposals found.
               </div>
             )}
-            {/* Show sample data for demonstration when no real proposals */}
-            {!loadingProposals &&
-              !proposalsError &&
-              submittedProposals.length === 0 && (
-                <div
-                  style={{
-                    background: "#fff",
-                    borderRadius: 12,
-                    border: "1px solid #eee",
-                    margin: "18px 0 0 0",
-                    padding: 0,
-                  }}
-                >
-                  {sampleData.submitted.map((proposal, idx) => (
-                    <div
-                      key={proposal.id}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "18px 24px",
-                        borderBottom:
-                          idx !== sampleData.submitted.length - 1
-                            ? "1px solid #f0f0f0"
-                            : "none",
-                      }}
-                    >
-                      <div style={{ flex: 1 }}>
-                        <div
-                          style={{
-                            color: "#888",
-                            fontSize: 15,
-                            marginBottom: 2,
-                          }}
-                        >
-                          Initiated{" "}
-                          {proposal.createdAt
-                            ? new Date(proposal.createdAt).toLocaleDateString(
-                                "en-GB",
-                                {
-                                  day: "2-digit",
-                                  month: "short",
-                                  year: "numeric",
-                                }
-                              )
-                            : "Unknown date"}
-                        </div>
-                        <div
-                          style={{
-                            color: "#888",
-                            fontSize: 14,
-                            marginBottom: 8,
-                          }}
-                        >
-                          {proposal.createdAt
-                            ? timeAgo(proposal.createdAt)
-                            : ""}
-                        </div>
-                        <Link
-                          to={`/ws/proposals/${proposal.id}`}
-                          style={{
-                            color: "#198754",
-                            fontWeight: 600,
-                            fontSize: 17,
-                            textDecoration: "underline",
-                          }}
-                        >
-                          {proposal.job?.title || "Job Title"}
-                        </Link>
-                        {/* Viewed by client indicator */}
-                        {proposal.viewedByClient && (
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              marginTop: "8px",
-                              color: "#666",
-                              fontSize: "14px",
-                            }}
-                          >
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              style={{ color: "#666" }}
-                            >
-                              <path
-                                d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              />
-                              <circle
-                                cx="12"
-                                cy="12"
-                                r="3"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                              />
-                            </svg>
-                            Viewed by client
-                          </div>
-                        )}
-                      </div>
-                      <div
-                        style={{
-                          color: "#888",
-                          fontSize: 15,
-                          minWidth: 120,
-                          textAlign: "right",
-                        }}
-                      >
-                        {proposal.job?.scopeOfWork || "General Profile"}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
           </SectionCard>
         </>
       )}
@@ -539,43 +486,9 @@ function timeAgo(dateString) {
   return `${days} day${days > 1 ? "s" : ""} ago`;
 }
 
-function getStatusDisplay(status) {
-  switch (status) {
-    case "submitted":
-      return "Submitted";
-    case "shortlisted":
-      return "Shortlisted";
-    case "hired":
-      return "Hired";
-    case "completed":
-      return "Completed";
-    case "archived":
-      return "Archived";
-    case "declined":
-      return "Declined";
-    default:
-      return "Submitted";
-  }
-}
 
-function getStatusColor(status) {
-  switch (status) {
-    case "submitted":
-      return "#6c757d";
-    case "shortlisted":
-      return "#007bff";
-    case "hired":
-      return "#28a745";
-    case "completed":
-      return "#198754";
-    case "archived":
-      return "#6c757d";
-    case "declined":
-      return "#dc3545";
-    default:
-      return "#6c757d";
-  }
-}
+
+
 
 function SectionCard({ title, count, children }) {
   return (

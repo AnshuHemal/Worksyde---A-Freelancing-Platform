@@ -311,7 +311,7 @@ const ClientJobDetailedPage = () => {
                 }}
               >
                 <BsX size={20} />
-              </button>
+              </button> 
             </div>
           </div>
 
@@ -2686,7 +2686,12 @@ const ClientJobDetailedPage = () => {
                             flexShrink: 0,
                           }}
                         >
-                          <button
+                          <button onClick={() => navigate(`/ws/client/offer/job-application/${freelancer.id}`, {
+                              state: {
+                                jobId: job?.id,
+                                job: job,
+                              },
+                            })}
                             style={{
                               border: "1.5px solid #007476",
                               color: "#007476",
@@ -3067,6 +3072,12 @@ const ClientJobDetailedPage = () => {
                                     onMouseLeave={(e) => {
                                       e.target.style.background = "#007476";
                                     }}
+                                    onClick={() => navigate(`/ws/client/offer/job-application/${freelancer.id}`, {
+                                      state: {
+                                        jobId: job?.id,
+                                        job: job,
+                                      },
+                                    })}
                                   >
                                     Hire
                                   </button>
