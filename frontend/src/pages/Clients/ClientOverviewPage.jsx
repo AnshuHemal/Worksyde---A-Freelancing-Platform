@@ -173,7 +173,6 @@ const ClientOverviewPage = () => {
         }
       } catch (error) {
         console.error("Error fetching current user:", error);
-        toast.error("Failed to fetch user info");
         setUserName("User"); // Fallback
       } finally {
         setLoadingUser(false);

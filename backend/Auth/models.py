@@ -26,7 +26,7 @@ class User(Document):
     phoneVerified = BooleanField(default=False)
     isverified = BooleanField(default=False)
     lastLogin = DateTimeField(default=timezone.now)
-    role = StringField(required=True)
+    role = StringField(required=True, choices=["freelancer", "client", "admin", "superadmin"], default="freelancer")
     freelanceSurveyAnswers = MapField(field=StringField(), default={})
     onlineStatus = StringField(choices=["online", "offline"], default="offline")
     lastSeen = DateTimeField(default=timezone.now)
@@ -34,6 +34,13 @@ class User(Document):
     # Profile image stored directly in database
     profileImage = BinaryField()
     profileImageContentType = StringField()
+    
+    # Ban/Account Status fields
+    isBanned = BooleanField(default=False)
+    banReason = StringField()
+    bannedBy = ReferenceField('self')  # Reference to admin who banned
+    bannedAt = DateTimeField()
+    
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
 
@@ -222,6 +229,9 @@ class Requests(Document):
     submittedAt = DateTimeField()
     reviewedAt = DateTimeField()
     reviewFeedback = StringField()
+    reviewedBy = ReferenceField(User)  # Track which admin reviewed the request
+    currentlyReviewingBy = ReferenceField(User)  # Track which admin is currently reviewing
+    reviewStartedAt = DateTimeField()  # Track when review started
     
     # Profile Settings Fields
     visibility = StringField(
@@ -553,6 +563,57 @@ class JobOffer(Document):
         return super().save(*args, **kwargs)
 
 
+class AcceptedJobOffer(Document):
+    """Model for storing accepted job offers with additional details"""
+    # Reference to the original job offer
+    originalJobOfferId = ReferenceField(JobOffer, required=True)
+    
+    # Basic offer details
+    clientId = ReferenceField(User, required=True)
+    freelancerId = ReferenceField(User, required=True)
+    jobId = ReferenceField(JobPosts, required=True)
+    contractTitle = StringField(required=True)
+    workDescription = StringField()
+    projectAmount = StringField(required=True)
+    paymentSchedule = StringField(choices=["fixed_price", "hourly", "milestone"], default="fixed_price")
+    
+    # Acceptance details
+    acceptanceMessage = StringField()  # Message from freelancer when accepting
+    acceptedAt = DateTimeField(default=timezone.now)
+    expectedStartDate = DateTimeField()  # When freelancer expects to start
+    estimatedCompletionDate = DateTimeField()  # Expected completion date
+    
+    # Milestone details (if applicable)
+    milestones = ListField(EmbeddedDocumentField(Milestone))
+    
+    # Attachment details
+    attachments = StringField()  # URL to attachment from original job offer
+    attachmentDetails = DictField(default={})  # Store attachment metadata (filename, size, etc.)
+    
+    # Contract terms
+    termsAndConditions = StringField()  # Any additional terms agreed upon
+    specialRequirements = StringField()  # Special requirements or notes
+    
+    # Status tracking
+    status = StringField(choices=["active", "in_progress", "completed", "cancelled"], default="active")
+    
+    # Timestamps
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+    
+    meta = {
+        "collection": "acceptedjoboffers",
+        "indexes": ["clientId", "freelancerId", "jobId", "status", "acceptedAt"],
+        "ordering": ["-acceptedAt"]
+    }
+    
+    def save(self, *args, **kwargs):
+        if not self.createdAt:
+            self.createdAt = timezone.now()
+        self.updatedAt = timezone.now()
+        return super().save(*args, **kwargs)
+
+
 class Notification(Document):
     """Model for storing notifications for users"""
     NOTIFICATION_TYPES = [
@@ -562,6 +623,8 @@ class Notification(Document):
         ('proposal_accepted', 'Proposal Accepted'),
         ('proposal_declined', 'Proposal Declined'),
         ('job_offer_declined', 'Job Offer Declined'),
+        ('job_offer_retaken', 'Job Offer Retaken'),
+        ('job_offer_accepted', 'Job Offer Accepted'),
         ('payment_received', 'Payment Received'),
         ('milestone_completed', 'Milestone Completed'),
         ('system', 'System Notification'),

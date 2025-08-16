@@ -83,7 +83,6 @@ const ClientHeader = () => {
         }
       } catch (error) {
         console.error("Error fetching current user:", error);
-        toast.error("Failed to load user data");
       } finally {
         setLoading(false);
       }

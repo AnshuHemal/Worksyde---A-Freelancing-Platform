@@ -32,6 +32,7 @@ from Auth.models import (
     JobInvitation,
     DeclinedJobInvitation,
     JobOffer,
+    AcceptedJobOffer,
     Notification,
 )
 from .serializers import (
@@ -175,6 +176,16 @@ def login(request):
             {"success": False, "message": "Invalid Credentials"},
             status=status.HTTP_400_BAD_REQUEST,
         )
+    
+    # Check if user is banned
+    if hasattr(user, 'isBanned') and user.isBanned:
+        return Response({
+            "success": False, 
+            "message": "Your account has been banned",
+            "banned": True,
+            "banReason": getattr(user, 'banReason', 'No reason provided'),
+            "bannedAt": getattr(user, 'bannedAt', None)
+        }, status=status.HTTP_403_FORBIDDEN)
 
     user.lastLogin = timezone.now()
     user.onlineStatus = "online"
@@ -237,6 +248,17 @@ def verify_view(request):
 @verify_token
 def current_user(request):
     user = request.user
+    
+    # Check if user is banned
+    if hasattr(user, 'isBanned') and user.isBanned:
+        return Response({
+            "success": False,
+            "message": "Your account has been banned",
+            "banned": True,
+            "banReason": getattr(user, 'banReason', 'No reason provided'),
+            "bannedAt": getattr(user, 'bannedAt', None)
+        }, status=status.HTTP_403_FORBIDDEN)
+    
     # Only use User model for photograph
     photograph = True if user.profileImage else None
     
@@ -255,6 +277,7 @@ def current_user(request):
             "photograph": photograph,
             "onlineStatus": user.onlineStatus,
             "lastSeen": user.lastSeen,
+            "isBanned": getattr(user, 'isBanned', False),
         },
     }
     
@@ -5463,6 +5486,10 @@ def delete_job_offer(request, offer_id):
         except JobOffer.DoesNotExist:
             return Response({"success": False, "message": "Job offer not found"}, status=404)
         
+        # Check if the current user is the client who created the offer
+        if str(job_offer.clientId.id) != str(request.user.id):
+            return Response({"success": False, "message": "You can only delete offers you created"}, status=403)
+        
         job_offer.delete()
         
         return Response({"success": True, "message": "Job offer deleted successfully"})
@@ -5535,6 +5562,498 @@ def decline_job_offer(request, offer_id):
     except Exception as e:
         print("Error in decline_job_offer:", e)
         return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def accept_job_offer(request, offer_id):
+    """Accept a job offer, create accepted offer record, and send notification"""
+    try:
+        data = request.data
+        user = request.user
+        
+        # Debug logging
+        print(f"Accept job offer request - Offer ID: {offer_id}")
+        print(f"User ID: {user.id}")
+        print(f"Request data: {data}")
+        
+        # Get the job offer
+        try:
+            job_offer = JobOffer.objects.get(id=offer_id)
+            print(f"Found job offer: {job_offer.contractTitle}")
+            print(f"Job offer status: {job_offer.status}")
+            print(f"Job offer freelancer ID: {job_offer.freelancerId.id}")
+        except JobOffer.DoesNotExist:
+            return Response({"success": False, "message": "Job offer not found"}, status=404)
+        
+        # Validate that the current user is the freelancer who received the offer
+        if str(job_offer.freelancerId.id) != str(user.id):
+            return Response({"success": False, "message": "You can only accept offers sent to you"}, status=403)
+        
+        # Validate that the offer is still pending
+        if job_offer.status != "pending":
+            if job_offer.status == "accepted":
+                return Response({"success": False, "message": "This job offer has already been accepted"}, status=400)
+            elif job_offer.status == "declined":
+                return Response({"success": False, "message": "This job offer has been declined and cannot be accepted"}, status=400)
+            elif job_offer.status == "expired":
+                return Response({"success": False, "message": "This job offer has expired and cannot be accepted"}, status=400)
+            else:
+                return Response({"success": False, "message": f"This offer cannot be accepted (status: {job_offer.status})"}, status=400)
+        
+        # Extract acceptance details
+        acceptance_message = data.get('acceptanceMessage', '').strip()
+        expected_start_date = data.get('expectedStartDate')
+        estimated_completion_date = data.get('estimatedCompletionDate')
+        terms_and_conditions = data.get('termsAndConditions', '')
+        special_requirements = data.get('specialRequirements', '')
+        
+        # Parse date strings to datetime objects
+        try:
+            if expected_start_date:
+                expected_start_date = datetime.fromisoformat(expected_start_date.replace('Z', '+00:00'))
+            else:
+                # Set default start date (2 days from now)
+                from datetime import timedelta
+                expected_start_date = timezone.now() + timedelta(days=2)
+                
+            if estimated_completion_date:
+                estimated_completion_date = datetime.fromisoformat(estimated_completion_date.replace('Z', '+00:00'))
+            else:
+                # Set default completion date (32 days from now)
+                from datetime import timedelta
+                estimated_completion_date = timezone.now() + timedelta(days=32)
+        except (ValueError, TypeError):
+            # If date parsing fails, use current date + 30 days for completion
+            from datetime import timedelta
+            expected_start_date = timezone.now() + timedelta(days=2)
+            estimated_completion_date = timezone.now() + timedelta(days=32)
+        
+        # Extract attachment details from request data
+        attachment_details = data.get('attachmentDetails', {})
+        
+        # Validate required job offer fields
+        if not job_offer.contractTitle:
+            return Response({"success": False, "message": "Job offer is missing contract title"}, status=400)
+        if not job_offer.projectAmount:
+            return Response({"success": False, "message": "Job offer is missing project amount"}, status=400)
+        
+        print(f"Creating accepted job offer with contract title: {job_offer.contractTitle}")
+        print(f"Project amount: {job_offer.projectAmount}")
+        print(f"Expected start date: {expected_start_date}")
+        print(f"Estimated completion date: {estimated_completion_date}")
+        
+        # Create accepted job offer record
+        try:
+            accepted_offer = AcceptedJobOffer(
+                originalJobOfferId=job_offer,
+                clientId=job_offer.clientId,
+                freelancerId=job_offer.freelancerId,
+                jobId=job_offer.jobId,
+                contractTitle=job_offer.contractTitle,
+                workDescription=job_offer.workDescription,
+                projectAmount=job_offer.projectAmount,
+                paymentSchedule=job_offer.paymentSchedule,
+                milestones=job_offer.milestones or [],
+                attachments=job_offer.attachments,  # Copy attachments from original offer
+                attachmentDetails=attachment_details,  # Store attachment metadata
+                acceptanceMessage=acceptance_message,
+                expectedStartDate=expected_start_date,
+                estimatedCompletionDate=estimated_completion_date,
+                termsAndConditions=terms_and_conditions,
+                specialRequirements=special_requirements
+            )
+            accepted_offer.save()
+            print(f"Successfully created accepted job offer with ID: {accepted_offer.id}")
+        except Exception as save_error:
+            print(f"Error creating accepted job offer: {save_error}")
+            import traceback
+            print("Save error traceback:", traceback.format_exc())
+            return Response({"success": False, "message": "Error creating accepted job offer", "error": str(save_error)}, status=500)
+        
+        # Delete the original job offer after successful acceptance
+        job_offer.delete()
+        
+        # Create notification for the client
+        notification = Notification(
+            recipientId=job_offer.clientId,
+            senderId=user,
+            jobId=job_offer.jobId,
+            notificationType='job_offer_accepted',
+            title='Job Offer Accepted',
+            message=f'The freelancer has accepted your job offer for "{job_offer.contractTitle}"',
+            additionalData={
+                'freelancerId': str(user.id),
+                'freelancerName': user.name,
+                'jobTitle': job_offer.contractTitle,
+                'projectAmount': job_offer.projectAmount,
+                'acceptedOfferId': str(accepted_offer.id),
+                'expectedStartDate': expected_start_date,
+                'estimatedCompletionDate': estimated_completion_date
+            }
+        )
+        notification.save()
+        
+        return Response({
+            "success": True, 
+            "message": "Job offer accepted successfully",
+            "acceptedOfferId": str(accepted_offer.id),
+            "notificationId": str(notification.id)
+        })
+        
+    except User.DoesNotExist:
+        return Response({"success": False, "message": "User not found"}, status=404)
+    except JobPosts.DoesNotExist:
+        return Response({"success": False, "message": "Job not found"}, status=404)
+    except Exception as e:
+        print("Error in accept_job_offer:", e)
+        import traceback
+        print("Full traceback:", traceback.format_exc())
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@verify_token
+def get_freelancer_accepted_job_offers(request, freelancer_id):
+    """Get all accepted job offers for a freelancer"""
+    try:
+        if not freelancer_id:
+            return Response({"success": True, "acceptedJobOffers": []})
+        
+        # Fetch accepted job offers for the freelancer
+        accepted_offers = AcceptedJobOffer.objects(
+            freelancerId=freelancer_id, 
+            status="active"
+        ).order_by('-acceptedAt').limit(50)  # Limit to prevent memory issues
+        
+        print(f"Found {len(accepted_offers)} accepted job offers for freelancer {freelancer_id}")
+        
+        offers_data = []
+        for offer in accepted_offers:
+            try:
+                # Safely get client name
+                client_name = "Unknown Client"
+                try:
+                    if offer.clientId and hasattr(offer.clientId, 'name'):
+                        client_name = offer.clientId.name or "Unknown Client"
+                except Exception as client_error:
+                    print(f"Error getting client name for offer {offer.id}: {client_error}")
+                    client_name = "Unknown Client"
+                
+                # Safely get job title
+                job_title = offer.contractTitle or "Job Offer"
+                try:
+                    if offer.jobId and hasattr(offer.jobId, 'title'):
+                        job_title = offer.jobId.title or offer.contractTitle or "Job Offer"
+                except Exception as job_error:
+                    print(f"Error getting job title for offer {offer.id}: {job_error}")
+                    job_title = offer.contractTitle or "Job Offer"
+                
+                # Safely get work scope
+                work_scope = "General Development"
+                try:
+                    if offer.jobId and hasattr(offer.jobId, 'scopeOfWork'):
+                        work_scope = offer.jobId.scopeOfWork or "General Development"
+                except Exception as scope_error:
+                    print(f"Error getting work scope for offer {offer.id}: {scope_error}")
+                    work_scope = "General Development"
+                
+                # Build offer data
+                offer_data = {
+                    "id": str(offer.id),
+                    "contractTitle": offer.contractTitle or job_title,
+                    "projectAmount": str(offer.projectAmount) if offer.projectAmount else "0",
+                    "status": offer.status or "active",
+                    "acceptedAt": offer.acceptedAt.isoformat() if offer.acceptedAt else None,
+                    "clientName": client_name,
+                    "jobTitle": job_title,
+                    "workScope": work_scope,
+                    "workDescription": offer.workDescription or "",
+                    "paymentSchedule": offer.paymentSchedule or "fixed_price",
+                    "expectedStartDate": offer.expectedStartDate.isoformat() if offer.expectedStartDate else None,
+                    "estimatedCompletionDate": offer.estimatedCompletionDate.isoformat() if offer.estimatedCompletionDate else None
+                }
+                
+                print(f"Processed offer {offer.id}: {offer_data['contractTitle']} for {offer_data['clientName']}")
+                
+                offers_data.append(offer_data)
+                
+            except Exception as offer_error:
+                print(f"Error processing offer {offer.id}: {offer_error}")
+                import traceback
+                print(f"Full traceback for offer {offer.id}:", traceback.format_exc())
+                continue
+        
+        print(f"Successfully processed {len(offers_data)} offers for freelancer {freelancer_id}")
+        return Response({
+            "success": True, 
+            "acceptedJobOffers": offers_data
+        })
+        
+    except Exception as e:
+        print("Error in get_freelancer_accepted_job_offers:", e)
+        # Return empty array on error instead of failing completely
+        return Response({
+            "success": True, 
+            "acceptedJobOffers": []
+        })
+
+
+@api_view(["GET"])
+@verify_token
+def test_accepted_job_offers(request):
+    """Test endpoint to check AcceptedJobOffer model and data"""
+    try:
+        # Check if AcceptedJobOffer model exists and has data
+        total_count = AcceptedJobOffer.objects.count()
+        
+        # Get a sample record if any exists
+        sample_offer = None
+        if total_count > 0:
+            sample_offer = AcceptedJobOffer.objects.first()
+        
+        return Response({
+            "success": True,
+            "total_count": total_count,
+            "model_exists": True,
+            "sample_offer_id": str(sample_offer.id) if sample_offer else None,
+            "sample_offer_freelancer_id": str(sample_offer.freelancerId.id) if sample_offer and sample_offer.freelancerId else None
+        })
+        
+    except Exception as e:
+        print("Error in test_accepted_job_offers:", e)
+        import traceback
+        print("Full traceback:", traceback.format_exc())
+        return Response({
+            "success": False, 
+            "message": "Error testing AcceptedJobOffer model", 
+            "error": str(e),
+            "model_exists": False
+        }, status=500)
+
+
+@api_view(["GET"])
+@verify_token
+def get_hired_freelancers_for_job(request, job_id):
+    """Get all hired freelancers for a specific job from AcceptedJobOffer table"""
+    try:
+        if not job_id:
+            return Response({"success": False, "message": "Job ID is required"}, status=400)
+        
+        # Get current user (client)
+        client_id = request.user.id
+        
+        # Fetch accepted job offers for this specific job and client
+        accepted_offers = AcceptedJobOffer.objects(
+            jobId=job_id,
+            clientId=client_id,
+            status__in=["active", "in_progress"]  # Only active and in-progress contracts
+        ).order_by('-acceptedAt')
+        
+        print(f"Found {len(accepted_offers)} accepted job offers for job {job_id} and client {client_id}")
+        
+        hired_freelancers = []
+        for offer in accepted_offers:
+            try:
+                # Safely get freelancer details with better error handling
+                freelancer_name = "Unknown Freelancer"
+                freelancer_title = "Freelancer"
+                freelancer_location = "Location not specified"
+                freelancer_hourly_rate = "$0"
+                freelancer_earnings = "New Freelancer"
+                freelancer_job_success = "New"
+                freelancer_rating = "New"
+                freelancer_profile_image = None
+                freelancer_skills = []
+                
+                try:
+                    if offer.freelancerId and hasattr(offer.freelancerId, 'name'):
+                        freelancer_name = offer.freelancerId.name or "Unknown Freelancer"
+                except Exception as e:
+                    print(f"Error getting freelancer name for offer {offer.id}: {e}")
+                
+                try:
+                    # Try to get freelancer profile from Requests table
+                    from Auth.models import Requests, JobProposals
+                    
+                    freelancer_request = Requests.objects(userId=offer.freelancerId, status="verified").first()
+                    if freelancer_request:
+                        freelancer_title = freelancer_request.title or "Freelancer"
+                        freelancer_location = freelancer_request.country or "Location not specified"
+                        freelancer_hourly_rate = f"${freelancer_request.hourlyRate}" if freelancer_request.hourlyRate else "$0"
+                        
+                        # Calculate earnings and job success from proposals
+                        try:
+                            proposals = JobProposals.objects(userId=offer.freelancerId)
+                            total_earnings = sum([float(p.youReceive or 0) for p in proposals])
+                            completed_count = sum(1 for p in proposals if getattr(p, 'status', None) == 'completed')
+                            job_success = int((completed_count / proposals.count()) * 100) if proposals.count() > 0 else 0
+                        except:
+                            total_earnings = 0
+                            job_success = 0
+                        
+                        freelancer_earnings = f"${total_earnings}+ earned" if total_earnings > 0 else "New Freelancer"
+                        freelancer_job_success = f"{job_success}% Job Success"
+                        freelancer_rating = "Top Rated" if job_success >= 90 else "Rising Talent" if job_success >= 80 else "New"
+                        
+                        # Get skills from Requests
+                        freelancer_skills = []
+                        if hasattr(freelancer_request, 'skills') and freelancer_request.skills:
+                            try:
+                                freelancer_skills = [skill.name for skill in freelancer_request.skills if hasattr(skill, 'name')]
+                            except:
+                                freelancer_skills = []
+                    else:
+                        # Fallback to survey answers if Requests not found
+                        freelancer_skills = []
+                        if offer.freelancerId and hasattr(offer.freelancerId, 'freelanceSurveyAnswers'):
+                            survey_answers = offer.freelancerId.freelanceSurveyAnswers or {}
+                            if 'title' in survey_answers:
+                                freelancer_title = survey_answers['title'] or "Freelancer"
+                            if 'location' in survey_answers:
+                                freelancer_location = survey_answers['location'] or "Location not specified"
+                            if 'hourlyRate' in survey_answers:
+                                freelancer_hourly_rate = f"${survey_answers['hourlyRate']}" if survey_answers['hourlyRate'] else "$0"
+                            if 'earnings' in survey_answers:
+                                freelancer_earnings = f"${survey_answers['earnings']}+ earned" if survey_answers['earnings'] else "New Freelancer"
+                            if 'jobSuccess' in survey_answers:
+                                freelancer_job_success = f"{survey_answers['jobSuccess']}% Job Success" if survey_answers['jobSuccess'] else "New"
+                            if 'rating' in survey_answers:
+                                freelancer_rating = survey_answers['rating'] or "New"
+                            if 'skills' in survey_answers and survey_answers['skills']:
+                                freelancer_skills = survey_answers['skills'] if isinstance(survey_answers['skills'], list) else [survey_answers['skills']]
+                except Exception as e:
+                    print(f"Error getting freelancer profile data for offer {offer.id}: {e}")
+                    # Set default values if there's an error
+                    freelancer_title = "Freelancer"
+                    freelancer_location = "Location not specified"
+                    freelancer_hourly_rate = "$0"
+                    freelancer_earnings = "New Freelancer"
+                    freelancer_job_success = "New"
+                    freelancer_rating = "New"
+                    freelancer_skills = []
+                
+                # Get profile image if available
+                try:
+                    if offer.freelancerId and hasattr(offer.freelancerId, 'profileImage') and offer.freelancerId.profileImage:
+                        freelancer_profile_image = offer.freelancerId.profileImage
+                except Exception as e:
+                    print(f"Error getting freelancer profile image for offer {offer.id}: {e}")
+                
+                # Get job details for additional context
+                job_title = offer.contractTitle or "Job Offer"
+                work_scope = "General Development"
+                
+                try:
+                    if offer.jobId and hasattr(offer.jobId, 'title'):
+                        job_title = offer.jobId.title or offer.contractTitle or "Job Offer"
+                    if offer.jobId and hasattr(offer.jobId, 'scopeOfWork'):
+                        work_scope = offer.jobId.scopeOfWork or "General Development"
+                except Exception as e:
+                    print(f"Error getting job details for offer {offer.id}: {e}")
+                
+                # Combine skills from freelancer profile and job scope
+                try:
+                    all_skills = list(set(freelancer_skills + [work_scope]))
+                    if not all_skills or all_skills == ["General Development"]:
+                        # Provide default skills based on job title
+                        if 'video' in job_title.lower() or 'editor' in job_title.lower():
+                            all_skills = ["Video Editing", "Adobe Premiere", "After Effects", "Motion Graphics"]
+                        elif 'web' in job_title.lower() or 'developer' in job_title.lower():
+                            all_skills = ["Web Development", "JavaScript", "React", "Node.js"]
+                        elif 'design' in job_title.lower():
+                            all_skills = ["UI/UX Design", "Figma", "Adobe Photoshop", "Illustrator"]
+                        else:
+                            all_skills = ["Project Management", "Communication", "Problem Solving", "Team Collaboration"]
+                except:
+                    all_skills = ["Project Management", "Communication", "Problem Solving", "Team Collaboration"]
+                
+                # Build freelancer data
+                try:
+                    freelancer_data = {
+                        "id": str(offer.id),
+                        "name": freelancer_name,
+                        "title": freelancer_title,
+                        "location": freelancer_location,
+                        "hourlyRate": freelancer_hourly_rate,
+                        "earnings": freelancer_earnings,
+                        "jobSuccess": freelancer_job_success,
+                        "rating": freelancer_rating,
+                        "profileImage": freelancer_profile_image,
+                        "lastCommunication": f"Contract accepted on {offer.acceptedAt.strftime('%B %d, %Y') if offer.acceptedAt else 'Unknown date'}",
+                        "acceptanceMessage": offer.acceptanceMessage or f"I'm excited to work on {job_title}. Looking forward to delivering high-quality results.",
+                        "skills": all_skills,
+                        "status": offer.status or "active",
+                        "contractTitle": offer.contractTitle,
+                        "projectAmount": offer.projectAmount,
+                        "workDescription": offer.workDescription,
+                        "paymentSchedule": offer.paymentSchedule,
+                        "expectedStartDate": offer.expectedStartDate.isoformat() if offer.expectedStartDate else None,
+                        "estimatedCompletionDate": offer.estimatedCompletionDate.isoformat() if offer.estimatedCompletionDate else None,
+                        "acceptedAt": offer.acceptedAt.isoformat() if offer.acceptedAt else None
+                    }
+                except Exception as e:
+                    print(f"Error building freelancer data for offer {offer.id}: {e}")
+                    # Create minimal data if there's an error
+                    freelancer_data = {
+                        "id": str(offer.id),
+                        "name": freelancer_name,
+                        "title": "Freelancer",
+                        "location": "Location not specified",
+                        "hourlyRate": "$0",
+                        "earnings": "New Freelancer",
+                        "jobSuccess": "New",
+                        "rating": "New",
+                        "profileImage": None,
+                        "lastCommunication": "Contract accepted recently",
+                        "acceptanceMessage": "Freelancer accepted the job offer.",
+                        "skills": ["Project Management", "Communication", "Problem Solving"],
+                        "status": "active",
+                        "contractTitle": offer.contractTitle or "Job Offer",
+                        "projectAmount": offer.projectAmount or 0,
+                        "workDescription": offer.workDescription or "Project work",
+                        "paymentSchedule": offer.paymentSchedule or "fixed_price",
+                        "expectedStartDate": None,
+                        "estimatedCompletionDate": None,
+                        "acceptedAt": offer.acceptedAt.isoformat() if offer.acceptedAt else None
+                    }
+                
+                hired_freelancers.append(freelancer_data)
+                print(f"Processed hired freelancer: {freelancer_name} for job: {job_title}")
+                
+            except Exception as offer_error:
+                print(f"Error processing offer {offer.id}: {offer_error}")
+                import traceback
+                print(f"Full traceback for offer {offer.id}:", traceback.format_exc())
+                continue
+        
+        print(f"Successfully processed {len(hired_freelancers)} hired freelancers for job {job_id}")
+        
+        # If no freelancers found, return empty array instead of error
+        if len(hired_freelancers) == 0:
+            return Response({
+                "success": True,
+                "hiredFreelancers": [],
+                "message": "No hired freelancers found for this job"
+            })
+        
+        return Response({
+            "success": True,
+            "hiredFreelancers": hired_freelancers
+        })
+        
+    except Exception as e:
+        print("Error in get_hired_freelancers_for_job:", e)
+        import traceback
+        print("Full traceback:", traceback.format_exc())
+        
+        # Return a more helpful error message
+        return Response({
+            "success": False,
+            "message": "Error fetching hired freelancers. Please check the server logs.",
+            "error": str(e),
+            "hiredFreelancers": []  # Return empty array as fallback
+        }, status=500)
 
 
 # Notification Endpoints
@@ -5850,3 +6369,79 @@ def create_simple_notification(request):
     except Exception as e:
         print("Error in create_simple_notification:", e)
         return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@verify_token
+def test_hired_freelancers_simple(request, job_id):
+    """Simple test endpoint for hired freelancers"""
+    try:
+        if not job_id:
+            return Response({"success": False, "message": "Job ID is required"}, status=400)
+        
+        # Get current user (client)
+        client_id = request.user.id
+        
+        # Fetch accepted job offers for this specific job and client
+        accepted_offers = AcceptedJobOffer.objects(
+            jobId=job_id,
+            clientId=client_id,
+            status__in=["active", "in_progress"]
+        ).order_by('-acceptedAt')
+        
+        print(f"Found {len(accepted_offers)} accepted job offers for job {job_id} and client {client_id}")
+        
+        hired_freelancers = []
+        for offer in accepted_offers:
+            try:
+                # Get basic freelancer info
+                freelancer_name = "Unknown Freelancer"
+                if offer.freelancerId and hasattr(offer.freelancerId, 'name'):
+                    freelancer_name = offer.freelancerId.name or "Unknown Freelancer"
+                
+                # Create simple freelancer data
+                freelancer_data = {
+                    "id": str(offer.id),
+                    "name": freelancer_name,
+                    "title": "Freelancer",
+                    "location": "Location not specified",
+                    "hourlyRate": "$0",
+                    "earnings": "New Freelancer",
+                    "jobSuccess": "New",
+                    "rating": "New",
+                    "profileImage": None,
+                    "lastCommunication": "Contract accepted recently",
+                    "acceptanceMessage": "Freelancer accepted the job offer.",
+                    "skills": ["Project Management", "Communication", "Problem Solving"],
+                    "status": offer.status or "active",
+                    "contractTitle": offer.contractTitle or "Job Offer",
+                    "projectAmount": offer.projectAmount or 0,
+                    "workDescription": offer.workDescription or "Project work",
+                    "paymentSchedule": offer.paymentSchedule or "fixed_price",
+                    "expectedStartDate": None,
+                    "estimatedCompletionDate": None,
+                    "acceptedAt": offer.acceptedAt.isoformat() if offer.acceptedAt else None
+                }
+                
+                hired_freelancers.append(freelancer_data)
+                print(f"Added simple freelancer data: {freelancer_name}")
+                
+            except Exception as offer_error:
+                print(f"Error processing offer {offer.id}: {offer_error}")
+                continue
+        
+        return Response({
+            "success": True,
+            "hiredFreelancers": hired_freelancers,
+            "count": len(hired_freelancers)
+        })
+        
+    except Exception as e:
+        print("Error in test_hired_freelancers_simple:", e)
+        import traceback
+        print("Full traceback:", traceback.format_exc())
+        return Response({
+            "success": False,
+            "message": "Error in simple test endpoint",
+            "error": str(e)
+        }, status=500)

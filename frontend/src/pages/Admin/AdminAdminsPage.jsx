@@ -4,49 +4,46 @@ import BanModal from "../../components/BanModal";
 import toast from "react-hot-toast";
 import { motion } from "framer-motion";
 
-const AdminClientsPage = () => {
-  const [clients, setClients] = useState([]);
+const AdminAdminsPage = () => {
+  const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [banModal, setBanModal] = useState({
     isOpen: false,
     user: null,
-    action: null
+    action: null,
   });
-  const [showClientDetailModal, setShowClientDetailModal] = useState(false);
-  const [selectedClient, setSelectedClient] = useState(null);
+  const [showAdminDetailModal, setShowAdminDetailModal] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState(null);
 
   const API_URL = "http://localhost:5000/api/admin/auth";
 
   useEffect(() => {
-    fetchClients();
-    
-    // Set up periodic refresh for online status (every 10 seconds)
-    const interval = setInterval(() => {
-      fetchClients();
-    }, 10000);
-    
-    return () => clearInterval(interval);
+    fetchAdmins();
   }, []);
 
-  const fetchClients = async () => {
+  const fetchAdmins = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_URL}/clients/`, {
+      const response = await axios.get(`${API_URL}/admins/`, {
         withCredentials: true,
       });
 
       if (response.data.success) {
-        setClients(response.data.clients);
+        // Filter out superadmin users from the display
+        const filteredAdmins = response.data.admins.filter(
+          (admin) => admin.role !== "superadmin"
+        );
+        setAdmins(filteredAdmins);
       } else {
-        setError("Failed to fetch clients");
+        setError("Failed to fetch admin users");
       }
     } catch (error) {
-      console.error("Error fetching clients:", error);
+      console.error("Error fetching admins:", error);
       if (error.response?.status === 403) {
-        setError("Access denied. Admin role required.");
+        setError("Access denied. Superadmin role required.");
       } else {
-        setError("Failed to fetch clients");
+        setError("Failed to fetch admin users");
       }
     } finally {
       setLoading(false);
@@ -59,32 +56,25 @@ const AdminClientsPage = () => {
   };
 
   const handleBanUser = (user, action) => {
-    // Close the client detail modal when opening ban modal
-    setShowClientDetailModal(false);
-    setSelectedClient(null);
-    
+    // Close the admin detail modal when opening ban modal
+    setShowAdminDetailModal(false);
+    setSelectedAdmin(null);
+
     setBanModal({
       isOpen: true,
       user,
-      action
+      action,
     });
   };
 
   const handleBanSuccess = (message, updatedUser) => {
-    // Update the user in the clients list
-    setClients(prevClients => 
-      prevClients.map(client => 
-        client._id === updatedUser._id 
-          ? { ...client, ...updatedUser }
-          : client
+    // Update the user in the admins list
+    setAdmins((prevAdmins) =>
+      prevAdmins.map((admin) =>
+        admin._id === updatedUser._id ? { ...admin, ...updatedUser } : admin
       )
     );
-    
-    // Also refresh the data from the server to ensure consistency
-    setTimeout(() => {
-      fetchClients();
-    }, 1000);
-    
+
     toast.success(message);
   };
 
@@ -92,30 +82,27 @@ const AdminClientsPage = () => {
     setBanModal({
       isOpen: false,
       user: null,
-      action: null
+      action: null,
     });
   };
 
-  const handleClientClick = (client) => {
-    setSelectedClient(client);
-    setShowClientDetailModal(true);
+  const handleAdminClick = (admin) => {
+    setSelectedAdmin(admin);
+    setShowAdminDetailModal(true);
   };
 
-  const closeClientDetailModal = () => {
-    setShowClientDetailModal(false);
-    setSelectedClient(null);
+  const closeAdminDetailModal = () => {
+    setShowAdminDetailModal(false);
+    setSelectedAdmin(null);
   };
 
-  const getOnlineStatusBadge = (onlineStatus) => {
-    return onlineStatus === "online" ? (
-      <span className="badge bg-success">
-        Online
-      </span>
-    ) : (
-      <span className="badge bg-secondary">
-        Offline
-      </span>
-    );
+  const getRoleBadge = (role) => {
+    if (role === "superadmin") {
+      return <span className="badge bg-danger">Super Admin</span>;
+    } else if (role === "admin") {
+      return <span className="badge bg-primary">Admin</span>;
+    }
+    return <span className="badge bg-secondary">{role}</span>;
   };
 
   const getVerificationBadge = (isVerified) => {
@@ -132,7 +119,7 @@ const AdminClientsPage = () => {
         <div className="spinner-border" role="status">
           <span className="visually-hidden">Loading...</span>
         </div>
-        <p className="mt-2">Loading clients...</p>
+        <p className="mt-2">Loading admin users...</p>
       </div>
     );
   }
@@ -143,7 +130,7 @@ const AdminClientsPage = () => {
         <div className="alert alert-danger" role="alert">
           <h4 className="alert-heading">Error!</h4>
           <p>{error}</p>
-          <button className="btn btn-outline-danger" onClick={fetchClients}>
+          <button className="btn btn-outline-danger" onClick={fetchAdmins}>
             Try Again
           </button>
         </div>
@@ -156,24 +143,19 @@ const AdminClientsPage = () => {
       <div className="row">
         <div className="col-12">
           <div className="d-flex justify-content-between align-items-center mb-4">
-            <h5 className="mb-0">Client Management</h5>
-            <p className="text-muted mb-0">Manage all client users with real-time online status tracking.</p>
+            <h5 className="mb-0">Admin Management</h5>
             <div className="d-flex align-items-center">
-              <button
-                className="post-button"
-                onClick={fetchClients}
-                title="Refresh Clients List"
-              >
+              <button className="post-button" onClick={fetchAdmins}>
                 <i className="fas fa-sync-alt"></i>
               </button>
             </div>
           </div>
 
-          {clients.length === 0 ? (
+          {admins.length === 0 ? (
             <div className="text-center p-5">
               <div className="alert alert-info" role="alert">
-                <h4 className="alert-heading">No Clients Found</h4>
-                <p>There are currently no client users in the system.</p>
+                <h4 className="alert-heading">No Admin Users Found</h4>
+                <p>There are currently no admin users in the system.</p>
               </div>
             </div>
           ) : (
@@ -185,6 +167,7 @@ const AdminClientsPage = () => {
                       <tr className="text-center">
                         <th scope="col">Name</th>
                         <th scope="col">Email</th>
+                        <th scope="col">Role</th>
                         <th scope="col">Status</th>
                         <th scope="col">Phone Verified</th>
                         <th scope="col">Created</th>
@@ -193,35 +176,40 @@ const AdminClientsPage = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {clients.map((client) => (
-                        <tr 
-                          key={client._id}
+                      {admins.map((admin) => (
+                        <tr
                           className="text-center"
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => handleClientClick(client)}
+                          key={admin._id}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => handleAdminClick(admin)}
                         >
                           <td className="text-center">
                             <div className="d-flex align-items-center">
                               <div className="avatar-sm me-3">
-                                <div className="bg-info rounded-circle d-flex align-items-center justify-content-center text-white fw-bold" 
-                                     style={{width: '40px', height: '40px'}}>
-                                  {client.name.charAt(0).toUpperCase()}
+                                <div
+                                  className="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+                                  style={{ width: "40px", height: "40px" }}
+                                >
+                                  {admin.name.charAt(0).toUpperCase()}
                                 </div>
                               </div>
                               <div>
-                                <div className="fw-bold">{client.name}</div>
-                                <small className="text-muted">ID: {client._id}</small>
+                                <div className="fw-bold">{admin.name}</div>
+                                <small className="text-muted">
+                                  ID: {admin._id}
+                                </small>
                               </div>
                             </div>
                           </td>
                           <td>
                             <div className="d-flex align-items-center">
-                              {client.email}
+                              {admin.email}
                             </div>
                           </td>
-                          <td>{getOnlineStatusBadge(client.onlineStatus)}</td>
+                          <td>{getRoleBadge(admin.role)}</td>
+                          <td>{getVerificationBadge(admin.isverified)}</td>
                           <td className="text-center">
-                            {client.phoneVerified ? (
+                            {admin.phoneVerified ? (
                               <span className="badge bg-success">Yes</span>
                             ) : (
                               <span className="badge bg-warning">No</span>
@@ -229,21 +217,21 @@ const AdminClientsPage = () => {
                           </td>
                           <td>
                             <small className="text-muted">
-                              {formatDate(client.createdAt)}
+                              {formatDate(admin.createdAt)}
                             </small>
                           </td>
                           <td>
                             <small className="text-muted">
-                              {formatDate(client.lastLogin)}
+                              {formatDate(admin.lastLogin)}
                             </small>
                           </td>
                           <td>
                             <div className="" role="group">
-                              {client.isBanned === true ? (
-                                <button className="post-button"
+                              {admin.isBanned ? (
+                                <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleBanUser(client, 'unban');
+                                    handleBanUser(admin, "unban");
                                   }}
                                   title="Unban User"
                                 >
@@ -255,9 +243,10 @@ const AdminClientsPage = () => {
                                   className="post-button"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    handleBanUser(client, 'ban');
+                                    handleBanUser(admin, "ban");
                                   }}
                                   title="Ban User"
+                                  disabled={admin.role === "superadmin"}
                                 >
                                   <i className="fas fa-user-slash me-1"></i>
                                   Ban
@@ -276,8 +265,8 @@ const AdminClientsPage = () => {
         </div>
       </div>
 
-      {/* Client Detail Modal */}
-      {showClientDetailModal && selectedClient && (
+      {/* Admin Detail Modal */}
+      {showAdminDetailModal && selectedAdmin && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -296,7 +285,7 @@ const AdminClientsPage = () => {
             justifyContent: "center",
             padding: "20px",
           }}
-          onClick={closeClientDetailModal}
+          onClick={closeAdminDetailModal}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
@@ -336,10 +325,10 @@ const AdminClientsPage = () => {
                   color: "#1a1a1a",
                 }}
               >
-                Client Details
+                Admin Details
               </h3>
               <motion.button
-                onClick={closeClientDetailModal}
+                onClick={closeAdminDetailModal}
                 style={{
                   background: "none",
                   border: "none",
@@ -366,81 +355,159 @@ const AdminClientsPage = () => {
             {/* Modal Body */}
             <div style={{ flex: 1, overflowY: "auto" }}>
               <div style={{ marginBottom: "24px" }}>
-                <div style={{ 
-                  display: "flex", 
-                  alignItems: "center", 
-                  gap: "16px", 
-                  marginBottom: "20px",
-                  padding: "16px",
-                  background: "#f8f9fa",
-                  borderRadius: "8px"
-                }}>
-                  <div className="bg-info rounded-circle d-flex align-items-center justify-content-center text-white fw-bold" 
-                       style={{width: '60px', height: '60px', fontSize: '24px'}}>
-                    {selectedClient.name.charAt(0).toUpperCase()}
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "16px",
+                    marginBottom: "20px",
+                    padding: "16px",
+                    background: "#f8f9fa",
+                    borderRadius: "8px",
+                  }}
+                >
+                  <div
+                    className="bg-primary rounded-circle d-flex align-items-center justify-content-center text-white fw-bold"
+                    style={{ width: "60px", height: "60px", fontSize: "24px" }}
+                  >
+                    {selectedAdmin.name.charAt(0).toUpperCase()}
                   </div>
                   <div>
-                    <h4 style={{ margin: 0, fontSize: "20px", fontWeight: "600", color: "#1a1a1a" }}>
-                      {selectedClient.name}
+                    <h4
+                      style={{
+                        margin: 0,
+                        fontSize: "20px",
+                        fontWeight: "600",
+                        color: "#1a1a1a",
+                      }}
+                    >
+                      {selectedAdmin.name}
                     </h4>
-                    <p style={{ margin: "4px 0 0 0", color: "#666", fontSize: "14px" }}>
-                      Client
+                    <p
+                      style={{
+                        margin: "4px 0 0 0",
+                        color: "#666",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {selectedAdmin.role === "superadmin"
+                        ? "Super Admin"
+                        : "Admin"}
                     </p>
                   </div>
                 </div>
 
                 <div style={{ display: "grid", gap: "16px" }}>
-                  <div style={{ 
-                    padding: "16px", 
-                    border: "1px solid #e6e6e6", 
-                    borderRadius: "8px",
-                    background: "#fff"
-                  }}>
-                    <h5 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#1a1a1a" }}>
+                  <div
+                    style={{
+                      padding: "16px",
+                      border: "1px solid #e6e6e6",
+                      borderRadius: "8px",
+                      background: "#fff",
+                    }}
+                  >
+                    <h5
+                      style={{
+                        margin: "0 0 12px 0",
+                        fontSize: "16px",
+                        fontWeight: "600",
+                        color: "#1a1a1a",
+                      }}
+                    >
                       Contact Information
                     </h5>
                     <div style={{ display: "grid", gap: "8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#666", fontWeight: "500" }}>Email:</span>
-                        <span style={{ color: "#1a1a1a", fontWeight: "500" }}>{selectedClient.email}</span>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span style={{ color: "#666", fontWeight: "500" }}>
+                          Email:
+                        </span>
+                        <span style={{ color: "#1a1a1a", fontWeight: "500" }}>
+                          {selectedAdmin.email}
+                        </span>
                       </div>
-                      {selectedClient.phone && (
-                        <div style={{ display: "flex", justifyContent: "space-between" }}>
-                          <span style={{ color: "#666", fontWeight: "500" }}>Phone:</span>
-                          <span style={{ color: "#1a1a1a", fontWeight: "500" }}>{selectedClient.phone}</span>
+                      {selectedAdmin.phone && (
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                          }}
+                        >
+                          <span style={{ color: "#666", fontWeight: "500" }}>
+                            Phone:
+                          </span>
+                          <span style={{ color: "#1a1a1a", fontWeight: "500" }}>
+                            {selectedAdmin.phone}
+                          </span>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div style={{ 
-                    padding: "16px", 
-                    border: "1px solid #e6e6e6", 
-                    borderRadius: "8px",
-                    background: "#fff"
-                  }}>
-                    <h5 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#1a1a1a" }}>
+                  <div
+                    style={{
+                      padding: "16px",
+                      border: "1px solid #e6e6e6",
+                      borderRadius: "8px",
+                      background: "#fff",
+                    }}
+                  >
+                    <h5
+                      style={{
+                        margin: "0 0 12px 0",
+                        fontSize: "16px",
+                        fontWeight: "600",
+                        color: "#1a1a1a",
+                      }}
+                    >
                       Account Status
                     </h5>
                     <div style={{ display: "grid", gap: "8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#666", fontWeight: "500" }}>Verification:</span>
-                        <span>{getVerificationBadge(selectedClient.isverified)}</span>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#666", fontWeight: "500" }}>Phone Verified:</span>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span style={{ color: "#666", fontWeight: "500" }}>
+                          Verification:
+                        </span>
                         <span>
-                          {selectedClient.phoneVerified ? (
+                          {getVerificationBadge(selectedAdmin.isverified)}
+                        </span>
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span style={{ color: "#666", fontWeight: "500" }}>
+                          Phone Verified:
+                        </span>
+                        <span>
+                          {selectedAdmin.phoneVerified ? (
                             <span className="badge bg-success">Yes</span>
                           ) : (
                             <span className="badge bg-warning">No</span>
                           )}
                         </span>
                       </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#666", fontWeight: "500" }}>Account Status:</span>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span style={{ color: "#666", fontWeight: "500" }}>
+                          Account Status:
+                        </span>
                         <span>
-                          {selectedClient.isBanned ? (
+                          {selectedAdmin.isBanned ? (
                             <span className="badge bg-danger">Banned</span>
                           ) : (
                             <span className="badge bg-success">Active</span>
@@ -450,32 +517,68 @@ const AdminClientsPage = () => {
                     </div>
                   </div>
 
-                  <div style={{ 
-                    padding: "16px", 
-                    border: "1px solid #e6e6e6", 
-                    borderRadius: "8px",
-                    background: "#fff"
-                  }}>
-                    <h5 style={{ margin: "0 0 12px 0", fontSize: "16px", fontWeight: "600", color: "#1a1a1a" }}>
+                  <div
+                    style={{
+                      padding: "16px",
+                      border: "1px solid #e6e6e6",
+                      borderRadius: "8px",
+                      background: "#fff",
+                    }}
+                  >
+                    <h5
+                      style={{
+                        margin: "0 0 12px 0",
+                        fontSize: "16px",
+                        fontWeight: "600",
+                        color: "#1a1a1a",
+                      }}
+                    >
                       Account Information
                     </h5>
                     <div style={{ display: "grid", gap: "8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#666", fontWeight: "500" }}>User ID:</span>
-                        <span style={{ color: "#1a1a1a", fontWeight: "500", fontSize: "12px" }}>
-                          {selectedClient._id}
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span style={{ color: "#666", fontWeight: "500" }}>
+                          User ID:
+                        </span>
+                        <span
+                          style={{
+                            color: "#1a1a1a",
+                            fontWeight: "500",
+                            fontSize: "12px",
+                          }}
+                        >
+                          {selectedAdmin._id}
                         </span>
                       </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#666", fontWeight: "500" }}>Created:</span>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span style={{ color: "#666", fontWeight: "500" }}>
+                          Created:
+                        </span>
                         <span style={{ color: "#1a1a1a", fontWeight: "500" }}>
-                          {formatDate(selectedClient.createdAt)}
+                          {formatDate(selectedAdmin.createdAt)}
                         </span>
                       </div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}>
-                        <span style={{ color: "#666", fontWeight: "500" }}>Last Login:</span>
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                        }}
+                      >
+                        <span style={{ color: "#666", fontWeight: "500" }}>
+                          Last Login:
+                        </span>
                         <span style={{ color: "#1a1a1a", fontWeight: "500" }}>
-                          {formatDate(selectedClient.lastLogin)}
+                          {formatDate(selectedAdmin.lastLogin)}
                         </span>
                       </div>
                     </div>
@@ -495,7 +598,7 @@ const AdminClientsPage = () => {
               }}
             >
               <motion.button
-                onClick={closeClientDetailModal}
+                onClick={closeAdminDetailModal}
                 style={{
                   padding: "10px 20px",
                   border: "none",
@@ -514,12 +617,12 @@ const AdminClientsPage = () => {
               >
                 Close
               </motion.button>
-              {selectedClient.isBanned ? (
+              {selectedAdmin.isBanned ? (
                 <motion.button
                   onClick={(e) => {
                     e.stopPropagation();
-                    closeClientDetailModal();
-                    handleBanUser(selectedClient, 'unban');
+                    closeAdminDetailModal();
+                    handleBanUser(selectedAdmin, "unban");
                   }}
                   style={{
                     padding: "10px 20px",
@@ -544,8 +647,8 @@ const AdminClientsPage = () => {
                 <motion.button
                   onClick={(e) => {
                     e.stopPropagation();
-                    closeClientDetailModal();
-                    handleBanUser(selectedClient, 'ban');
+                    closeAdminDetailModal();
+                    handleBanUser(selectedAdmin, "ban");
                   }}
                   style={{
                     padding: "10px 20px",
@@ -584,4 +687,4 @@ const AdminClientsPage = () => {
   );
 };
 
-export default AdminClientsPage;
+export default AdminAdminsPage;

@@ -3,12 +3,32 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import logo from "../assets/worksyde.png";
 import toast from "react-hot-toast";
 import { useUser } from "../contexts/UserContext";
+import { useState, useEffect } from "react";
 
 const AdminHeader = () => {
   const { logout } = useUser();
   const navigate = useNavigate();
   const location = useLocation();
   const API_URL = "http://localhost:5000/api/auth";
+  const [userRole, setUserRole] = useState(null);
+
+  useEffect(() => {
+    // Get current user role from context or API
+    const fetchUserRole = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/current-user/`, {
+          withCredentials: true,
+        });
+        if (response.data.success) {
+          setUserRole(response.data.user.role);
+        }
+      } catch (error) {
+        console.error("Error fetching user role:", error);
+      }
+    };
+
+    fetchUserRole();
+  }, [API_URL]);
 
   const handleLogout = async (e) => {
     e.preventDefault();
@@ -25,10 +45,124 @@ const AdminHeader = () => {
   // Helper function to check active route
   const isActive = (path) => location.pathname.includes(path);
 
+  // Render navigation items based on user role
+  const renderNavigationItems = () => {
+    if (userRole === "superadmin") {
+      // Superadmin sees all tabs
+      return (
+        <>
+          <li className="nav-item">
+            <Link
+              className={`nav-link mx-lg-2 ${
+                isActive("admins") ? "active" : ""
+              }`}
+              to="admins"
+            >
+              Admins
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link
+              className={`nav-link mx-lg-2 ${
+                isActive("freelancers") ? "active" : ""
+              }`}
+              to="freelancers"
+            >
+              Freelancers
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link
+              className={`nav-link mx-lg-2 ${
+                isActive("clients") ? "active" : ""
+              }`}
+              to="clients"
+            >
+              Clients
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link
+              className={`nav-link mx-lg-2 ${
+                isActive("skills") ? "active" : ""
+              }`}
+              to="skills"
+            >
+              Skills
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link
+              className={`nav-link mx-lg-2 ${
+                isActive("specialities") ? "active" : ""
+              }`}
+              to="specialities"
+            >
+              Specialities
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link
+              className={`nav-link mx-lg-2 ${
+                isActive("requests") ? "active" : ""
+              }`}
+              to="requests"
+            >
+              Requests
+            </Link>
+          </li>
+        </>
+      );
+    } else if (userRole === "admin") {
+      // Admin sees limited tabs
+      return (
+        <>
+          <li className="nav-item">
+            <Link
+              className={`nav-link mx-lg-2 ${
+                isActive("freelancers") ? "active" : ""
+              }`}
+              to="freelancers"
+            >
+              Freelancers
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link
+              className={`nav-link mx-lg-2 ${
+                isActive("clients") ? "active" : ""
+              }`}
+              to="clients"
+            >
+              Clients
+            </Link>
+          </li>
+          <li className="nav-item">
+            <Link
+              className={`nav-link mx-lg-2 ${
+                isActive("requests") ? "active" : ""
+              }`}
+              to="requests"
+            >
+              Requests
+            </Link>
+          </li>
+        </>
+      );
+    } else {
+      // Loading state or fallback
+      return (
+        <li className="nav-item">
+          <span className="nav-link">Loading...</span>
+        </li>
+      );
+    }
+  };
+
   return (
     <nav className="navbar navbar-expand-lg fixed-top">
       <div className="container-fluid">
-        <Link className="navbar-brand me-auto" to="overview">
+        <Link className="navbar-brand me-auto" to="freelancers">
           <img src={logo} alt="Worksyde Logo" height={40} />
         </Link>
 
@@ -51,73 +185,19 @@ const AdminHeader = () => {
           </div>
           <div className="offcanvas-body">
             <ul className="navbar-nav justify-content-center flex-grow-1 pe-3">
-              <li className="nav-item">
-                <Link
-                  className={`nav-link mx-lg-2 ${
-                    isActive("overview") ? "active" : ""
-                  }`}
-                  to="overview"
-                >
-                  Home
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className={`nav-link mx-lg-2 ${
-                    isActive("freelancers") ? "active" : ""
-                  }`}
-                  to="freelancers"
-                >
-                  Freelancers
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className={`nav-link mx-lg-2 ${
-                    isActive("clients") ? "active" : ""
-                  }`}
-                  to="clients"
-                >
-                  Clients
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className={`nav-link mx-lg-2 ${
-                    isActive("requests") ? "active" : ""
-                  }`}
-                  to="requests"
-                >
-                  Requests
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className={`nav-link mx-lg-2 ${
-                    isActive("specialities") ? "active" : ""
-                  }`}
-                  to="specialities"
-                >
-                  Specialities
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link
-                  className={`nav-link mx-lg-2 ${
-                    isActive("skills") ? "active" : ""
-                  }`}
-                  to="skills"
-                >
-                  Skills
-                </Link>
-              </li>
+              {renderNavigationItems()}
             </ul>
           </div>
         </div>
 
-        <button className="login-button border-0 me-3" style={{fontSize: '16px'}} onClick={handleLogout}>
-          Logout
-        </button>
+        <div className="d-flex align-items-center">
+          <span className="me-3 text-muted">
+            Role: {userRole === "superadmin" ? "Super Admin" : userRole === "admin" ? "Admin" : "Loading..."}
+          </span>
+          <button className="login-button border-0 me-3" style={{fontSize: '16px'}} onClick={handleLogout}>
+            Logout
+          </button>
+        </div>
 
         <button
           className="navbar-toggler"

@@ -152,6 +152,12 @@ const ClientJobDetailedPage = () => {
   const [loadingPhoneStatus, setLoadingPhoneStatus] = useState(true);
   const [clientDetails, setClientDetails] = useState(null);
   const [loadingClientDetails, setLoadingClientDetails] = useState(true);
+  const [offers, setOffers] = useState([]);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [offersError, setOffersError] = useState(null);
+  const [hiredFreelancers, setHiredFreelancers] = useState([]);
+  const [hiredFreelancersLoading, setHiredFreelancersLoading] = useState(false);
+  const [hiredFreelancersError, setHiredFreelancersError] = useState("");
 
   const openProposalModal = (proposal) => {
     setSelectedProposal(proposal);
@@ -215,7 +221,9 @@ const ClientJobDetailedPage = () => {
                 <img
                   src={
                     proposal.freelancer?.id || proposal.freelancer?._id
-                      ? `${API_URL}/profile-image/${proposal.freelancer.id || proposal.freelancer._id}/`
+                      ? `${API_URL}/profile-image/${
+                          proposal.freelancer.id || proposal.freelancer._id
+                        }/`
                       : `https://via.placeholder.com/56x56/4CAF50/FFFFFF?text=${
                           proposal.freelancer?.name?.charAt(0) || "F"
                         }`
@@ -311,7 +319,7 @@ const ClientJobDetailedPage = () => {
                 }}
               >
                 <BsX size={20} />
-              </button> 
+              </button>
             </div>
           </div>
 
@@ -706,11 +714,7 @@ const ClientJobDetailedPage = () => {
       path.includes("/hires")
     )
       return 1;
-    if (
-      path.includes("/proposals") ||
-      path.includes("/messaged")
-    )
-      return 2;
+    if (path.includes("/proposals") || path.includes("/messaged")) return 2;
     if (path.includes("/hired") || path.includes("/offers")) return 3;
     if (path.includes("/applicants")) return 2;
     return 0; // default to first step
@@ -750,8 +754,6 @@ const ClientJobDetailedPage = () => {
     }
   }, [location.pathname]);
 
-
-
   const handleProposalAction = async (proposalId, action) => {
     try {
       if (action === "shortlist" || action === "unshortlist") {
@@ -773,8 +775,7 @@ const ClientJobDetailedPage = () => {
               proposal.id === proposalId
                 ? {
                     ...proposal,
-                    status:
-                      "submitted",
+                    status: "submitted",
                   }
                 : proposal
             )
@@ -844,14 +845,19 @@ const ClientJobDetailedPage = () => {
     fetchJob();
   }, [jobid]);
 
-
-
   // Fetch proposals when proposals tab is active
   useEffect(() => {
     if (currentStep === 2 && activeProposalTab === "all") {
       fetchProposals();
     }
   }, [currentStep, activeProposalTab, jobid]);
+
+  // Fetch offers when offers tab is active
+  useEffect(() => {
+    if (currentStep === 3 && activeHireTab === "offers") {
+      fetchOffers();
+    }
+  }, [currentStep, activeHireTab, jobid]);
 
   // Fetch verified freelancers when Invite Freelancers > Search tab is active
   useEffect(() => {
@@ -930,6 +936,118 @@ const ClientJobDetailedPage = () => {
         setInvitedFreelancerIds([]);
         setInvitedCount(0);
       });
+  }, [jobid]);
+
+  // Fetch hired freelancers for this job
+  useEffect(() => {
+    if (!jobid) return;
+    setHiredFreelancersLoading(true);
+
+    // Fetch real data from AcceptedJobOffer table
+    setHiredFreelancersError(""); // Clear previous errors
+    axios.get(`${API_URL}/hired-freelancers-test/${jobid}/`, { 
+      withCredentials: true,
+      timeout: 10000
+    })
+      .then((res) => {
+        if (res.data && res.data.success) {
+          console.log("Fetched hired freelancers:", res.data.hiredFreelancers);
+          
+          // Process the data to match frontend expectations
+          const processedFreelancers = res.data.hiredFreelancers.map((freelancer) => {
+            // Extract hourly rate from string format like "$10" or "$0"
+            let hourlyRate = 0;
+            if (freelancer.hourlyRate && typeof freelancer.hourlyRate === 'string') {
+              const rateMatch = freelancer.hourlyRate.match(/\$(\d+(?:\.\d+)?)/);
+              hourlyRate = rateMatch ? parseFloat(rateMatch[1]) : 0;
+            } else if (typeof freelancer.hourlyRate === 'number') {
+              hourlyRate = freelancer.hourlyRate;
+            }
+
+            // Extract job success percentage from string format like "100% Job Success"
+            let jobSuccess = 0;
+            if (freelancer.jobSuccess && typeof freelancer.jobSuccess === 'string') {
+              const successMatch = freelancer.jobSuccess.match(/(\d+)%/);
+              jobSuccess = successMatch ? parseInt(successMatch[1]) : 0;
+            } else if (typeof freelancer.jobSuccess === 'number') {
+              jobSuccess = freelancer.jobSuccess;
+            }
+
+            // Extract total earnings from string format like "$20K+ earned" or "$100+ earned"
+            let totalEarnings = 0;
+            if (freelancer.earnings && typeof freelancer.earnings === 'string') {
+              const earningsMatch = freelancer.earnings.match(/\$(\d+(?:\.\d+)?)(K?)\+/);
+              if (earningsMatch) {
+                const amount = parseFloat(earningsMatch[1]);
+                const isK = earningsMatch[2] === 'K';
+                totalEarnings = isK ? amount * 1000 : amount;
+              }
+            }
+
+                         // Process skills - ensure they are in the correct format
+             let skills = [];
+             if (freelancer.skills && Array.isArray(freelancer.skills)) {
+               skills = freelancer.skills.map(skill => {
+                 if (typeof skill === 'string') {
+                   return skill;
+                 } else if (skill && typeof skill === 'object') {
+                   return skill.name || skill.label || skill.title || '';
+                 }
+                 return '';
+               }).filter(skill => skill && skill !== 'General Development' && skill.trim() !== '');
+             }
+
+             // If no skills, provide some default ones based on the freelancer's title
+             if (skills.length === 0) {
+               const title = freelancer.title || 'Freelancer';
+               if (title.toLowerCase().includes('video') || title.toLowerCase().includes('editor')) {
+                 skills = ['Video Editing', 'Adobe Premiere', 'After Effects', 'Motion Graphics'];
+               } else if (title.toLowerCase().includes('web') || title.toLowerCase().includes('developer')) {
+                 skills = ['Web Development', 'JavaScript', 'React', 'Node.js'];
+               } else if (title.toLowerCase().includes('design')) {
+                 skills = ['UI/UX Design', 'Figma', 'Adobe Photoshop', 'Illustrator'];
+               } else {
+                 skills = ['Project Management', 'Communication', 'Problem Solving', 'Team Collaboration'];
+               }
+             }
+
+            return {
+              id: freelancer.id,
+              name: freelancer.name || 'Unknown Freelancer',
+              title: freelancer.title || 'Freelancer',
+                             location: freelancer.location && freelancer.location !== 'Unknown Location' ? freelancer.location : 'Location not specified',
+              hourlyRate: hourlyRate,
+              jobSuccess: jobSuccess,
+              completedJobs: 0, // Not provided by backend
+              totalEarnings: totalEarnings,
+              skills: skills,
+              onlineStatus: 'offline', // Not provided by backend
+              // Job acceptance data
+              acceptedAt: freelancer.acceptedAt,
+                             acceptanceMessage: freelancer.acceptanceMessage || freelancer.lastCommunication || `${freelancer.name} accepted the job offer for this project.`,
+              contractDuration: freelancer.estimatedCompletionDate ? 'Ongoing' : 'Not specified',
+              projectAmount: freelancer.projectAmount || 0,
+              // Additional data from backend
+              contractTitle: freelancer.contractTitle,
+              workDescription: freelancer.workDescription,
+              paymentSchedule: freelancer.paymentSchedule,
+              status: freelancer.status,
+            };
+          });
+          
+          console.log("Processed hired freelancers:", processedFreelancers);
+          setHiredFreelancers(processedFreelancers);
+        } else {
+          console.log("No hired freelancers found or API returned error");
+          setHiredFreelancers([]);
+        }
+      })
+      .catch((error) => {
+        console.error("Error fetching hired freelancers:", error);
+        setHiredFreelancers([]);
+        setHiredFreelancersError("Failed to load hired freelancers. Please try again.");
+      })
+      .finally(() => setHiredFreelancersLoading(false));
   }, [jobid]);
 
   // Function to check if user has billing methods
@@ -1096,69 +1214,80 @@ const ClientJobDetailedPage = () => {
       const userId = userResponse.data.user._id;
 
       // Fetch client profile details
-      const [clientProfileResponse, clientProfileDetailsResponse] = await Promise.all([
-        axios.get(`${API_URL}/client/profile/${userId}/`, {
-          withCredentials: true,
-        }),
-        axios.get(`${API_URL}/client/profile-details/${userId}/`, {
-          withCredentials: true,
-        }),
-      ]);
+      const [clientProfileResponse, clientProfileDetailsResponse] =
+        await Promise.all([
+          axios.get(`${API_URL}/client/profile/${userId}/`, {
+            withCredentials: true,
+          }),
+          axios.get(`${API_URL}/client/profile-details/${userId}/`, {
+            withCredentials: true,
+          }),
+        ]);
 
       // Get all job posts by this client
-      const jobPostsResponse = await axios.get(`${API_URL}/jobposts/client/${userId}/`, {
-        withCredentials: true,
-      });
+      const jobPostsResponse = await axios.get(
+        `${API_URL}/jobposts/client/${userId}/`,
+        {
+          withCredentials: true,
+        }
+      );
 
       // Calculate client statistics
       const allJobPosts = jobPostsResponse.data.data || [];
-      const activeJobs = allJobPosts.filter(job => job.status === "verified").length;
-      const totalJobs = allJobPosts.length;
-      
-      // Calculate hiring rate
-      const completedProposals = allJobPosts.flatMap(job => 
-        job.proposals || []
-      ).filter(proposal => proposal.status === "completed");
-      
-      const totalProposals = allJobPosts.flatMap(job => 
-        job.proposals || []
+      const activeJobs = allJobPosts.filter(
+        (job) => job.status === "verified"
       ).length;
-      
-      const hiringRate = totalProposals > 0 ? Math.round((completedProposals.length / totalProposals) * 100) : 0;
+      const totalJobs = allJobPosts.length;
+
+      // Calculate hiring rate
+      const completedProposals = allJobPosts
+        .flatMap((job) => job.proposals || [])
+        .filter((proposal) => proposal.status === "completed");
+
+      const totalProposals = allJobPosts.flatMap(
+        (job) => job.proposals || []
+      ).length;
+
+      const hiringRate =
+        totalProposals > 0
+          ? Math.round((completedProposals.length / totalProposals) * 100)
+          : 0;
 
       // Format dates
       const formatDate = (dateString) => {
         if (!dateString) return "N/A";
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { 
-          year: 'numeric', 
-          month: 'long', 
-          day: 'numeric' 
+        return date.toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
         });
       };
 
       // Compile client details
       const details = {
         // Basic info
+        id: userId,
         name: userResponse.data.user.name,
         email: userResponse.data.user.email,
         createdAt: formatDate(userResponse.data.user.createdAt),
-        
+
         // Company info
-        companyName: clientProfileDetailsResponse.data.companyName || "Not specified",
+        companyName:
+          clientProfileDetailsResponse.data.companyName || "Not specified",
         industry: clientProfileDetailsResponse.data.industry || "Not specified",
         companySize: clientProfileDetailsResponse.data.size || "Not specified",
         website: clientProfileDetailsResponse.data.website || "Not specified",
-        
+
         // Job statistics
         activeJobs: activeJobs,
         totalJobs: totalJobs,
         hiringRate: hiringRate,
-        
+
         // Financial info
         totalSpent: clientProfileResponse.data.spent || 0,
         totalHires: clientProfileResponse.data.hires || 0,
-        
+
         // Online status
         onlineStatus: userResponse.data.user.onlineStatus || "offline",
         lastSeen: userResponse.data.user.lastSeen,
@@ -1169,6 +1298,7 @@ const ClientJobDetailedPage = () => {
       console.error("Error fetching client details:", error);
       // Set default values if fetch fails
       setClientDetails({
+        id: null,
         name: "Client",
         email: "N/A",
         createdAt: "N/A",
@@ -1186,6 +1316,161 @@ const ClientJobDetailedPage = () => {
       });
     } finally {
       setLoadingClientDetails(false);
+    }
+  };
+
+  // Function to fetch offers for the current job
+  const fetchOffers = async () => {
+    if (!jobid) return;
+
+    setOffersLoading(true);
+    setOffersError(null);
+    try {
+      // Get current user ID first
+      const userResponse = await axios.get(`${API_URL}/current-user/`, {
+        withCredentials: true,
+      });
+
+      if (!userResponse.data.success || !userResponse.data.user) {
+        throw new Error("Failed to get current user");
+      }
+
+      const clientId = userResponse.data.user._id;
+
+      // Fetch job offers for this client
+      const response = await axios.get(
+        `${API_URL}/job-offers/client/${clientId}/`,
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (response.data.success) {
+        // Filter offers for the current job
+        const allOffers = response.data.jobOffers || [];
+        const jobOffers = allOffers.filter((offer) => offer.jobId === jobid);
+
+        const processedOffers = await Promise.all(
+          jobOffers.map(async (offer) => {
+            try {
+              // Fetch freelancer profile details
+              console.log(
+                "Fetching freelancer profile for ID:",
+                offer.freelancerId
+              );
+              const freelancerResponse = await axios.get(
+                `${API_URL}/freelancer/complete-profile/${offer.freelancerId}/`
+              );
+              const freelancerData =
+                freelancerResponse.data.freelancer || freelancerResponse.data;
+              console.log(
+                "Freelancer API response status:",
+                freelancerResponse.status
+              );
+
+              console.log("=== FREELANCER DATA DEBUG ===");
+              console.log("Offer ID:", offer.id);
+              console.log("Freelancer ID:", offer.freelancerId);
+              console.log("Complete freelancer data:", freelancerData);
+              console.log("Skills data:", freelancerData.skills);
+              console.log("Skills type:", typeof freelancerData.skills);
+              console.log(
+                "Skills length:",
+                freelancerData.skills
+                  ? freelancerData.skills.length
+                  : "null/undefined"
+              );
+              if (freelancerData.skills && freelancerData.skills.length > 0) {
+                console.log("First skill:", freelancerData.skills[0]);
+              }
+              console.log("=== END FREELANCER DATA DEBUG ===");
+
+              // Test if the profile image URL is accessible
+              try {
+                const imageTestResponse = await axios.head(
+                  `${API_URL}/profile-image/${offer.freelancerId}/`
+                );
+                console.log(
+                  "Profile image accessible:",
+                  imageTestResponse.status === 200
+                );
+              } catch (error) {
+                console.log(
+                  "Profile image not accessible:",
+                  error.response?.status || error.message
+                );
+              }
+
+              // Calculate performance metrics
+              const totalEarnings = freelancerData.totalEarnings || 0;
+              const jobSuccess = freelancerData.jobSuccess || 0;
+              const completedJobs = freelancerData.completedJobs || 0;
+              const totalHours = freelancerData.totalHours || 0;
+
+              // Format earnings display
+              let earnedDisplay = "₹0 earned";
+              if (totalEarnings > 0) {
+                if (totalEarnings >= 100000) {
+                  earnedDisplay = `₹${Math.floor(
+                    totalEarnings / 100000
+                  )}L+ earned`;
+                } else if (totalEarnings >= 1000) {
+                  earnedDisplay = `₹${Math.floor(
+                    totalEarnings / 1000
+                  )}K+ earned`;
+                } else {
+                  earnedDisplay = `₹${Math.floor(totalEarnings)}+ earned`;
+                }
+              }
+
+              return {
+                id: offer.id,
+                freelancerId: offer.freelancerId,
+                name: freelancerData.name || offer.freelancerName || "Unknown",
+                location: freelancerData.location || "N/A",
+                title: freelancerData.title || "Freelancer",
+                hourlyRate: freelancerData.hourlyRate || 0,
+                jobSuccess: jobSuccess,
+                completedJobs: completedJobs,
+                totalHours: totalHours,
+                totalEarnings: totalEarnings,
+                earnedDisplay: earnedDisplay,
+                skills: Array.isArray(freelancerData.skills)
+                  ? freelancerData.skills
+                  : [],
+                avatar: freelancerData.photograph,
+                onlineStatus: freelancerData.onlineStatus || "offline",
+                coverLetter:
+                  offer.workDescription || "No cover letter provided",
+                status: offer.status || "pending",
+                createdAt: offer.createdAt,
+                contractTitle: offer.contractTitle,
+                projectAmount: offer.projectAmount,
+                hasProfileImage: freelancerData.photograph === true,
+                milestones: offer.milestones || [],
+                paymentSchedule: offer.paymentSchedule || "fixed_price",
+              };
+            } catch (error) {
+              console.error("Error fetching freelancer details:", error);
+              return null;
+            }
+          })
+        );
+
+        // Filter out null values and set offers
+        const finalOffers = processedOffers.filter((offer) => offer !== null);
+        console.log("Final offers data:", finalOffers);
+        setOffers(finalOffers);
+      } else {
+        setOffersError(response.data.message || "Failed to fetch offers");
+        setOffers([]);
+      }
+    } catch (error) {
+      console.error("Error fetching offers:", error);
+      setOffersError("Failed to fetch offers");
+      setOffers([]);
+    } finally {
+      setOffersLoading(false);
     }
   };
 
@@ -1326,17 +1611,17 @@ const ClientJobDetailedPage = () => {
   const formatTime = (dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
   };
 
   // Format currency for display
   const formatCurrency = (amount) => {
     if (!amount || amount === 0) return "₹0";
-    return `₹${parseFloat(amount).toLocaleString('en-IN')}`;
+    return `₹${parseFloat(amount).toLocaleString("en-IN")}`;
   };
 
   // Search function to filter freelancers
@@ -2488,7 +2773,13 @@ const ClientJobDetailedPage = () => {
                         {/* Avatar and star badge */}
                         <div style={{ position: "relative", flexShrink: 0 }}>
                           <img
-                            src={freelancer.avatar}
+                            src={
+                              freelancer.avatar
+                                ? `${API_URL}/profile-image/${freelancer.id}/`
+                                : `https://via.placeholder.com/64x64/4CAF50/FFFFFF?text=${
+                                    freelancer.name?.charAt(0) || "F"
+                                  }`
+                            }
                             alt={freelancer.name}
                             style={{
                               width: 64,
@@ -2497,6 +2788,11 @@ const ClientJobDetailedPage = () => {
                               objectFit: "cover",
                               border: "3px solid #fff",
                               boxShadow: "0 2px 8px rgba(0,0,0,0.07)",
+                            }}
+                            onError={(e) => {
+                              e.target.src = `https://via.placeholder.com/64x64/4CAF50/FFFFFF?text=${
+                                freelancer.name?.charAt(0) || "F"
+                              }`;
                             }}
                           />
                           <div
@@ -2686,12 +2982,18 @@ const ClientJobDetailedPage = () => {
                             flexShrink: 0,
                           }}
                         >
-                          <button onClick={() => navigate(`/ws/client/offer/job-application/${freelancer.id}`, {
-                              state: {
-                                jobId: job?.id,
-                                job: job,
-                              },
-                            })}
+                          <button
+                            onClick={() =>
+                              navigate(
+                                `/ws/client/offer/job-application/${freelancer.id}`,
+                                {
+                                  state: {
+                                    jobId: job?.id,
+                                    job: job,
+                                  },
+                                }
+                              )
+                            }
                             style={{
                               border: "1.5px solid #007476",
                               color: "#007476",
@@ -2877,8 +3179,11 @@ const ClientJobDetailedPage = () => {
                             <div style={{ position: "relative" }}>
                               <img
                                 src={
-                                  freelancer.avatar ||
-                                  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face"
+                                  freelancer.avatar
+                                    ? `${API_URL}/profile-image/${freelancer.id}/`
+                                    : `https://via.placeholder.com/80x80/4CAF50/FFFFFF?text=${
+                                        freelancer.name?.charAt(0) || "F"
+                                      }`
                                 }
                                 alt={freelancer.name}
                                 style={{
@@ -2886,6 +3191,11 @@ const ClientJobDetailedPage = () => {
                                   height: 80,
                                   borderRadius: "50%",
                                   objectFit: "cover",
+                                }}
+                                onError={(e) => {
+                                  e.target.src = `https://via.placeholder.com/80x80/4CAF50/FFFFFF?text=${
+                                    freelancer.name?.charAt(0) || "F"
+                                  }`;
                                 }}
                               />
                               {/* Online Status */}
@@ -3072,12 +3382,17 @@ const ClientJobDetailedPage = () => {
                                     onMouseLeave={(e) => {
                                       e.target.style.background = "#007476";
                                     }}
-                                    onClick={() => navigate(`/ws/client/offer/job-application/${freelancer.id}`, {
-                                      state: {
-                                        jobId: job?.id,
-                                        job: job,
-                                      },
-                                    })}
+                                    onClick={() =>
+                                      navigate(
+                                        `/ws/client/offer/job-application/${freelancer.id}`,
+                                        {
+                                          state: {
+                                            jobId: job?.id,
+                                            job: job,
+                                          },
+                                        }
+                                      )
+                                    }
                                   >
                                     Hire
                                   </button>
@@ -3859,11 +4174,16 @@ const ClientJobDetailedPage = () => {
                               >
                                 <img
                                   src={
-                                    proposal.freelancer?.id || proposal.freelancer?._id
-                                      ? `${API_URL}/profile-image/${proposal.freelancer.id || proposal.freelancer._id}/`
+                                    proposal.freelancer?.id ||
+                                    proposal.freelancer?._id
+                                      ? `${API_URL}/profile-image/${
+                                          proposal.freelancer.id ||
+                                          proposal.freelancer._id
+                                        }/`
                                       : `https://via.placeholder.com/60x60/4CAF50/FFFFFF?text=${
-                                          proposal.freelancer?.name?.charAt(0) ||
-                                          "F"
+                                          proposal.freelancer?.name?.charAt(
+                                            0
+                                          ) || "F"
                                         }`
                                   }
                                   alt={
@@ -4397,392 +4717,1560 @@ const ClientJobDetailedPage = () => {
 
             {/* Tab Content */}
             {activeHireTab === "offers" && (
-              <div
-                style={{ maxWidth: 400, margin: "0 auto", textAlign: "center" }}
-              >
-                {/* Green Folder Icon with Blue Lines */}
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    marginBottom: 40,
-                    position: "relative",
-                  }}
-                >
-                  {/* Blue Lines Above Folder */}
+              <div style={{ width: "100%" }}>
+                {offersLoading ? (
                   <div
                     style={{
-                      display: "flex",
-                      justifyContent: "center",
-                      gap: 2,
-                      marginBottom: 8,
-                      position: "relative",
-                      zIndex: 2,
+                      textAlign: "center",
+                      padding: "40px 20px",
+                      color: "#888",
+                      fontSize: 18,
+                      background: "#fff",
+                      borderRadius: 10,
+                      border: "1px solid #eee",
                     }}
                   >
-                    <div
-                      style={{
-                        width: 3,
-                        height: 12,
-                        background: "#007bff",
-                        borderRadius: 1.5,
-                      }}
-                    ></div>
-                    <div
-                      style={{
-                        width: 3,
-                        height: 8,
-                        background: "#007bff",
-                        borderRadius: 1.5,
-                      }}
-                    ></div>
-                    <div
-                      style={{
-                        width: 3,
-                        height: 16,
-                        background: "#007bff",
-                        borderRadius: 1.5,
-                      }}
-                    ></div>
+                    Loading offers...
                   </div>
-
-                  {/* Green Folder Icon */}
+                ) : offersError ? (
                   <div
                     style={{
-                      width: 80,
-                      height: 60,
-                      background: "#28a745",
-                      borderRadius: "8px 8px 0 0",
-                      position: "relative",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      boxShadow: "0 4px 12px rgba(40, 167, 69, 0.3)",
+                      textAlign: "center",
+                      padding: "40px 20px",
+                      color: "red",
+                      fontSize: 18,
+                      background: "#fff",
+                      borderRadius: 10,
+                      border: "1px solid #eee",
                     }}
                   >
-                    {/* Folder Tab */}
-                    <div
-                      style={{
-                        position: "absolute",
-                        top: -8,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: 40,
-                        height: 8,
-                        background: "#28a745",
-                        borderRadius: "4px 4px 0 0",
-                        borderTop: "2px solid #fff",
-                        borderLeft: "2px solid #fff",
-                        borderRight: "2px solid #fff",
-                      }}
-                    ></div>
-
-                    {/* Folder Content Lines */}
+                    {offersError}
+                  </div>
+                ) : offers.length === 0 ? (
+                  <div
+                    style={{
+                      maxWidth: 400,
+                      margin: "0 auto",
+                      textAlign: "center",
+                    }}
+                  >
+                    {/* Green Folder Icon with Blue Lines */}
                     <div
                       style={{
                         display: "flex",
                         flexDirection: "column",
-                        gap: 3,
-                        marginTop: 8,
+                        alignItems: "center",
+                        marginBottom: 40,
+                        position: "relative",
                       }}
                     >
+                      {/* Blue Lines Above Folder */}
                       <div
                         style={{
-                          width: 50,
-                          height: 2,
-                          background: "#fff",
-                          borderRadius: 1,
+                          display: "flex",
+                          justifyContent: "center",
+                          gap: 2,
+                          marginBottom: 8,
+                          position: "relative",
+                          zIndex: 2,
                         }}
-                      ></div>
+                      >
+                        <div
+                          style={{
+                            width: 3,
+                            height: 12,
+                            background: "#007bff",
+                            borderRadius: 1.5,
+                          }}
+                        ></div>
+                        <div
+                          style={{
+                            width: 3,
+                            height: 8,
+                            background: "#007bff",
+                            borderRadius: 1.5,
+                          }}
+                        ></div>
+                        <div
+                          style={{
+                            width: 3,
+                            height: 16,
+                            background: "#007bff",
+                            borderRadius: 1.5,
+                          }}
+                        ></div>
+                      </div>
+
+                      {/* Green Folder Icon */}
                       <div
                         style={{
-                          width: 40,
-                          height: 2,
-                          background: "#fff",
-                          borderRadius: 1,
+                          width: 80,
+                          height: 60,
+                          background: "#28a745",
+                          borderRadius: "8px 8px 0 0",
+                          position: "relative",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 4px 12px rgba(40, 167, 69, 0.3)",
                         }}
-                      ></div>
-                      <div
-                        style={{
-                          width: 45,
-                          height: 2,
-                          background: "#fff",
-                          borderRadius: 1,
-                        }}
-                      ></div>
+                      >
+                        {/* Folder Tab */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: -8,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            width: 40,
+                            height: 8,
+                            background: "#28a745",
+                            borderRadius: "4px 4px 0 0",
+                            borderTop: "2px solid #fff",
+                            borderLeft: "2px solid #fff",
+                            borderRight: "2px solid #fff",
+                          }}
+                        ></div>
+
+                        {/* Folder Content Lines */}
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 3,
+                            marginTop: 8,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 50,
+                              height: 2,
+                              background: "#fff",
+                              borderRadius: 1,
+                            }}
+                          ></div>
+                          <div
+                            style={{
+                              width: 40,
+                              height: 2,
+                              background: "#fff",
+                              borderRadius: 1,
+                            }}
+                          ></div>
+                          <div
+                            style={{
+                              width: 45,
+                              height: 2,
+                              background: "#fff",
+                              borderRadius: 1,
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Heading */}
+                    <div
+                      style={{
+                        fontSize: 24,
+                        fontWeight: 700,
+                        color: "#000",
+                        marginBottom: 16,
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      You don't have any offers yet
+                    </div>
+
+                    {/* Descriptive Text */}
+                    <div
+                      style={{
+                        fontSize: 18,
+                        color: "#666",
+                        marginBottom: 40,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Interview promising talent and make them an offer.
                     </div>
                   </div>
-                </div>
+                ) : (
+                  offers.map((offer, index) => (
+                    <div
+                      key={offer.id}
+                      style={{
+                        background: "#fff",
+                        borderRadius: 12,
+                        padding: 24,
+                        marginBottom: 20,
+                        border: "1px solid #e9ecef",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                      }}
+                    >
+                      <div style={{ display: "flex", gap: 20 }}>
+                        {/* Left Section - Profile Picture */}
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            minWidth: 100,
+                          }}
+                        >
+                          {/* Profile Picture */}
+                          <div
+                            style={{ position: "relative", marginBottom: 12 }}
+                          >
+                            <img
+                              src={`${API_URL}/profile-image/${offer.freelancerId}/`}
+                              alt={offer.name}
+                              style={{
+                                width: 80,
+                                height: 80,
+                                borderRadius: "50%",
+                                objectFit: "cover",
+                                border: "3px solid #fff",
+                                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                              }}
+                              onError={(e) => {
+                                console.log(
+                                  "Image failed to load for offer:",
+                                  offer.id,
+                                  "URL:",
+                                  e.target.src
+                                );
+                                e.target.src = `https://via.placeholder.com/80x80/4CAF50/FFFFFF?text=${
+                                  offer.name?.charAt(0) || "F"
+                                }`;
+                              }}
+                              onLoad={() => {
+                                console.log(
+                                  "Image loaded successfully for offer:",
+                                  offer.id
+                                );
+                              }}
+                            />
+                            {/* Online Status Indicator */}
+                            <div
+                              style={{
+                                position: "absolute",
+                                top: 4,
+                                left: 4,
+                                width: 16,
+                                height: 16,
+                                backgroundColor:
+                                  offer.onlineStatus === "online"
+                                    ? "#28a745"
+                                    : "#6c757d",
+                                borderRadius: "50%",
+                                border: "2px solid #fff",
+                              }}
+                            />
+                          </div>
+                        </div>
 
-                {/* Heading */}
-                <div
-                  style={{
-                    fontSize: 24,
-                    fontWeight: 700,
-                    color: "#000",
-                    marginBottom: 16,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  You don't have any offers yet
-                </div>
+                        {/* Middle Section - Info, Hire Button, and Performance */}
+                        <div style={{ flex: 1 }}>
+                          {/* Top Row - Name, Location, Profession with Hourly Rate and Status */}
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "flex-start",
+                              gap: 12,
+                              marginBottom: 16,
+                            }}
+                          >
+                            <div style={{ flex: 1 }}>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  marginBottom: 4,
+                                }}
+                              >
+                                <h3
+                                  style={{
+                                    margin: 0,
+                                    fontSize: 22,
+                                    fontWeight: 700,
+                                    color: "#333",
+                                    letterSpacing: 0.2,
+                                  }}
+                                >
+                                  {offer.name}
+                                </h3>
+                              </div>
+                              <p
+                                style={{
+                                  margin: "0 0 4px 0",
+                                  fontSize: 18,
+                                  color: "#121212",
+                                }}
+                              >
+                                {offer.location}
+                              </p>
+                              <p
+                                style={{
+                                  margin: "0 0 12px 0",
+                                  fontSize: 16,
+                                  color: "#121212",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {offer.title}
+                              </p>
+                            </div>
 
-                {/* Descriptive Text */}
-                <div
-                  style={{
-                    fontSize: 18,
-                    color: "#666",
-                    marginBottom: 40,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Interview promising talent and make them an offer.
-                </div>
+                            {/* Top Right - Hourly Rate and Status */}
+                            <div style={{ textAlign: "right", minWidth: 120 }}>
+                              <div
+                                style={{
+                                  fontSize: 20,
+                                  fontWeight: 700,
+                                  color: "#333",
+                                  marginBottom: 8,
+                                }}
+                              >
+                                ₹{Number(offer.hourlyRate).toFixed(2)}/hr
+                              </div>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  gap: 4,
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    border:
+                                      offer.status === "accepted"
+                                        ? "1px solid #28a745"
+                                        : offer.status === "declined"
+                                        ? "1px solid #dc3545"
+                                        : offer.status === "expired"
+                                        ? "1px solid #6c757d"
+                                        : "1px solid #007bff",
+                                    color:
+                                      offer.status === "accepted"
+                                        ? "#28a745"
+                                        : offer.status === "declined"
+                                        ? "#dc3545"
+                                        : offer.status === "expired"
+                                        ? "#6c757d"
+                                        : "#007bff",
+                                    borderRadius: 4,
+                                    padding: "2px 8px",
+                                    fontSize: 16,
+                                    fontWeight: 500,
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  {offer.status === "accepted"
+                                    ? "Accepted"
+                                    : offer.status === "pending"
+                                    ? "Pending"
+                                    : offer.status === "declined"
+                                    ? "Declined"
+                                    : offer.status === "expired"
+                                    ? "Expired"
+                                    : "Submitted"}
+                                </span>
+                                {offer.jobSuccess >= 90 && (
+                                  <span
+                                    style={{
+                                      border: "1px solid #e91e63",
+                                      color: "#e91e63",
+                                      borderRadius: 4,
+                                      padding: "2px 8px",
+                                      fontSize: 12,
+                                      fontWeight: 500,
+                                      display: "flex",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      gap: 4,
+                                    }}
+                                  >
+                                    <FaStar style={{ fontSize: 10 }} />
+                                    Top Rated
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Performance Metrics */}
+                          <div
+                            style={{
+                              display: "flex",
+                              flexDirection: "column",
+                              gap: 8,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <FaStar
+                                style={{ color: "#ffc107", fontSize: 16 }}
+                              />
+                              <span style={{ fontSize: 16, color: "#333" }}>
+                                {offer.jobSuccess}% Job Success
+                              </span>
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <BsPeople
+                                style={{ color: "#007bff", fontSize: 16 }}
+                              />
+                              <span style={{ fontSize: 16, color: "#333" }}>
+                                {offer.completedJobs} completed jobs
+                              </span>
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                              }}
+                            >
+                              <BsCreditCard
+                                style={{ color: "#28a745", fontSize: 16 }}
+                              />
+                              <span style={{ fontSize: 16, color: "#333" }}>
+                                {offer.earnedDisplay}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Skills Section */}
+                          <div style={{ marginTop: 16 }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                marginBottom: 12,
+                              }}
+                            >
+                              <FaStar
+                                style={{ color: "#007674", fontSize: 16 }}
+                              />
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontSize: 16,
+                                  fontWeight: 600,
+                                  color: "#121212",
+                                }}
+                              >
+                                {offer.skills && offer.skills.length > 0
+                                  ? offer.skills.length
+                                  : 0}{" "}
+                                Skills
+                              </p>
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                flexWrap: "wrap",
+                                gap: 8,
+                              }}
+                            >
+                              {offer.skills &&
+                              Array.isArray(offer.skills) &&
+                              offer.skills.length > 0 ? (
+                                <>
+                                  {offer.skills
+                                    .slice(0, 6)
+                                    .map((skill, skillIndex) => {
+                                      // Handle different skill formats
+                                      let skillName = "";
+                                      if (typeof skill === "string") {
+                                        skillName = skill;
+                                      } else if (
+                                        skill &&
+                                        typeof skill === "object"
+                                      ) {
+                                        skillName =
+                                          skill.name ||
+                                          skill.label ||
+                                          skill.title ||
+                                          "";
+                                      }
+
+                                      return (
+                                        <span
+                                          key={skillIndex}
+                                          style={{
+                                            background:
+                                              "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
+                                            color: "#007674",
+                                            border:
+                                              "1px solid rgba(0, 118, 116, 0.2)",
+                                            borderRadius: 20,
+                                            padding: "6px 12px",
+                                            fontSize: 14,
+                                            fontWeight: 600,
+                                            transition: "all 0.3s ease",
+                                            cursor: "pointer",
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            e.target.style.background =
+                                              "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                                            e.target.style.color = "white";
+                                            e.target.style.transform =
+                                              "translateY(-1px)";
+                                            e.target.style.boxShadow =
+                                              "0 4px 12px rgba(0, 118, 116, 0.3)";
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.target.style.background =
+                                              "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)";
+                                            e.target.style.color = "#007674";
+                                            e.target.style.transform =
+                                              "translateY(0)";
+                                            e.target.style.boxShadow = "none";
+                                          }}
+                                        >
+                                          {skillName}
+                                        </span>
+                                      );
+                                    })}
+                                  {offer.skills.length > 6 && (
+                                    <span
+                                      style={{
+                                        background:
+                                          "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
+                                        color: "#007674",
+                                        border:
+                                          "1px solid rgba(0, 118, 116, 0.2)",
+                                        borderRadius: 20,
+                                        padding: "6px 12px",
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        transition: "all 0.3s ease",
+                                        cursor: "pointer",
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        e.target.style.background =
+                                          "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                                        e.target.style.color = "white";
+                                        e.target.style.transform =
+                                          "translateY(-1px)";
+                                        e.target.style.boxShadow =
+                                          "0 4px 12px rgba(0, 118, 116, 0.3)";
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        e.target.style.background =
+                                          "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)";
+                                        e.target.style.color = "#007674";
+                                        e.target.style.transform =
+                                          "translateY(0)";
+                                        e.target.style.boxShadow = "none";
+                                      }}
+                                    >
+                                      +{offer.skills.length - 6} more
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <span
+                                  style={{
+                                    background:
+                                      "linear-gradient(135deg, rgba(0, 118, 116, 0.1) 0%, rgba(0, 118, 116, 0.05) 100%)",
+                                    color: "#007674",
+                                    border: "1px solid rgba(0, 118, 116, 0.2)",
+                                    borderRadius: 20,
+                                    padding: "6px 12px",
+                                    fontSize: 14,
+                                    fontWeight: 600,
+                                    fontStyle: "italic",
+                                  }}
+                                >
+                                  No skills listed
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Retake Offer Button */}
+                          <div style={{ marginTop: 20 }}>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  // Show loading state
+                                  const button = event.target;
+                                  const originalText = button.textContent;
+                                  button.textContent = "Processing...";
+                                  button.disabled = true;
+                                  
+                                  // Delete the job offer
+                                  const deleteUrl = `${API_URL}/job-offers/${offer.id}/delete/`;
+                                  console.log("=== DELETE OFFER DEBUG ===");
+                                  console.log(
+                                    "Attempting to delete offer at URL:",
+                                    deleteUrl
+                                  );
+                                  console.log("Offer ID:", offer.id);
+                                  console.log("Offer object:", offer);
+                                  console.log("API_URL:", API_URL);
+                                  console.log(
+                                    "Full offer data:",
+                                    JSON.stringify(offer, null, 2)
+                                  );
+                                  
+                                  // Try to get CSRF token from cookies if available
+                                  const getCookie = (name) => {
+                                    const value = `; ${document.cookie}`;
+                                    const parts = value.split(`; ${name}=`);
+                                    if (parts.length === 2)
+                                      return parts.pop().split(";").shift();
+                                    return null;
+                                  };
+                                  
+                                  const csrfToken =
+                                    getCookie("csrftoken") ||
+                                    getCookie("XSRF-TOKEN");
+                                  console.log("CSRF Token:", csrfToken);
+                                  console.log("All cookies:", document.cookie);
+                                  console.log("withCredentials:", true);
+                                  
+                                  const deleteResponse = await axios.delete(
+                                    deleteUrl,
+                                    { 
+                                      withCredentials: true,
+                                      headers: {
+                                        "Content-Type": "application/json",
+                                      },
+                                    }
+                                  );
+                                  
+                                  if (deleteResponse.data.success) {
+                                    // Create notification for the freelancer
+                                    const notificationData = {
+                                      recipientId: offer.freelancerId,
+                                      notificationType: "job_offer_retaken",
+                                      title: "Job Offer Retaken",
+                                      message: `The client has retaken the job offer for "${offer.contractTitle}"`,
+                                      senderId: clientDetails?.id || null,
+                                      jobId: jobid,
+                                      additionalData: {
+                                        offerId: offer.id,
+                                        contractTitle: offer.contractTitle,
+                                        projectAmount: offer.projectAmount,
+                                        clientId: clientDetails?.id,
+                                        clientName: clientDetails?.name,
+                                        jobTitle: job?.title || "the project",
+                                      },
+                                    };
+                                    
+                                    await axios.post(
+                                      `${API_URL}/notifications/create/`,
+                                      notificationData,
+                                      { withCredentials: true }
+                                    );
+                                    
+                                    // Remove the offer from the local state
+                                    setOffers((prevOffers) =>
+                                      prevOffers.filter(
+                                        (o) => o.id !== offer.id
+                                      )
+                                    );
+                                    
+                                    // Show success message
+                                    alert("Offer retaken successfully!");
+                                  } else {
+                                    throw new Error(
+                                      deleteResponse.data.message ||
+                                        "Failed to retake offer"
+                                    );
+                                  }
+                                } catch (error) {
+                                  console.error("Error retaking offer:", error);
+                                  alert(
+                                    "Failed to retake offer. Please try again."
+                                  );
+                                } finally {
+                                  // Reset button state
+                                  const button = event.target;
+                                  button.textContent = "Retake Offer";
+                                  button.disabled = false;
+                                }
+                              }}
+                              style={{
+                                background:
+                                  "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                                color: "#fff",
+                                borderRadius: "15px",
+                                fontSize: "1rem",
+                                fontWeight: 600,
+                                border: "none",
+                                padding: "12px 24px",
+                                transition: "all 0.3s ease",
+                                boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
+                                cursor: "pointer",
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!e.target.disabled) {
+                                  e.target.style.background =
+                                    "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
+                                  e.target.style.transform = "translateY(-2px)";
+                                  e.target.style.boxShadow =
+                                    "0 8px 25px rgba(18, 18, 18, 0.4)";
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!e.target.disabled) {
+                                  e.target.style.background =
+                                    "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                                  e.target.style.transform = "translateY(0)";
+                                  e.target.style.boxShadow =
+                                    "0 6px 20px rgba(0, 118, 116, 0.3)";
+                                }
+                              }}
+                            >
+                              Retake Offer
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Right Section - Job Offer Details */}
+                        <div style={{ flex: 1, paddingLeft: 20 }}>
+                          {/* Job Offer Details */}
+                          <div>
+                            <h4
+                              style={{
+                                margin: "0 0 12px 0",
+                                fontSize: 18,
+                                fontWeight: 600,
+                                color: "#121212",
+                                letterSpacing: 0.2,
+                              }}
+                            >
+                              Job Offer Details
+                            </h4>
+
+                            {/* Contract Title */}
+                            <div style={{ marginBottom: 12 }}>
+                              <p
+                                style={{
+                                  margin: "0 0 4px 0",
+                                  fontSize: 18,
+                                  fontWeight: 600,
+                                  color: "#121212",
+                                }}
+                              >
+                                Contract Title
+                              </p>
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontSize: 18,
+                                  color: "#121212",
+                                  lineHeight: 1.4,
+                                }}
+                              >
+                                {offer.contractTitle || "No title provided"}
+                              </p>
+                            </div>
+
+                            {/* Project Amount */}
+                            <div style={{ marginBottom: 12 }}>
+                              <p
+                                style={{
+                                  margin: "0 0 4px 0",
+                                  fontSize: 18,
+                                  fontWeight: 600,
+                                  color: "#121212",
+                                }}
+                              >
+                                Project Amount
+                              </p>
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontSize: 18,
+                                  fontWeight: 600,
+                                  color: "#007674",
+                                }}
+                              >
+                                {offer.projectAmount || "Not specified"}
+                              </p>
+                            </div>
+
+                            {/* Work Description */}
+                            {offer.coverLetter &&
+                              offer.coverLetter !==
+                                "No cover letter provided" && (
+                                <div style={{ marginBottom: 12 }}>
+                                  <p
+                                    style={{
+                                      margin: "0 0 4px 0",
+                                      fontSize: 18,
+                                      fontWeight: 600,
+                                      color: "#121212",
+                                    }}
+                                  >
+                                    Work Description
+                                  </p>
+                                  <p
+                                    style={{
+                                      margin: "0 0 8px 0",
+                                      fontSize: 18,
+                                      color: "#121212",
+                                      lineHeight: 1.4,
+                                    }}
+                                  >
+                                    {offer.coverLetter.length > 120
+                                      ? `${offer.coverLetter.substring(
+                                          0,
+                                          120
+                                        )}...`
+                                      : offer.coverLetter}
+                                  </p>
+                                  {offer.coverLetter.length > 120 && (
+                                    <button
+                                      style={{
+                                        background: "none",
+                                        border: "none",
+                                        color: "#007674",
+                                        fontSize: 18,
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                        padding: 0,
+                                        textDecoration: "underline",
+                                      }}
+                                    >
+                                      View more
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                            {/* Payment Schedule */}
+                            <div style={{ marginBottom: 12 }}>
+                              <p
+                                style={{
+                                  margin: "0 0 4px 0",
+                                  fontSize: 18,
+                                  fontWeight: 600,
+                                  color: "#121212",
+                                }}
+                              >
+                                Payment Schedule
+                              </p>
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontSize: 18,
+                                  color: "#121212",
+                                  textTransform: "capitalize",
+                                }}
+                              >
+                                {offer.paymentSchedule === "fixed_price"
+                                  ? "Fixed Price"
+                                  : offer.paymentSchedule === "hourly"
+                                  ? "Hourly"
+                                  : offer.paymentSchedule === "milestone"
+                                  ? "Milestone-based"
+                                  : offer.paymentSchedule}
+                              </p>
+                            </div>
+
+                            {/* Milestones */}
+                            {offer.milestones &&
+                              offer.milestones.length > 0 && (
+                                <div style={{ marginBottom: 12 }}>
+                                  <p
+                                    style={{
+                                      margin: "0 0 8px 0",
+                                      fontSize: 18,
+                                      fontWeight: 600,
+                                      color: "#121212",
+                                    }}
+                                  >
+                                    Milestones ({offer.milestones.length})
+                                  </p>
+                                  <div
+                                    style={{
+                                      maxHeight: 120,
+                                      overflowY: "auto",
+                                    }}
+                                  >
+                                    {offer.milestones
+                                      .slice(0, 3)
+                                      .map((milestone, index) => (
+                                        <div
+                                          key={index}
+                                          style={{
+                                            background: "#f8f9fa",
+                                            borderRadius: 8,
+                                            padding: 8,
+                                            marginBottom: 6,
+                                            border: "1px solid #e9ecef",
+                                          }}
+                                        >
+                                          <p
+                                            style={{
+                                              margin: "0 0 4px 0",
+                                              fontSize: 18,
+                                              fontWeight: 600,
+                                              color: "#121212",
+                                            }}
+                                          >
+                                            {milestone.title ||
+                                              `Milestone ${index + 1}`}
+                                          </p>
+                                          <div
+                                            style={{
+                                              display: "flex",
+                                              justifyContent: "space-between",
+                                              alignItems: "center",
+                                            }}
+                                          >
+                                            <span
+                                              style={{
+                                                fontSize: 12,
+                                                color: "#666",
+                                              }}
+                                            >
+                                              {milestone.dueDate
+                                                ? new Date(
+                                                    milestone.dueDate
+                                                  ).toLocaleDateString(
+                                                    "en-US",
+                                                    {
+                                                      month: "short",
+                                                      day: "numeric",
+                                                    }
+                                                  )
+                                                : "No due date"}
+                                            </span>
+                                            <span
+                                              style={{
+                                                fontSize: 12,
+                                                fontWeight: 600,
+                                                color: "#007674",
+                                              }}
+                                            >
+                                              ₹{milestone.amount || "0"}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    {offer.milestones.length > 3 && (
+                                      <p
+                                        style={{
+                                          margin: "4px 0 0 0",
+                                          fontSize: 12,
+                                          color: "#666",
+                                          fontStyle: "italic",
+                                        }}
+                                      >
+                                        +{offer.milestones.length - 3} more
+                                        milestones
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                            {/* Created Date */}
+                            <div>
+                              <p
+                                style={{
+                                  margin: "0 0 4px 0",
+                                  fontSize: 18,
+                                  fontWeight: 600,
+                                  color: "#121212",
+                                }}
+                              >
+                                Offer Sent
+                              </p>
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontSize: 18,
+                                  color: "#121212",
+                                }}
+                              >
+                                {offer.createdAt
+                                  ? new Date(
+                                      offer.createdAt
+                                    ).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })
+                                  : "Unknown date"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             )}
 
             {activeHireTab === "hired" && (
-              <div
-                style={{ maxWidth: 400, margin: "0 auto", textAlign: "center" }}
-              >
-                {/* Overlapping Profile Cards Graphic */}
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    marginBottom: 40,
-                    position: "relative",
-                    height: 120,
-                  }}
-                >
-                  {/* Left Card (faded) */}
+              <div style={{ width: "100%" }}>
+                {hiredFreelancersLoading ? (
                   <div
                     style={{
-                      position: "absolute",
-                      left: "25%",
-                      transform: "translateX(-50%)",
-                      background: "#f8f9fa",
-                      borderRadius: "12px 12px 8px 8px",
-                      padding: "16px 12px",
-                      width: 80,
-                      height: 100,
-                      opacity: 0.6,
-                      zIndex: 1,
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        background: "#e9ecef",
-                        margin: "0 auto 8px auto",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 16,
-                          height: 16,
-                          background: "#6c757d",
-                          borderRadius: "50%",
-                        }}
-                      ></div>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: 1,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {[1, 2, 3, 4, 5].map((star, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: i < 3 ? "#ffc107" : "#e9ecef",
-                          }}
-                        ></div>
-                      ))}
-                    </div>
-                    <div
-                      style={{
-                        height: 4,
-                        background: "linear-gradient(90deg, #e91e63, #9c27b0)",
-                        borderRadius: 2,
-                        marginTop: 4,
-                      }}
-                    ></div>
-                  </div>
-
-                  {/* Center Card (prominent) */}
-                  <div
-                    style={{
-                      position: "absolute",
-                      left: "50%",
-                      transform: "translateX(-50%)",
+                      textAlign: "center",
+                      padding: "40px 20px",
+                      color: "#888",
+                      fontSize: 18,
                       background: "#fff",
-                      borderRadius: "12px 12px 8px 8px",
-                      padding: "20px 16px",
-                      width: 90,
-                      height: 110,
-                      zIndex: 3,
-                      boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-                      border: "1px solid #e9ecef",
+                      borderRadius: 10,
+                      border: "1px solid #eee",
                     }}
                   >
-                    <div
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: "50%",
-                        background: "#28a745",
-                        margin: "0 auto 10px auto",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: 20,
-                          height: 20,
-                          background: "#fff",
-                          borderRadius: "50%",
-                        }}
-                      ></div>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: 1,
-                        marginBottom: 8,
-                      }}
-                    >
-                      {[1, 2, 3, 4, 5].map((star, i) => (
-                        <div
-                          key={i}
-                          style={{
-                            width: 10,
-                            height: 10,
-                            borderRadius: "50%",
-                            background: "#ffc107",
-                          }}
-                        ></div>
-                      ))}
-                    </div>
-                    <div
-                      style={{
-                        height: 6,
-                        background: "linear-gradient(90deg, #e91e63, #9c27b0)",
-                        borderRadius: 3,
-                        marginTop: 6,
-                      }}
-                    ></div>
+                    Loading hired freelancers...
                   </div>
-
-                  {/* Right Card (faded) */}
+                ) : hiredFreelancersError ? (
                   <div
                     style={{
-                      position: "absolute",
-                      left: "75%",
-                      transform: "translateX(-50%)",
-                      background: "#f8f9fa",
-                      borderRadius: "12px 12px 8px 8px",
-                      padding: "16px 12px",
-                      width: 80,
-                      height: 100,
-                      opacity: 0.6,
-                      zIndex: 1,
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                      textAlign: "center",
+                      padding: "40px 20px",
+                      color: "red",
+                      fontSize: 18,
+                      background: "#fff",
+                      borderRadius: 10,
+                      border: "1px solid #eee",
                     }}
                   >
+                    {hiredFreelancersError}
+                  </div>
+                ) : hiredFreelancers.length === 0 ? (
+                  <div
+                    style={{
+                      maxWidth: 400,
+                      margin: "0 auto",
+                      textAlign: "center",
+                    }}
+                  >
+                    {/* Green Folder Icon with Blue Lines */}
                     <div
                       style={{
-                        width: 32,
-                        height: 32,
-                        borderRadius: "50%",
-                        background: "#e9ecef",
-                        margin: "0 auto 8px auto",
                         display: "flex",
+                        flexDirection: "column",
                         alignItems: "center",
-                        justifyContent: "center",
+                        marginBottom: 40,
+                        position: "relative",
                       }}
                     >
+                      {/* Blue Lines Above Folder */}
                       <div
                         style={{
-                          width: 16,
-                          height: 16,
-                          background: "#6c757d",
-                          borderRadius: "50%",
+                          display: "flex",
+                          justifyContent: "center",
+                          gap: 2,
+                          marginBottom: 8,
+                          position: "relative",
+                          zIndex: 2,
                         }}
-                      ></div>
-                    </div>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        gap: 1,
-                        marginBottom: 6,
-                      }}
-                    >
-                      {[1, 2, 3, 4, 5].map((star, i) => (
+                      >
                         <div
-                          key={i}
                           style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: "50%",
-                            background: i < 2 ? "#ffc107" : "#e9ecef",
+                            width: 3,
+                            height: 12,
+                            background: "#007bff",
+                            borderRadius: 1.5,
                           }}
                         ></div>
-                      ))}
+                        <div
+                          style={{
+                            width: 3,
+                            height: 8,
+                            background: "#007bff",
+                            borderRadius: 1.5,
+                          }}
+                        ></div>
+                        <div
+                          style={{
+                            width: 3,
+                            height: 16,
+                            background: "#007bff",
+                            borderRadius: 1.5,
+                          }}
+                        ></div>
+                      </div>
+
+                      {/* Green Folder Icon */}
+                      <div
+                        style={{
+                          width: 80,
+                          height: 60,
+                          background: "#28a745",
+                          borderRadius: "8px 8px 0 0",
+                          position: "relative",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0 4px 12px rgba(40, 167, 69, 0.3)",
+                        }}
+                      >
+                        {/* Folder Tab */}
+                        <div
+                          style={{
+                            position: "absolute",
+                            top: -8,
+                            left: "50%",
+                            transform: "translateX(-50%)",
+                            width: 40,
+                            height: 8,
+                            background: "#28a745",
+                            borderRadius: "4px 4px 0 0",
+                            borderTop: "2px solid #fff",
+                            borderLeft: "2px solid #fff",
+                            borderRight: "2px solid #fff",
+                          }}
+                        ></div>
+
+                        {/* Folder Content Lines */}
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 3,
+                            marginTop: 8,
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 50,
+                              height: 2,
+                              background: "#fff",
+                              borderRadius: 1,
+                            }}
+                          ></div>
+                          <div
+                            style={{
+                              width: 40,
+                              height: 2,
+                              background: "#fff",
+                              borderRadius: 1,
+                            }}
+                          ></div>
+                          <div
+                            style={{
+                              width: 45,
+                              height: 2,
+                              background: "#fff",
+                              borderRadius: 1,
+                            }}
+                          ></div>
+                        </div>
+                      </div>
                     </div>
+
+                    {/* Heading */}
                     <div
                       style={{
-                        height: 4,
-                        background: "linear-gradient(90deg, #e91e63, #9c27b0)",
-                        borderRadius: 2,
-                        marginTop: 4,
+                        fontSize: 24,
+                        fontWeight: 700,
+                        color: "#000",
+                        marginBottom: 16,
+                        lineHeight: 1.2,
                       }}
-                    ></div>
+                    >
+                      You haven't hired any freelancers yet
+                    </div>
+
+                    {/* Descriptive Text */}
+                    <div
+                      style={{
+                        fontSize: 18,
+                        color: "#666",
+                        marginBottom: 40,
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      Start by reviewing proposals and making offers to talented freelancers.
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  hiredFreelancers.map((freelancer, index) => (
+                    <div
+                      key={freelancer.id || index}
+                      style={{
+                        background: "#fff",
+                        borderRadius: 12,
+                        padding: 24,
+                        marginBottom: 20,
+                        border: "1px solid #e9ecef",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                      }}
+                    >
+                      {/* Top Section - Profile and Overview */}
+                      <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
+                        {/* Left Side - Profile Picture */}
+                        <div style={{ position: "relative", flexShrink: 0 }}>
+                          <img
+                            src={`${API_URL}/profile-image/${freelancer.id || freelancer._id}/`}
+                            alt={freelancer.name}
+                            style={{
+                              width: 80,
+                              height: 80,
+                              borderRadius: "50%",
+                              objectFit: "cover",
+                              border: "3px solid #fff",
+                              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                            }}
+                            onError={(e) => {
+                              e.target.src = `https://via.placeholder.com/80x80/4CAF50/FFFFFF?text=${
+                                freelancer.name?.charAt(0) || "F"
+                              }`;
+                            }}
+                          />
+                          {/* Online Status Indicator */}
+                          <div
+                            style={{
+                              position: "absolute",
+                              top: 4,
+                              left: 4,
+                              width: 16,
+                              height: 16,
+                              backgroundColor:
+                                freelancer.onlineStatus === "online"
+                                  ? "#28a745"
+                                  : "#6c757d",
+                              borderRadius: "50%",
+                              border: "2px solid #fff",
+                            }}
+                          />
+                        </div>
 
-                {/* Heading */}
-                <div
-                  style={{
-                    fontSize: 24,
-                    fontWeight: 700,
-                    color: "#000",
-                    marginBottom: 16,
-                    lineHeight: 1.2,
-                  }}
-                >
-                  You don't have any hires yet
-                </div>
+                        {/* Center - Freelancer Info and Performance Metrics */}
+                        <div style={{ flex: 1 }}>
+                          {/* Name and Title */}
+                          <div style={{ marginBottom: 8 }}>
+                            <h3
+                              style={{
+                                margin: "0 0 4px 0",
+                                fontSize: 20,
+                                fontWeight: 700,
+                                color: "#333",
+                              }}
+                            >
+                              {freelancer.name}
+                            </h3>
+                            <p
+                              style={{
+                                margin: "0 0 4px 0",
+                                fontSize: 16,
+                                color: "#121212",
+                                fontWeight: 500,
+                              }}
+                            >
+                              {freelancer.title || "Freelancer"}
+                            </p>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontSize: 14,
+                                color: "#666",
+                              }}
+                            >
+                              {freelancer.location || "Location not specified"}
+                            </p>
+                          </div>
 
-                {/* Descriptive Text */}
-                <div
-                  style={{
-                    fontSize: 18,
-                    color: "#666",
-                    marginBottom: 40,
-                    lineHeight: 1.5,
-                  }}
-                >
-                  Interview promising talent and make them an offer.
-                </div>
+                          {/* Performance Metrics - Horizontal Layout */}
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 16,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontSize: 16,
+                                fontWeight: 600,
+                                color: "#333",
+                              }}
+                            >
+                              ₹{Number(freelancer.hourlyRate || 0).toFixed(2)}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 16,
+                                fontWeight: 600,
+                                color: "#333",
+                              }}
+                            >
+                              ₹{Number(freelancer.totalEarnings || 0).toLocaleString()}+ earned
+                            </span>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 4,
+                                color: "#007bff",
+                                fontSize: 14,
+                                fontWeight: 600,
+                              }}
+                            >
+                              <BsCheckCircle style={{ fontSize: 16 }} />
+                              {freelancer.jobSuccess || 0}% Job Success
+                            </div>
+                            {freelancer.jobSuccess >= 90 && (
+                              <div
+                                style={{
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  color: "#007bff",
+                                  fontSize: 14,
+                                  fontWeight: 600,
+                                }}
+                              >
+                                <FaStar style={{ fontSize: 16 }} />
+                                Top Rated
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right Side - Action Buttons */}
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 8,
+                            alignItems: "flex-end",
+                          }}
+                        >
+                          <button
+                            onClick={() => handleMessageClick(freelancer)}
+                            style={{
+                              border: "2px solid #28a745",
+                              color: "#28a745",
+                              background: "#fff",
+                              borderRadius: 8,
+                              padding: "8px 16px",
+                              fontWeight: 600,
+                              fontSize: 14,
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.background = "#28a745";
+                              e.target.style.color = "#fff";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = "#fff";
+                              e.target.style.color = "#28a745";
+                            }}
+                          >
+                            Message
+                          </button>
+                          <button
+                            style={{
+                              border: "none",
+                              color: "#fff",
+                              background: "#28a745",
+                              borderRadius: 8,
+                              padding: "8px 16px",
+                              fontWeight: 600,
+                              fontSize: 14,
+                              cursor: "pointer",
+                              transition: "all 0.2s ease",
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.background = "#218838";
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.background = "#28a745";
+                            }}
+                          >
+                            View Contract
+                          </button>
+                        </div>
+                      </div>
+
+                                             {/* Middle Section - Job Acceptance Information */}
+                       <div style={{ marginBottom: 20 }}>
+                         {/* Job Acceptance Message */}
+                         <div
+                           style={{
+                             display: "flex",
+                             alignItems: "center",
+                             gap: 6,
+                             fontSize: 14,
+                             color: "#666",
+                             marginBottom: 12,
+                           }}
+                         >
+                           <BsPaperclip style={{ fontSize: 14 }} />
+                           <span>
+                             Received {freelancer.acceptedAt
+                               ? timeAgo(freelancer.acceptedAt)
+                               : "2 months ago"}: {freelancer.acceptanceMessage || `${freelancer.name} accepted the job offer for this project.`}
+                           </span>
+                         </div>
+
+                         {/* Skills Section */}
+              <div>
+                           <div
+                             style={{
+                               fontSize: 16,
+                               fontWeight: 600,
+                               color: "#121212",
+                               marginBottom: 8,
+                             }}
+                           >
+                             Skills -
+                           </div>
+                           <div
+                             style={{
+                               display: "flex",
+                               flexWrap: "wrap",
+                               gap: 8,
+                               alignItems: "center",
+                             }}
+                           >
+                             {freelancer.skills &&
+                             Array.isArray(freelancer.skills) &&
+                             freelancer.skills.length > 0 ? (
+                               <>
+                                 {freelancer.skills
+                                   .slice(0, 8)
+                                   .map((skill, skillIndex) => {
+                                     // Handle different skill formats
+                                     let skillName = "";
+                                     if (typeof skill === "string") {
+                                       skillName = skill;
+                                     } else if (
+                                       skill &&
+                                       typeof skill === "object"
+                                     ) {
+                                       skillName =
+                                         skill.name ||
+                                         skill.label ||
+                                         skill.title ||
+                                         "";
+                                     }
+
+                                     return (
+                                       <span
+                                         key={skillIndex}
+                                         style={{
+                                           background: "#f8f9fa",
+                                           color: "#666",
+                                           border: "1px solid #e9ecef",
+                                           borderRadius: 20,
+                                           padding: "6px 12px",
+                                           fontSize: 14,
+                                           fontWeight: 500,
+                                           transition: "all 0.3s ease",
+                                           cursor: "pointer",
+                                         }}
+                                         onMouseEnter={(e) => {
+                                           e.target.style.background = "#e9ecef";
+                                           e.target.style.color = "#333";
+                                         }}
+                                         onMouseLeave={(e) => {
+                                           e.target.style.background = "#f8f9fa";
+                                           e.target.style.color = "#666";
+                                         }}
+                                       >
+                                         {skillName}
+                                       </span>
+                                     );
+                                   })}
+                                 {freelancer.skills.length > 8 && (
+                                   <span
+                                     style={{
+                                       color: "#007bff",
+                                       fontSize: 16,
+                                       fontWeight: 600,
+                                       cursor: "pointer",
+                                     }}
+                                   >
+                                     →
+                                   </span>
+                                 )}
+                               </>
+                             ) : (
+                               <span
+                                 style={{
+                                   background: "#f8f9fa",
+                                   color: "#666",
+                                   border: "1px solid #e9ecef",
+                                   borderRadius: 20,
+                                   padding: "6px 12px",
+                                   fontSize: 14,
+                                   fontWeight: 500,
+                                   fontStyle: "italic",
+                                 }}
+                               >
+                                 No skills listed
+                               </span>
+                             )}
+                           </div>
+                         </div>
+                       </div>
+
+                                             {/* Bottom Section - Contract Information */}
+                       <div>
+                         <div
+                           style={{
+                             display: "flex",
+                             flexDirection: "column",
+                             gap: 8,
+                           }}
+                         >
+                           {/* Contract Duration */}
+                           {freelancer.contractDuration && (
+                             <div
+                               style={{
+                                 display: "flex",
+                                 alignItems: "center",
+                                 gap: 8,
+                                 fontSize: 14,
+                                 color: "#666",
+                               }}
+                             >
+                               <BsClock style={{ fontSize: 14 }} />
+                               <span>Contract Duration: {freelancer.contractDuration}</span>
+                             </div>
+                           )}
+                           
+                           {/* Project Amount */}
+                           {freelancer.projectAmount && (
+                             <div
+                               style={{
+                                 display: "flex",
+                                 alignItems: "center",
+                                 gap: 8,
+                                 fontSize: 14,
+                                 color: "#666",
+                               }}
+                             >
+                               <BsCreditCard style={{ fontSize: 14 }} />
+                               <span>Project Amount: ₹{Number(freelancer.projectAmount).toLocaleString()}</span>
+                             </div>
+                           )}
+                         </div>
+                       </div>
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>
@@ -4849,11 +6337,18 @@ const ClientJobDetailedPage = () => {
             </div>
             <h3
               className="fw-semibold mb-3"
-              style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
+              style={{
+                color: "#121212",
+                fontSize: "1.8rem",
+                letterSpacing: "0.3px",
+              }}
             >
               Loading Job Details
             </h3>
-            <p className="mb-0" style={{ color: "#121212", fontSize: "1.2rem" }}>
+            <p
+              className="mb-0"
+              style={{ color: "#121212", fontSize: "1.2rem" }}
+            >
               Preparing your job posting and applicant data...
             </p>
           </div>
@@ -5100,7 +6595,10 @@ const ClientJobDetailedPage = () => {
                     display: "flex",
                     alignItems: "center",
                     gap: 6,
-                    cursor: !phoneVerified && !loadingPhoneStatus ? "pointer" : "default",
+                    cursor:
+                      !phoneVerified && !loadingPhoneStatus
+                        ? "pointer"
+                        : "default",
                   }}
                   onClick={() => {
                     if (!phoneVerified && !loadingPhoneStatus) {
@@ -5125,7 +6623,9 @@ const ClientJobDetailedPage = () => {
                   ) : (
                     <>
                       {phoneVerified ? (
-                        <BsCheckCircle style={{ color: "#007476", fontSize: 18 }} />
+                        <BsCheckCircle
+                          style={{ color: "#007476", fontSize: 18 }}
+                        />
                       ) : (
                         <BsQuestionCircle
                           style={{
@@ -5177,21 +6677,22 @@ const ClientJobDetailedPage = () => {
                         gap: 6,
                       }}
                     >
-                      <div
-                      />
-                       {formatTime(clientDetails.lastSeen)}
+                      <div />
+                      {formatTime(clientDetails.lastSeen)}
                     </div>
 
                     {/* Hiring Rate and Job Statistics */}
                     <div
-                      style={{ 
-                        color: "#121212", 
-                        fontSize: 18, 
+                      style={{
+                        color: "#121212",
+                        fontSize: 18,
                         marginBottom: 10,
                         fontWeight: 500,
                       }}
                     >
-                      {clientDetails.hiringRate}% hire rate, {clientDetails.activeJobs} active job{clientDetails.activeJobs !== 1 ? 's' : ''}
+                      {clientDetails.hiringRate}% hire rate,{" "}
+                      {clientDetails.activeJobs} active job
+                      {clientDetails.activeJobs !== 1 ? "s" : ""}
                     </div>
 
                     {/* Company Information */}
@@ -5206,9 +6707,9 @@ const ClientJobDetailedPage = () => {
                       {clientDetails.industry}
                     </div>
                     <div
-                      style={{ 
-                        color: "#121212", 
-                        fontSize: 18, 
+                      style={{
+                        color: "#121212",
+                        fontSize: 18,
                         marginBottom: 8,
                       }}
                     >
@@ -5320,7 +6821,13 @@ const ClientJobDetailedPage = () => {
                 }}
               >
                 <img
-                  src={inviteModalData.avatar}
+                  src={
+                    inviteModalData.avatar
+                      ? `${API_URL}/profile-image/${inviteModalData.id}/`
+                      : `https://via.placeholder.com/64x64/4CAF50/FFFFFF?text=${
+                          inviteModalData.name?.charAt(0) || "F"
+                        }`
+                  }
                   alt={inviteModalData.name}
                   style={{
                     width: 64,
@@ -5328,6 +6835,11 @@ const ClientJobDetailedPage = () => {
                     borderRadius: "50%",
                     objectFit: "cover",
                     border: "2px solid #e3e3e3",
+                  }}
+                  onError={(e) => {
+                    e.target.src = `https://via.placeholder.com/64x64/4CAF50/FFFFFF?text=${
+                      inviteModalData.name?.charAt(0) || "F"
+                    }`;
                   }}
                 />
                 <div>

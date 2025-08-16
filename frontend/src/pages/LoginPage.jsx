@@ -38,8 +38,21 @@ const LoginPage = () => {
       );
 
       if (response.data.success) {
-        navigate("/");
-        toast.success("Successfully Logged In..");
+        // Get user role and navigate directly to appropriate dashboard
+        const userRole = response.data.user?.role;
+        console.log("User logged in with role:", userRole);
+        
+        if (userRole === "client") {
+          navigate("/ws/client/dashboard");
+        } else if (userRole === "freelancer") {
+          navigate("/ws/");
+        } else if (userRole === "admin") {
+          navigate("/ws/admin/freelancers");
+        } else if (userRole === "superadmin") {
+          navigate("/ws/admin/admins");
+        } else {
+          navigate("/");
+        }
       }
     } catch (error) {
       if (
@@ -47,9 +60,25 @@ const LoginPage = () => {
         error.response.data &&
         error.response.data.message
       ) {
-        toast.error(error.response.data.message);
+        // Check if it's a ban response
+        if (error.response.data.banned) {
+          const banMessage = `Account Banned: ${error.response.data.banReason || 'No reason provided'}`;
+          toast.error(banMessage, {
+            duration: 8000, // Show for 8 seconds
+            style: {
+              background: '#fff',
+              color: '#007674',
+              fontSize: '16px',
+              padding: '10px',
+              borderRadius: '8px',
+              border: '1px solid #007674',
+            },
+          });
+        } else {
+          toast.error(error.response.data.message);
+        }
       } else {
-        toast.error("Something went wrong. Please try again later." + err);
+        toast.error("Something went wrong. Please try again later.");
       }
     }
   };

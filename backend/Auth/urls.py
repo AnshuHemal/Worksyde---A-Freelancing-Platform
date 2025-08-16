@@ -135,6 +135,11 @@ urlpatterns = [
     path('job-offers/<str:offer_id>/update/', views.update_job_offer, name='update_job_offer'),
     path('job-offers/<str:offer_id>/delete/', views.delete_job_offer, name='delete_job_offer'),
     path('job-offers/<str:offer_id>/decline/', views.decline_job_offer, name='decline_job_offer'),
+    path('job-offers/<str:offer_id>/accept/', views.accept_job_offer, name='accept_job_offer'),
+    path('job-offers/accepted/freelancer/<str:freelancer_id>/', views.get_freelancer_accepted_job_offers, name='get_freelancer_accepted_job_offers'),
+    path('job-offers/test-accepted/', views.test_accepted_job_offers, name='test_accepted_job_offers'),
+    path('hired-freelancers/<str:job_id>/', views.get_hired_freelancers_for_job, name='get_hired_freelancers_for_job'),
+    path('hired-freelancers-test/<str:job_id>/', views.test_hired_freelancers_simple, name='test_hired_freelancers_simple'),
     
     # Notifications
     path('notifications/create/', views.create_notification, name='create_notification'),

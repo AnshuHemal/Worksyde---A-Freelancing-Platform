@@ -37,6 +37,7 @@ const Header2 = () => {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [profileImageLoading, setProfileImageLoading] = useState(false);
   const [profileImageError, setProfileImageError] = useState(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
   const dropdownRef = useRef(null);
   
   // Helper function to get profile image URL
@@ -146,6 +147,69 @@ const Header2 = () => {
 
     fetchCurrentUser();
   }, []);
+
+  // Fetch unread notification count
+  useEffect(() => {
+    const fetchUnreadNotificationCount = async () => {
+      if (!userId) return;
+
+      try {
+        const response = await axios.get(
+          `${API_URL}/notifications/unread-count/`,
+          { withCredentials: true }
+        );
+        if (response.data.success) {
+          setUnreadNotificationCount(response.data.unreadCount);
+        }
+      } catch (error) {
+        // Silently ignore notification count errors
+      }
+    };
+
+    fetchUnreadNotificationCount();
+
+    // Set up interval to refresh notification count every 30 seconds
+    const interval = setInterval(fetchUnreadNotificationCount, 30000);
+
+    // Refresh notification count when page becomes visible
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        fetchUnreadNotificationCount();
+      }
+    };
+
+    // Listen for custom events when notifications are marked as read or deleted
+    const handleNotificationRead = () => {
+      setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
+    };
+
+    const handleNotificationDeleted = () => {
+      setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
+    };
+
+    const handleAllNotificationsRead = () => {
+      setUnreadNotificationCount(0);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("notification-read", handleNotificationRead);
+    document.addEventListener("notification-deleted", handleNotificationDeleted);
+    document.addEventListener(
+      "all-notifications-read",
+      handleAllNotificationsRead
+    );
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("notification-read", handleNotificationRead);
+      document.removeEventListener("notification-deleted", handleNotificationDeleted);
+      document.removeEventListener(
+        "all-notifications-read",
+        handleAllNotificationsRead
+      );
+    };
+  }, [userId]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -318,13 +382,32 @@ const Header2 = () => {
 
         <div className=" d-flex align-items-center gap-4 me-3">
           <TfiHelp className="icon-hover" size={20} />
-          <BsBell 
-            className="icon-hover" 
-            size={20} 
-            style={{ cursor: "pointer" }}
-            onClick={() => navigate("/ws/notifications")}
-            title="Notifications"
-          />
+          <div className="position-relative">
+            <BsBell 
+              className="icon-hover" 
+              size={20} 
+              style={{ cursor: "pointer" }}
+              onClick={() => navigate("/ws/notifications")}
+              title="Notifications"
+            />
+            {/* Red dot notification indicator */}
+            {unreadNotificationCount > 0 && (
+              <div
+                className="position-absolute"
+                style={{
+                  top: 0,
+                  right: -5,
+                  width: "10px",
+                  height: "10px",
+                  backgroundColor: "#dc2626",
+                  borderRadius: "50%",
+                  border: "2px solid #fff",
+                  boxShadow: "0 2px 4px rgba(220, 38, 38, 0.3)",
+                  zIndex: 1000,
+                }}
+              />
+            )}
+          </div>
           <img
             className="icon-hover"
             src={tarz}

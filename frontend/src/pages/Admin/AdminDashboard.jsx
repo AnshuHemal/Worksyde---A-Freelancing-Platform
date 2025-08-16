@@ -13,7 +13,7 @@ const AdminDashboard = () => {
       >
         <div
           className="row shadow-lg rounded bg-white p-3 w-100"
-          style={{ display: "flex", maxWidth: "1200px" }}
+          style={{ display: "flex", maxWidth: "100%" }}
         >
           <Outlet />
         </div>

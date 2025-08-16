@@ -16,42 +16,106 @@ const FreelancersProposals = () => {
   const [jobOffers, setJobOffers] = useState([]);
   const [loadingOffers, setLoadingOffers] = useState(true);
   const [offersError, setOffersError] = useState("");
+  const [acceptedJobOffers, setAcceptedJobOffers] = useState([]);
+  const [loadingAcceptedOffers, setLoadingAcceptedOffers] = useState(true);
+  const [acceptedOffersError, setAcceptedOffersError] = useState("");
 
   useEffect(() => {
-    // Fetch all data in parallel for faster loading
+    // Fetch all data with robust error handling
     const fetchAllData = async () => {
       try {
         // Set all loading states to true at once
         setLoadingInvites(true);
         setLoadingProposals(true);
         setLoadingOffers(true);
+        setLoadingAcceptedOffers(true);
         setProposalsError("");
         setOffersError("");
+        setAcceptedOffersError("");
 
         // Get current user first (needed for job offers)
-        const userRes = await axios.get(`${API_URL}/current-user/`, {
-          withCredentials: true,
-        });
+        let userRes;
+        try {
+          userRes = await axios.get(`${API_URL}/current-user/`, {
+            withCredentials: true,
+            timeout: 5000,
+          });
+        } catch (error) {
+          console.error("Error fetching current user:", error);
+          // Set empty arrays if user fetch fails
+          setInvitations([]);
+          setSubmittedProposals([]);
+          setJobOffers([]);
+          setAcceptedJobOffers([]);
+          setLoadingInvites(false);
+          setLoadingProposals(false);
+          setLoadingOffers(false);
+          setLoadingAcceptedOffers(false);
+          return;
+        }
 
         const freelancerId = userRes.data?.user?._id;
 
-        // Make all API calls in parallel
-        const [invitationsRes, proposalsRes, offersRes] = await Promise.all([
+        // Make API calls with error handling for each
+        let invitationsRes, proposalsRes, offersRes, acceptedOffersRes;
+        
+        try {
           // Fetch job invitations
-          axios.get(`${API_URL}/job-invite/freelancer/`, {
+          invitationsRes = await axios.get(`${API_URL}/job-invite/freelancer/`, {
             withCredentials: true,
-          }),
+            timeout: 3000,
+          });
+        } catch (error) {
+          console.error("Error fetching invitations:", error);
+          invitationsRes = { data: { invitations: [] } };
+        }
+        
+        try {
           // Fetch submitted proposals
-          axios.get(`${API_URL}/jobproposals/freelancer/`, {
+          proposalsRes = await axios.get(`${API_URL}/jobproposals/freelancer/`, {
             withCredentials: true,
-          }),
+            timeout: 3000,
+          });
+        } catch (error) {
+          console.error("Error fetching proposals:", error);
+          proposalsRes = { data: { success: true, proposals: [] } };
+        }
+        
+        try {
           // Fetch job offers (only if we have freelancer ID)
-          freelancerId
-            ? axios.get(`${API_URL}/job-offers/freelancer/${freelancerId}/`, {
-                withCredentials: true,
-              })
-            : Promise.resolve({ data: { success: true, jobOffers: [] } }),
-        ]);
+          if (freelancerId) {
+            offersRes = await axios.get(`${API_URL}/job-offers/freelancer/${freelancerId}/`, {
+              withCredentials: true,
+              timeout: 3000,
+            });
+          } else {
+            offersRes = { data: { success: true, jobOffers: [] } };
+          }
+        } catch (error) {
+          console.error("Error fetching job offers:", error);
+          offersRes = { data: { success: true, jobOffers: [] } };
+        }
+        
+        try {
+          // Fetch accepted job offers (only if we have freelancer ID)
+          if (freelancerId) {
+            acceptedOffersRes = await axios.get(`${API_URL}/job-offers/accepted/freelancer/${freelancerId}/`, {
+              withCredentials: true,
+              timeout: 5000,
+            });
+          } else {
+            acceptedOffersRes = { data: { success: true, acceptedJobOffers: [] } };
+          }
+        } catch (error) {
+          console.error("Error fetching accepted job offers:", error);
+          // Return empty array on error instead of fallback data
+          acceptedOffersRes = { 
+            data: { 
+              success: true, 
+              acceptedJobOffers: [] 
+            } 
+          };
+        }
 
         // Process invitations
         if (invitationsRes.data && invitationsRes.data.invitations) {
@@ -73,6 +137,21 @@ const FreelancersProposals = () => {
         } else {
           setJobOffers([]);
         }
+
+        // Process accepted offers
+                       if (acceptedOffersRes.data && acceptedOffersRes.data.success) {
+                 const offers = acceptedOffersRes.data.acceptedJobOffers || [];
+                 console.log("Fetched accepted job offers:", offers);
+                 setAcceptedJobOffers(offers);
+                 if (offers.length === 0) {
+                   console.log("No accepted job offers found for freelancer:", freelancerId);
+                 }
+               } else {
+                 setAcceptedJobOffers([]);
+                 if (acceptedOffersRes.data && !acceptedOffersRes.data.success) {
+                   setAcceptedOffersError("Failed to load accepted job offers");
+                 }
+               }
       } catch (err) {
         console.error("Error fetching data:", err);
 
@@ -80,13 +159,16 @@ const FreelancersProposals = () => {
         setInvitations([]);
         setSubmittedProposals([]);
         setJobOffers([]);
+        setAcceptedJobOffers([]);
         setProposalsError("Failed to load submitted proposals");
         setOffersError("Failed to load job offers");
+        setAcceptedOffersError("Failed to load accepted job offers");
       } finally {
         // Set all loading states to false at once
         setLoadingInvites(false);
         setLoadingProposals(false);
         setLoadingOffers(false);
+        setLoadingAcceptedOffers(false);
       }
     };
 
@@ -322,7 +404,102 @@ const FreelancersProposals = () => {
           </SectionCard>
 
           {/* Active proposals */}
-          <SectionCard title="Active proposals" count={0} />
+          <SectionCard 
+            title="Active proposals" 
+            count={acceptedJobOffers.length}
+          >
+            {loadingAcceptedOffers ? (
+              <div style={{ padding: 32, color: "#888" }}>
+                Loading active proposals...
+              </div>
+            ) : acceptedOffersError ? (
+              <div style={{ padding: 32, color: "#dc3545" }}>{acceptedOffersError}</div>
+            ) : acceptedJobOffers.length > 0 ? (
+              <div
+                style={{
+                  background: "#fff",
+                  borderTop: "1px solid #eee",
+                  margin: "18px 0 0 0",
+                  padding: 0,
+                }}
+              >
+                {acceptedJobOffers.map((offer, idx) => (
+                  <div
+                    key={offer.id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      padding: "18px 24px",
+                      borderBottom:
+                        idx !== acceptedJobOffers.length - 1
+                          ? "1px solid #f0f0f0"
+                          : "none",
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          color: "#121212",
+                          fontSize: 18,
+                          marginBottom: 2,
+                        }}
+                      >
+                        Accepted{" "}
+                        {offer.acceptedAt
+                          ? new Date(offer.acceptedAt).toLocaleDateString(
+                              "en-GB",
+                              {
+                                day: "2-digit",
+                                month: "short",
+                                year: "numeric",
+                              }
+                            )
+                          : "Unknown date"}
+                      </div>
+                      <div
+                        style={{
+                          color: "#121212",
+                          fontSize: 16,
+                          marginBottom: 8,
+                        }}
+                      >
+                        {offer.acceptedAt ? timeAgo(offer.acceptedAt) : ""}
+                      </div>
+                      <Link
+                        to={`/ws/offers/${offer.id}`}
+                        style={{
+                          color: "#007674",
+                          fontWeight: 600,
+                          fontSize: 20,
+                          textDecoration: "underline",
+                        }}
+                      >
+                        {offer.contractTitle || offer.jobTitle || "Job Offer"}
+                      </Link>
+                    </div>
+                    <div
+                      style={{
+                        color: "#121212",
+                        fontSize: 16,
+                        minWidth: 120,
+                        textAlign: "right",
+                      }}
+                    >
+                      Work Scope: {offer.workScope || "General Profile"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+                           ) : (
+                 <div style={{ padding: 32, color: "#888", textAlign: "center" }}>
+                   {acceptedOffersError ? (
+                     <div style={{ color: "#dc3545" }}>{acceptedOffersError}</div>
+                   ) : (
+                     "No active proposals yet. Accepted job offers will appear here."
+                   )}
+                 </div>
+               )}
+          </SectionCard>
 
           {/* Submitted proposals */}
           <SectionCard

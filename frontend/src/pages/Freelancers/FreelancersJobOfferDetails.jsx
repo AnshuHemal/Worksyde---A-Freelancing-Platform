@@ -1,14 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { useUser } from "../../contexts/UserContext";
 import { motion } from "framer-motion";
+import { BsPaperclip } from "react-icons/bs";
+import toast from "react-hot-toast";
 
 const API_URL = "http://localhost:5000/api/auth";
+
+// Utility function to format file size
+const formatFileSize = (bytes) => {
+  if (!bytes || bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+};
 
 const FreelancersJobOfferDetails = () => {
   const { jobofferid } = useParams();
   const { userData } = useUser();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [jobOffer, setJobOffer] = useState(null);
@@ -36,6 +48,12 @@ const FreelancersJobOfferDetails = () => {
         }
 
         setJobOffer(offerData);
+        
+        // Auto-redirect if offer is already accepted
+        if (offerData.status === "accepted") {
+          setRedirecting(true);
+          navigate("/ws/proposals");
+        }
 
         // Fetch additional client details if we have clientId
         if (offerData.clientId) {
@@ -50,6 +68,49 @@ const FreelancersJobOfferDetails = () => {
           } catch (clientErr) {
             console.warn("Could not fetch client details:", clientErr);
             // Don't fail the whole request if client details fail
+          }
+        }
+
+        // Fetch attachment details if attachments exist
+        if (offerData.attachments) {
+          setLoadingAttachments(true);
+          try {
+            const attachments = Array.isArray(offerData.attachments) 
+              ? offerData.attachments 
+              : [offerData.attachments];
+            
+            const detailsPromises = attachments.map(async (attachment) => {
+              const details = await fetchAttachmentDetails(attachment);
+              
+              // If we don't have file size from backend, try HEAD request
+              let fileSize = null;
+              if (!details?.fileSize) {
+                fileSize = await getFileSizeFromUrl(attachment);
+              } else {
+                fileSize = details.fileSize;
+              }
+              
+              return { url: attachment, details, fileSize };
+            });
+            
+            const attachmentDetailsResults = await Promise.all(detailsPromises);
+            const detailsMap = {};
+            const sizesMap = {};
+            attachmentDetailsResults.forEach(({ url, details, fileSize }) => {
+              if (details) {
+                detailsMap[url] = details;
+              }
+              if (fileSize) {
+                sizesMap[url] = fileSize;
+              }
+            });
+            
+            setAttachmentDetails(detailsMap);
+            setFileSizes(sizesMap);
+          } catch (error) {
+            console.error("Error fetching attachment details:", error);
+          } finally {
+            setLoadingAttachments(false);
           }
         }
       } catch (err) {
@@ -142,6 +203,15 @@ const FreelancersJobOfferDetails = () => {
     jobOffer?.jobDescription ||
     "No description provided";
 
+  const attachments = jobOffer?.attachments || null;
+  
+  // Handle attachments - could be a single URL or an array
+  const attachmentList = Array.isArray(attachments) ? attachments : (attachments ? [attachments] : []);
+  
+  // Debug: Log attachment data for troubleshooting
+  console.log("Attachment URL:", attachments);
+  console.log("Attachment List:", attachmentList);
+
   // Enhanced date handling based on backend structure
   const offerDateRaw =
     jobOffer?.createdAt ||
@@ -187,6 +257,10 @@ const FreelancersJobOfferDetails = () => {
   const [isDeclining, setIsDeclining] = useState(false);
   const [declineError, setDeclineError] = useState(null);
   const [declineSuccess, setDeclineSuccess] = useState(false);
+  const [attachmentDetails, setAttachmentDetails] = useState({});
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
+  const [fileSizes, setFileSizes] = useState({});
+  const [redirecting, setRedirecting] = useState(false);
 
   const declineReasons = [
     "Rate too low",
@@ -196,6 +270,48 @@ const FreelancersJobOfferDetails = () => {
     "Not interested in this type of work",
     "Other",
   ];
+
+  // Function to fetch attachment details
+  const fetchAttachmentDetails = async (attachmentUrl) => {
+    if (!attachmentUrl) return null;
+    
+    try {
+      // Extract attachment ID from URL
+      const attachmentId = attachmentUrl.split("/").pop()?.split("?")[0];
+      if (!attachmentId) return null;
+      
+      // Fetch attachment details from the backend
+      const response = await axios.get(
+        `${API_URL}/jobposts/attachments/${attachmentId}/details/`,
+        { withCredentials: true }
+      );
+      
+      if (response.data && response.data.fileName) {
+        return {
+          fileName: response.data.fileName,
+          fileSize: response.data.fileSize,
+          contentType: response.data.contentType
+        };
+      }
+    } catch (error) {
+      console.error("Error fetching attachment details:", error);
+    }
+    return null;
+  };
+
+  // Function to get file size from HEAD request
+  const getFileSizeFromUrl = async (url) => {
+    try {
+      const response = await axios.head(url, { withCredentials: true });
+      const contentLength = response.headers['content-length'];
+      if (contentLength) {
+        return parseInt(contentLength);
+      }
+    } catch (error) {
+      console.error("Error getting file size from URL:", error);
+    }
+    return null;
+  };
 
   const handleOpenAcceptModal = () => {
     setAcceptError("");
@@ -247,10 +363,8 @@ const FreelancersJobOfferDetails = () => {
       if (response.data.success) {
         // Show success message
         setDeclineSuccess(true);
-        // Redirect to proposals page after 2 seconds
-        setTimeout(() => {
-          window.location.href = "/ws/proposals";
-        }, 2000);
+        // Redirect immediately
+        navigate("/ws/proposals");
       } else {
         setDeclineError(response.data.message || "Failed to decline offer");
       }
@@ -265,29 +379,81 @@ const FreelancersJobOfferDetails = () => {
     }
   };
 
-  const handleConfirmAccept = async () => {
+    const handleConfirmAccept = async () => {
     if (!agreeToTerms) {
       setAcceptError("Please agree to the terms to continue.");
       return;
     }
+    
+    // Validate optional message (if provided, it should be at least 10 characters)
+    if (acceptMessage.trim() && acceptMessage.trim().length < 10) {
+      setAcceptError("If you provide a message, it should be at least 10 characters long.");
+      return;
+    }
+    
     try {
       setIsAccepting(true);
       setAcceptError("");
-      await axios.put(
-        `${API_URL}/job-offers/${jobofferid}/update/`,
-        {
-          status: "accepted",
-          acceptanceMessage: acceptMessage,
-        },
-        { withCredentials: true }
-      );
-      // Optimistically update local state
-      setJobOffer((prev) => ({ ...(prev || {}), status: "accepted" }));
-      handleCloseAcceptModal();
+      
+      // Calculate dates
+      const now = new Date();
+      const startDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // Start in 2 days
+      const completionDate = new Date(now.getTime() + 32 * 24 * 60 * 60 * 1000); // Complete in 32 days
+      
+      // Prepare attachment details to send
+      const attachmentDetailsToSend = {};
+      if (attachmentList.length > 0) {
+        attachmentList.forEach((attachment, index) => {
+          const details = attachmentDetails[attachment];
+          const fileSize = fileSizes[attachment];
+          
+          attachmentDetailsToSend[attachment] = {
+            fileName: details?.fileName || `Attachment_${index + 1}`,
+            fileSize: details?.fileSize || fileSize || null,
+            contentType: details?.contentType || null,
+            url: attachment
+          };
+        });
+      }
+      
+      console.log("Sending attachment details:", attachmentDetailsToSend);
+      
+              const response = await axios.post(
+          `${API_URL}/job-offers/${jobofferid}/accept/`,
+          {
+            acceptanceMessage: acceptMessage.trim() || "No additional message provided",
+            expectedStartDate: startDate.toISOString(),
+            estimatedCompletionDate: completionDate.toISOString(),
+            termsAndConditions: "Standard terms and conditions apply",
+            specialRequirements: "None",
+            attachmentDetails: attachmentDetailsToSend
+          },
+          { withCredentials: true }
+        );
+      
+                    if (response.data.success) {
+        // Optimistically update local state
+        setJobOffer((prev) => ({ ...(prev || {}), status: "accepted" }));
+        handleCloseAcceptModal();
+        toast.success("Job Offer accepted.");
+        // Redirect immediately
+        navigate("/ws/proposals");
+      }
     } catch (err) {
-      setAcceptError(
-        err?.response?.data?.message || "Failed to accept the offer."
-      );
+      console.error("Error accepting offer:", err);
+      const errorMessage = err?.response?.data?.message || "Failed to accept the offer. Please try again.";
+      
+      // Handle specific error cases
+      if (errorMessage.includes("already been accepted")) {
+        setAcceptError("This job offer has already been accepted. You will be redirected to your proposals page.");
+        navigate("/ws/proposals");
+      } else if (errorMessage.includes("declined")) {
+        setAcceptError("This job offer has been declined and cannot be accepted.");
+      } else if (errorMessage.includes("expired")) {
+        setAcceptError("This job offer has expired and cannot be accepted.");
+      } else {
+        setAcceptError(errorMessage);
+      }
     } finally {
       setIsAccepting(false);
     }
@@ -328,21 +494,85 @@ const FreelancersJobOfferDetails = () => {
             gap: "20px",
           }}
         >
-          <div
-            style={{
-              width: "40px",
-              height: "40px",
-              border: "4px solid #f3f3f3",
-              borderTop: "4px solid #007674",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-            }}
-          ></div>
+                      <div
+              style={{
+                width: "40px",
+                height: "40px",
+                border: "4px solid #f3f3f3",
+                borderTop: "4px solid #007674",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            ></div>
           <div
             style={{ color: "#007674", fontSize: "18px", fontWeight: "500" }}
           >
             Loading job offer details...
           </div>
+        </div>
+        <style>{`
+          @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
+  // Redirecting state for already accepted offers
+  if (redirecting) {
+    return (
+      <div
+        className="section-container"
+        style={{ maxWidth: 1400, margin: "60px auto 0 auto", padding: 24 }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: "400px",
+            gap: "20px",
+          }}
+        >
+          <div
+            style={{
+              width: "60px",
+              height: "60px",
+              background: "#d4edda",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "30px",
+              color: "#155724",
+            }}
+          >
+            ✅
+          </div>
+          <div
+            style={{ color: "#155724", fontSize: "24px", fontWeight: "600" }}
+          >
+            Offer Already Accepted
+          </div>
+          <div
+            style={{ color: "#6c757d", fontSize: "16px", textAlign: "center" }}
+          >
+            This job offer has already been accepted. Redirecting you to your proposals page...
+          </div>
+                      <div
+              style={{
+                width: "40px",
+                height: "40px",
+                border: "4px solid #f3f3f3",
+                borderTop: "4px solid #007674",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+                marginTop: "20px",
+              }}
+            ></div>
         </div>
         <style>{`
           @keyframes spin {
@@ -570,7 +800,7 @@ const FreelancersJobOfferDetails = () => {
                     marginBottom: "8px",
                   }}
                 >
-                  Message to Client
+                  Message to Client (Optional)
                 </label>
                 <p
                   style={{
@@ -584,7 +814,7 @@ const FreelancersJobOfferDetails = () => {
                 <textarea
                   value={acceptMessage}
                   onChange={(e) => setAcceptMessage(e.target.value)}
-                  placeholder="Message"
+                  placeholder="Optional message to the client..."
                   style={{
                     width: "100%",
                     minHeight: "100px",
@@ -1357,6 +1587,234 @@ const FreelancersJobOfferDetails = () => {
               </div>
             </div>
 
+            {/* Attachments Section */}
+            {attachmentList.length > 0 && (
+              <div
+                style={{
+                  background: "#fff",
+                  border: "1px solid #e0e0e0",
+                  borderRadius: "8px",
+                  padding: 32,
+                }}
+              >
+                <h3
+                  style={{
+                    fontSize: 24,
+                    fontWeight: 600,
+                    color: "#121212",
+                    margin: "0 0 24px 0",
+                    letterSpacing: 0.3,
+                  }}
+                >
+                  Attachments ({attachmentList.length})
+                </h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {attachmentList.map((attachment, index) => (
+                    <div
+                      key={index}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "16px 20px",
+                        backgroundColor: "#fff",
+                        borderRadius: "8px",
+                        border: "1px solid #e3e3e3",
+                        cursor: "pointer",
+                        transition: "all 0.2s ease",
+                        marginBottom: index < attachmentList.length - 1 ? "12px" : "0",
+                      }}
+                      onClick={() => window.open(attachment, "_blank")}
+                      onMouseEnter={(e) => {
+                        e.target.style.borderColor = "#007674";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.target.style.borderColor = "#e0e0e0";
+                      }}
+                    >
+                      {(() => {
+                        // Get file extension and show appropriate icon
+                        const url = attachment;
+                        let fileExtension = "";
+
+                        if (url) {
+                          try {
+                            const cleanUrl = url.split("?")[0];
+                            const urlParts = cleanUrl.split("/");
+                            const filename = urlParts[urlParts.length - 1] || "";
+                            fileExtension = filename.split(".").pop()?.toLowerCase() || "";
+                          } catch (error) {
+                            console.error("Error parsing file extension:", error);
+                          }
+                        }
+
+                        // Show different icons based on file type
+                        let iconColor = "#007674";
+                        let iconSize = 24;
+
+                        if (fileExtension) {
+                          if (["pdf"].includes(fileExtension)) {
+                            iconColor = "#dc3545"; // Red for PDF
+                          } else if (["doc", "docx"].includes(fileExtension)) {
+                            iconColor = "#007bff"; // Blue for Word docs
+                          } else if (["xls", "xlsx"].includes(fileExtension)) {
+                            iconColor = "#28a745"; // Green for Excel
+                          } else if (["jpg", "jpeg", "png", "gif", "webp"].includes(fileExtension)) {
+                            iconColor = "#ffc107"; // Yellow for images
+                          } else if (["zip", "rar", "7z"].includes(fileExtension)) {
+                            iconColor = "#6f42c1"; // Purple for archives
+                          }
+                        }
+
+                        return (
+                          <BsPaperclip
+                            style={{
+                              color: iconColor,
+                              fontSize: iconSize,
+                              marginRight: 16,
+                            }}
+                          />
+                        );
+                      })()}
+                      <div style={{ flex: 1 }}>
+                        <div
+                          style={{
+                            fontSize: 20,
+                            color: "#121212",
+                            fontWeight: 500,
+                            marginBottom: 4,
+                          }}
+                        >
+                          {(() => {
+                            // Show loading state if attachments are being fetched
+                            if (loadingAttachments) {
+                              return "Loading filename...";
+                            }
+
+                            // First try to get filename from attachment details state
+                            if (attachmentDetails[attachment]?.fileName) {
+                              return attachmentDetails[attachment].fileName;
+                            }
+
+                            // Then try to get filename from job offer data
+                            if (jobOffer?.attachmentDetails?.fileName) {
+                              return jobOffer.attachmentDetails.fileName;
+                            }
+
+                            // Fallback: Extract filename from URL with better parsing
+                            const url = attachment;
+                            let filename = "Attachment";
+
+                            if (url) {
+                              try {
+                                // Remove query parameters and get the last part of the URL
+                                const cleanUrl = url.split("?")[0];
+                                const urlParts = cleanUrl.split("/");
+                                filename = urlParts[urlParts.length - 1] || "Attachment";
+
+                                // Decode URL-encoded characters
+                                filename = decodeURIComponent(filename);
+
+                                // Check if the filename looks like an ID (24 character hex string)
+                                const isId = /^[a-f0-9]{24}$/i.test(filename);
+                                
+                                // If filename is empty, too short, looks like an ID, or just extension, try to get a better name
+                                if (!filename || filename.length < 3 || filename.startsWith(".") || isId) {
+                                  if (contractTitle) {
+                                    // Try to get file extension from URL
+                                    const urlExtension = url.split(".").pop()?.split("?")[0];
+                                    if (urlExtension && urlExtension.length <= 5 && !urlExtension.includes("/")) {
+                                      filename = `${contractTitle.replace(/[^a-zA-Z0-9]/g, '_')}_attachment.${urlExtension}`;
+                                    } else {
+                                      filename = `${contractTitle.replace(/[^a-zA-Z0-9]/g, '_')}_attachment`;
+                                    }
+                                  } else {
+                                    filename = "Job_Offer_Attachment";
+                                  }
+                                }
+
+                                // If filename doesn't have an extension, try to add one based on URL
+                                if (!filename.includes(".")) {
+                                  const extension = url.split(".").pop()?.split("?")[0];
+                                  if (extension && extension.length <= 5 && !extension.includes("/")) {
+                                    filename = `${filename}.${extension}`;
+                                  }
+                                }
+                              } catch (error) {
+                                console.error("Error parsing attachment URL:", error);
+                                filename = contractTitle ? `${contractTitle}_attachment` : "Job_Offer_Attachment";
+                              }
+                            }
+
+                            return filename;
+                          })()}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 16,
+                            color: "#666",
+                            marginBottom: 4,
+                          }}
+                        >
+                          {(() => {
+                            // Show loading state if attachments are being fetched
+                            if (loadingAttachments) {
+                              return "Loading file details...";
+                            }
+
+                            // First try to get file size from attachment details state
+                            if (attachmentDetails[attachment]?.fileSize) {
+                              return formatFileSize(attachmentDetails[attachment].fileSize);
+                            }
+
+                            // Then try to get file size from job offer data
+                            if (jobOffer?.attachmentDetails?.fileSize) {
+                              return formatFileSize(jobOffer.attachmentDetails.fileSize);
+                            }
+
+                            // Check if we have file size in job offer data
+                            if (jobOffer?.attachmentSize) {
+                              return formatFileSize(jobOffer.attachmentSize);
+                            }
+                            
+                            // Check if we have file size from HEAD request
+                            if (fileSizes[attachment]) {
+                              return formatFileSize(fileSizes[attachment]);
+                            }
+                            
+                            // Try to extract from URL if it contains size info
+                            const url = attachment;
+                            if (url) {
+                              try {
+                                const urlParams = new URLSearchParams(url.split("?")[1] || "");
+                                const sizeParam = urlParams.get("size") || urlParams.get("filesize");
+                                if (sizeParam) {
+                                  return formatFileSize(parseInt(sizeParam));
+                                }
+                              } catch (error) {
+                                console.error("Error parsing URL parameters:", error);
+                              }
+                            }
+                            
+                            // If no size available, show a placeholder
+                            return "File size not available";
+                          })()}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 16,
+                            color: "#007674",
+                            fontWeight: 500,
+                          }}
+                        >
+                          Click to open file
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Milestones Section */}
             <div
               style={{
@@ -1716,61 +2174,180 @@ const FreelancersJobOfferDetails = () => {
         </div>
 
         {/* Action Buttons */}
-              <div
-                style={{
-          display: "flex", 
-                  gap: 20,
-                  justifyContent: "center",
-                  marginBottom: 24,
-                }}
-              >
-                <button
-                  style={{
-                    background: "#007674",
-            color: "white",
-            border: "none",
-                    padding: "10px 20px",
-                    borderRadius: "25px",
-            fontSize: 16,
-            fontWeight: 600,
-            cursor: "pointer",
-                    minWidth: 140,
-                    transition: "all 0.3s ease-in-out",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.transform = "translateY(-2px)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.transform = "translateY(0)";
-                  }}
-                  onClick={handleOpenAcceptModal}
-                >
-                  Accept offer
-          </button>
-                <button
-                  style={{
-            background: "transparent",
-                    color: "#007674",
-                    border: "none",
-                    padding: "10px 20px",
-                    borderRadius: "25px",
-            fontSize: 16,
-            fontWeight: 600,
-            cursor: "pointer",
-                    minWidth: 140,
-                    transition: "all 0.3s ease-in-out",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.target.style.background = "#f8f9fa";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.target.style.background = "transparent";
-                  }}
-                  onClick={handleOpenDeclineModal}
-                >
-                  Decline offer
-          </button>
-              </div>
+        {status === "accepted" ? (
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: 24,
+            }}
+          >
+            <div
+              style={{
+                background: "#d4edda",
+                color: "#155724",
+                border: "1px solid #c3e6cb",
+                padding: "16px 20px",
+                borderRadius: "8px",
+                fontSize: 16,
+                fontWeight: 600,
+                marginBottom: 16,
+              }}
+            >
+              ✅ Offer Accepted
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                color: "#6c757d",
+                lineHeight: 1.4,
+              }}
+            >
+              This job offer has been accepted. You can view your proposals and active contracts.
+            </div>
+            <button
+              style={{
+                background: "#007674",
+                color: "white",
+                border: "none",
+                padding: "10px 20px",
+                borderRadius: "25px",
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: "pointer",
+                minWidth: 140,
+                marginTop: 16,
+                transition: "all 0.3s ease-in-out",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = "translateY(0)";
+              }}
+              onClick={() => navigate("/ws/proposals")}
+            >
+              Go to Proposals
+            </button>
+          </div>
+        ) : status === "declined" ? (
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: 24,
+            }}
+          >
+            <div
+              style={{
+                background: "#f8d7da",
+                color: "#721c24",
+                border: "1px solid #f5c6cb",
+                padding: "16px 20px",
+                borderRadius: "8px",
+                fontSize: 16,
+                fontWeight: 600,
+                marginBottom: 16,
+              }}
+            >
+              ❌ Offer Declined
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                color: "#6c757d",
+                lineHeight: 1.4,
+              }}
+            >
+              This job offer has been declined and cannot be accepted.
+            </div>
+          </div>
+        ) : status === "expired" ? (
+          <div
+            style={{
+              textAlign: "center",
+              marginBottom: 24,
+            }}
+          >
+            <div
+              style={{
+                background: "#fff3cd",
+                color: "#856404",
+                border: "1px solid #ffeaa7",
+                padding: "16px 20px",
+                borderRadius: "8px",
+                fontSize: 16,
+                fontWeight: 600,
+                marginBottom: 16,
+              }}
+            >
+              ⏰ Offer Expired
+            </div>
+            <div
+              style={{
+                fontSize: 14,
+                color: "#6c757d",
+                lineHeight: 1.4,
+              }}
+            >
+              This job offer has expired and can no longer be accepted.
+            </div>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: "flex", 
+              gap: 20,
+              justifyContent: "center",
+              marginBottom: 24,
+            }}
+          >
+            <button
+              style={{
+                background: "#007674",
+                color: "white",
+                border: "none",
+                padding: "10px 20px",
+                borderRadius: "25px",
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: "pointer",
+                minWidth: 140,
+                transition: "all 0.3s ease-in-out",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = "translateY(-2px)";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = "translateY(0)";
+              }}
+              onClick={handleOpenAcceptModal}
+            >
+              Accept offer
+            </button>
+            <button
+              style={{
+                background: "transparent",
+                color: "#007674",
+                border: "none",
+                padding: "10px 20px",
+                borderRadius: "25px",
+                fontSize: 16,
+                fontWeight: 600,
+                cursor: "pointer",
+                minWidth: 140,
+                transition: "all 0.3s ease-in-out",
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.background = "#f8f9fa";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = "transparent";
+              }}
+              onClick={handleOpenDeclineModal}
+            >
+              Decline offer
+            </button>
+          </div>
+        )}
 
               {/* Offer Expiration */}
               <div

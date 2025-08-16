@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { BsBell, BsX, BsExclamationTriangle } from "react-icons/bs";
-import { FaInfo, FaRocket, FaUser, FaTimesCircle } from "react-icons/fa";
+import { FaInfo, FaRocket, FaUser, FaTimesCircle, FaCheck } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useUser } from "../../contexts/UserContext";
 import axios from "axios";
@@ -128,6 +128,8 @@ const ClientNotificationPage = () => {
     switch (type) {
       case "job_offer_declined":
         return <FaTimesCircle style={{ color: "#dc2626" }} />;
+      case "job_offer_accepted":
+        return <FaCheck style={{ color: "#16a34a" }} />;
       case "proposal_received":
         return <FaInfo style={{ color: "#007674" }} />;
       case "proposal_accepted":
@@ -175,6 +177,22 @@ const ClientNotificationPage = () => {
           text: "Your proposal was declined for",
           linkText: notification.additionalData?.jobTitle || "a project",
           linkUrl: `/client/jobs/${notification.jobId || "#"}`,
+        };
+      case "job_offer_accepted":
+        return {
+          text: `${notification.additionalData?.freelancerName || "A freelancer"} has accepted your job offer for`,
+          linkText: notification.additionalData?.jobTitle || "a project",
+          linkUrl: `/client/jobs/${notification.jobId || "#"}`,
+          details: `Expected Start: ${notification.additionalData?.expectedStartDate ? new Date(notification.additionalData.expectedStartDate).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          }) : 'Not specified'} | Estimated Completion: ${notification.additionalData?.estimatedCompletionDate ? new Date(notification.additionalData.estimatedCompletionDate).toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric' 
+          }) : 'Not specified'}`,
+          message: `Project Amount: ${notification.additionalData?.projectAmount || 'Not specified'}`
         };
       default:
         return {

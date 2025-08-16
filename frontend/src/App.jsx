@@ -3,7 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import HomePage from "./pages/HomePage";
-import DashboardPage from "./pages/DashboardPage";
+
 import CreateProfileWelcome from "./pages/Freelancers/CreateProfileWelcome";
 import QuickQuestions from "./pages/Freelancers/QuickQuestions";
 import ResumeImport from "./pages/Freelancers/ResumeImport";
@@ -19,12 +19,13 @@ import PhotoAndLocationSection from "./pages/Freelancers/PhotoAndLocationSection
 import SubmitProfile from "./pages/Freelancers/SubmitProfile";
 import FinishProfileSection from "./pages/Freelancers/FinishProfileSection";
 import AdminDashboard from "./pages/Admin/AdminDashboard";
+import AdminAdminsPage from "./pages/Admin/AdminAdminsPage";
 import AdminSkillsPage from "./pages/Admin/AdminSkillsPage";
 import AdminFreelancersPage from "./pages/Admin/AdminFreelancersPage";
 import AdminClientsPage from "./pages/Admin/AdminClientsPage";
 import AdminRequestsPage from "./pages/Admin/AdminRequestsPage";
 import AdminSpecialitiesPage from "./pages/Admin/AdminSpecialitiesPage";
-import AdminOverviewPage from "./pages/Admin/AdminOverviewPage";
+
 import AdminRequestsReviewPage from "./pages/Admin/AdminRequestsReviewPage";
 import ClientWelcomePage from "./pages/Clients/ClientWelcomePage";
 import ClientJobTitlePage from "./pages/Clients/ClientJobTitlePage";
@@ -73,6 +74,8 @@ import OfferSendingPage from "./pages/Clients/OfferSendingPage";
 import ClientJobOfferCheckout from "./pages/Clients/ClientJobOfferCheckout";
 import ContactPage from "./pages/ContactPage";
 import FreelancersJobOfferDetails from "./pages/Freelancers/FreelancersJobOfferDetails";
+import BanStatusChecker from "./components/BanStatusChecker";
+import RoleBasedRoute from "./components/RoleBasedRoute";
 
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -104,6 +107,7 @@ const App = () => {
     <UserProvider>
       <div>
         <RefreshHandler setIsAuthenticated={setIsAuthenticated} />
+        <BanStatusChecker />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
@@ -115,7 +119,7 @@ const App = () => {
             element={
               isAuthenticated ? (
                 <ProtectedRoute isAuthenticated={isAuthenticated}>
-                  <DashboardPage />
+                  <HomePage />
                 </ProtectedRoute>
               ) : (
                 <HomePage />
@@ -126,58 +130,118 @@ const App = () => {
           {/* Freelancers Routing */}
           <Route
             path="/create-profile/welcome"
-            element={<CreateProfileWelcome />}
+            element={
+              <RoleBasedRoute>
+                <CreateProfileWelcome />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/create-profile/quick-questions"
-            element={<QuickQuestions />}
+            element={
+              <RoleBasedRoute>
+                <QuickQuestions />
+              </RoleBasedRoute>
+            }
           />
           <Route 
             path="/create-profile/resume-import"
-            element={<ResumeImport />}
+            element={
+              <RoleBasedRoute>
+                <ResumeImport />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/create-profile/categories"
-            element={<CategorySelection />}
+            element={
+              <RoleBasedRoute>
+                <CategorySelection />
+              </RoleBasedRoute>
+            }
           />
-          <Route path="/create-profile/title" element={<UserTitle />} />
+          <Route path="/create-profile/title" element={
+            <RoleBasedRoute>
+              <UserTitle />
+            </RoleBasedRoute>
+          } />
           <Route
             path="/create-profile/experience"
-            element={<ExperienceSection />}
+            element={
+              <RoleBasedRoute>
+                <ExperienceSection />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/create-profile/education"
-            element={<EducationSection />}
+            element={
+              <RoleBasedRoute>
+                <EducationSection />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/create-profile/languages"
-            element={<LanguagesSection />}
+            element={
+              <RoleBasedRoute>
+                <LanguagesSection />
+              </RoleBasedRoute>
+            }
           />
-          <Route path="/create-profile/skills" element={<SkillsSelection />} />
+          <Route path="/create-profile/skills" element={
+            <RoleBasedRoute>
+              <SkillsSelection />
+            </RoleBasedRoute>
+          } />
           <Route
             path="/create-profile/overview"
-            element={<BiographySection />}
+            element={
+              <RoleBasedRoute>
+                <BiographySection />
+              </RoleBasedRoute>
+            }
           />
-          <Route path="/create-profile/rate" element={<RateSettingSection />} />
+          <Route path="/create-profile/rate" element={
+            <RoleBasedRoute>
+              <RateSettingSection />
+            </RoleBasedRoute>
+          } />
           <Route
             path="/create-profile/location"
-            element={<PhotoAndLocationSection />}
+            element={
+              <RoleBasedRoute>
+                <PhotoAndLocationSection />
+              </RoleBasedRoute>
+            }
           />
-          <Route path="/create-profile/submit" element={<SubmitProfile />} />
+          <Route path="/create-profile/submit" element={
+            <RoleBasedRoute>
+              <SubmitProfile />
+            </RoleBasedRoute>
+          } />
           <Route
             path="/create-profile/finish"
-            element={<FinishProfileSection />}
+            element={
+              <RoleBasedRoute>
+                <FinishProfileSection />
+              </RoleBasedRoute>
+            }
           />
 
           {/* Admin Routing */}
-          <Route path="/ws/admin" element={<AdminDashboard />}>
-            <Route path="" element={<AdminOverviewPage />} />
-            <Route path="overview" element={<AdminOverviewPage />} />
+          <Route path="/ws/admin" element={
+            <RoleBasedRoute>
+              <AdminDashboard />
+            </RoleBasedRoute>
+          }>
+            <Route path="" element={<AdminAdminsPage />} />
+            <Route path="admins" element={<AdminAdminsPage />} />
             <Route path="freelancers" element={<AdminFreelancersPage />} />
             <Route path="clients" element={<AdminClientsPage />} />
             <Route path="requests" element={<AdminRequestsPage />} />
             <Route
-              path="requests/review/:userId"
+              path="requests/review/:freelancerid"
               element={<AdminRequestsReviewPage />}
             />
             <Route path="specialities" element={<AdminSpecialitiesPage />} />
@@ -187,41 +251,77 @@ const App = () => {
           {/* Client Routing */}
           <Route
             path="/job-post/instant/welcome"
-            element={<ClientWelcomePage />}
+            element={
+              <RoleBasedRoute>
+                <ClientWelcomePage />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/job-post/instant/title"
-            element={<ClientJobTitlePage />}
+            element={
+              <RoleBasedRoute>
+                <ClientJobTitlePage />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/job-post/instant/skills"
-            element={<ClientJobSkillSelectionPage />}
+            element={
+              <RoleBasedRoute>
+                <ClientJobSkillSelectionPage />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/job-post/instant/scope"
-            element={<ClientJobScopePage />}
+            element={
+              <RoleBasedRoute>
+                <ClientJobScopePage />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/job-post/instant/budget"
-            element={<ClientJobBudgetPage />}
+            element={
+              <RoleBasedRoute>
+                <ClientJobBudgetPage />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/job-post/instant/add-description"
-            element={<ClientJobDescPage />}
+            element={
+              <RoleBasedRoute>
+                <ClientJobDescPage />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/job-post/instant/review"
-            element={<ClientJobReviewPage />}
+            element={
+              <RoleBasedRoute>
+                <ClientJobReviewPage />
+              </RoleBasedRoute>
+            }
           />
           <Route
             path="/job-post/instant/verify-email"
-            element={<ClientJobVerifyEmail />}
+            element={
+              <RoleBasedRoute>
+                <ClientJobVerifyEmail />
+              </RoleBasedRoute>
+            }
           />
 
           {/* Job Proposals */}
           <Route
             path="/ws/proposals/job/:jobId"
-            element={<JobDetailsNewWindow />}
+            element={
+              <RoleBasedRoute>
+                <JobDetailsNewWindow />
+              </RoleBasedRoute>
+            }
           >
             <Route path="apply" element={<JobProposalApply />} />
             <Route path="edit" element={<JobProposalEdit />} />
@@ -229,10 +329,18 @@ const App = () => {
 
           <Route
             path="/ws/proposals/:proposalId"
-            element={<JobProposalSubmit />}
+            element={
+              <RoleBasedRoute>
+                <JobProposalSubmit />
+              </RoleBasedRoute>
+            }
           />
 
-          <Route path="/ws/" element={<FreelancersOverview />}>
+          <Route path="/ws/" element={
+            <RoleBasedRoute>
+              <FreelancersOverview />
+            </RoleBasedRoute>
+          }>
             <Route path="find-work" element={<FreelancersDashboard />} />
             <Route path="messages" element={<FreelancerMessagesPage />} />
             <Route path="proposals" element={<FreelancersProposals />} />
@@ -287,7 +395,11 @@ const App = () => {
             path="/ws/ai-tools/ai-portfolio-web"
             element={<PortfolioBuilderDashboard />}
           />
-          <Route path="/ws/client/" element={<ClientDashboard />}>
+          <Route path="/ws/client/" element={
+            <RoleBasedRoute>
+              <ClientDashboard />
+            </RoleBasedRoute>
+          }>
             <Route path="dashboard" element={<ClientOverviewPage />} />
             <Route path="messages" element={<ClientMessagesPage />} />
             <Route path="info" element={<ClientInfoPage />} />

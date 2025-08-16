@@ -28,6 +28,22 @@ export const UserProvider = ({ children }) => {
         withCredentials: true 
       });
       
+      // Check if user is banned
+      if (response.data.banned) {
+        console.log("User is banned, logging out");
+        clearUserData();
+        setError(`Account Banned: ${response.data.banReason || 'No reason provided'}`);
+        return;
+      }
+      
+      // Check if user is banned from the user data
+      if (response.data.user && response.data.user.isBanned) {
+        console.log("User is banned, logging out");
+        clearUserData();
+        setError(`Account Banned: ${response.data.user.banReason || 'No reason provided'}`);
+        return;
+      }
+      
       const currentUser = response.data.user;
       
       // Only set user data if we get a valid response
@@ -56,8 +72,18 @@ export const UserProvider = ({ children }) => {
       // If it's an authentication error (401, 403), clear user data
       if (err.response && (err.response.status === 401 || err.response.status === 403)) {
         console.log("Authentication failed, clearing user data");
-        clearUserData();
-        setError("Authentication failed. Please log in again.");
+        
+        // Check if it's a ban response
+        if (err.response.data && err.response.data.banned) {
+          clearUserData();
+          setError(`Account Banned: ${err.response.data.banReason || 'No reason provided'}`);
+        } else if (err.response.data && err.response.data.user && err.response.data.user.isBanned) {
+          clearUserData();
+          setError(`Account Banned: ${err.response.data.user.banReason || 'No reason provided'}`);
+        } else {
+          clearUserData();
+          setError("Authentication failed. Please log in again.");
+        }
       } else {
         setError("Failed to load user data. Please try again.");
         
@@ -148,7 +174,16 @@ export const UserProvider = ({ children }) => {
       // No cached data, fetch from API
       fetchCurrentUser();
     }
-  }, []);
+
+    // Set up periodic check for banned status (every 30 seconds)
+    const intervalId = setInterval(() => {
+      if (userId) {
+        fetchCurrentUser();
+      }
+    }, 30000);
+
+    return () => clearInterval(intervalId);
+  }, [userId]);
 
   const value = {
     userId,
