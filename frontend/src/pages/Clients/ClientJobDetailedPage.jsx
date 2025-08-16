@@ -940,25 +940,29 @@ const ClientJobDetailedPage = () => {
 
   // Fetch hired freelancers for this job
   useEffect(() => {
+    console.log("useEffect for hired freelancers called with jobid:", jobid);
     if (!jobid) return;
     setHiredFreelancersLoading(true);
 
     // Fetch real data from AcceptedJobOffer table
     setHiredFreelancersError(""); // Clear previous errors
-    axios.get(`${API_URL}/hired-freelancers-test/${jobid}/`, { 
+    axios.get(`${API_URL}/hired-freelancers/${jobid}/`, { 
       withCredentials: true,
       timeout: 10000
     })
       .then((res) => {
+        console.log("Raw API response:", res.data);
         if (res.data && res.data.success) {
           console.log("Fetched hired freelancers:", res.data.hiredFreelancers);
+          console.log("Sample freelancer data structure:", res.data.hiredFreelancers[0]);
+          console.log("Number of hired freelancers:", res.data.hiredFreelancers.length);
           
           // Process the data to match frontend expectations
-          const processedFreelancers = res.data.hiredFreelancers.map((freelancer) => {
+          const processedFreelancers = res.data.hiredFreelancers.map((freelancer) => {                                                                                
             // Extract hourly rate from string format like "$10" or "$0"
             let hourlyRate = 0;
-            if (freelancer.hourlyRate && typeof freelancer.hourlyRate === 'string') {
-              const rateMatch = freelancer.hourlyRate.match(/\$(\d+(?:\.\d+)?)/);
+            if (freelancer.hourlyRate && typeof freelancer.hourlyRate === 'string') {                                                           
+              const rateMatch = freelancer.hourlyRate.match(/\$(\d+(?:\.\d+)?)/);                          
               hourlyRate = rateMatch ? parseFloat(rateMatch[1]) : 0;
             } else if (typeof freelancer.hourlyRate === 'number') {
               hourlyRate = freelancer.hourlyRate;
@@ -984,38 +988,38 @@ const ClientJobDetailedPage = () => {
               }
             }
 
-                         // Process skills - ensure they are in the correct format
-             let skills = [];
-             if (freelancer.skills && Array.isArray(freelancer.skills)) {
-               skills = freelancer.skills.map(skill => {
-                 if (typeof skill === 'string') {
-                   return skill;
-                 } else if (skill && typeof skill === 'object') {
-                   return skill.name || skill.label || skill.title || '';
-                 }
-                 return '';
-               }).filter(skill => skill && skill !== 'General Development' && skill.trim() !== '');
-             }
+            // Process skills - ensure they are in the correct format
+            let skills = [];
+            if (freelancer.skills && Array.isArray(freelancer.skills)) {
+              skills = freelancer.skills.map(skill => {
+                if (typeof skill === 'string') {
+                  return skill;
+                } else if (skill && typeof skill === 'object') {
+                  return skill.name || skill.label || skill.title || '';
+                }
+                return '';
+              }).filter(skill => skill && skill !== 'General Development' && skill.trim() !== '');
+            }
 
-             // If no skills, provide some default ones based on the freelancer's title
-             if (skills.length === 0) {
-               const title = freelancer.title || 'Freelancer';
-               if (title.toLowerCase().includes('video') || title.toLowerCase().includes('editor')) {
-                 skills = ['Video Editing', 'Adobe Premiere', 'After Effects', 'Motion Graphics'];
-               } else if (title.toLowerCase().includes('web') || title.toLowerCase().includes('developer')) {
-                 skills = ['Web Development', 'JavaScript', 'React', 'Node.js'];
-               } else if (title.toLowerCase().includes('design')) {
-                 skills = ['UI/UX Design', 'Figma', 'Adobe Photoshop', 'Illustrator'];
-               } else {
-                 skills = ['Project Management', 'Communication', 'Problem Solving', 'Team Collaboration'];
-               }
-             }
+            // If no skills, provide some default ones based on the freelancer's title
+            if (skills.length === 0) {
+              const title = freelancer.title || 'Freelancer';
+              if (title.toLowerCase().includes('video') || title.toLowerCase().includes('editor')) {
+                skills = ['Video Editing', 'Adobe Premiere', 'After Effects', 'Motion Graphics'];
+              } else if (title.toLowerCase().includes('web') || title.toLowerCase().includes('developer')) {
+                skills = ['Web Development', 'JavaScript', 'React', 'Node.js'];
+              } else if (title.toLowerCase().includes('design')) {
+                skills = ['UI/UX Design', 'Figma', 'Adobe Photoshop', 'Illustrator'];
+              } else {
+                skills = ['Project Management', 'Communication', 'Problem Solving', 'Team Collaboration'];
+              }
+            }
 
             return {
               id: freelancer.id,
               name: freelancer.name || 'Unknown Freelancer',
               title: freelancer.title || 'Freelancer',
-                             location: freelancer.location && freelancer.location !== 'Unknown Location' ? freelancer.location : 'Location not specified',
+              location: freelancer.location || 'Location not specified',
               hourlyRate: hourlyRate,
               jobSuccess: jobSuccess,
               completedJobs: 0, // Not provided by backend
@@ -1024,7 +1028,7 @@ const ClientJobDetailedPage = () => {
               onlineStatus: 'offline', // Not provided by backend
               // Job acceptance data
               acceptedAt: freelancer.acceptedAt,
-                             acceptanceMessage: freelancer.acceptanceMessage || freelancer.lastCommunication || `${freelancer.name} accepted the job offer for this project.`,
+              acceptanceMessage: freelancer.acceptanceMessage || freelancer.lastCommunication || `${freelancer.name} accepted the job offer for this project.`,
               contractDuration: freelancer.estimatedCompletionDate ? 'Ongoing' : 'Not specified',
               projectAmount: freelancer.projectAmount || 0,
               // Additional data from backend
@@ -1039,11 +1043,13 @@ const ClientJobDetailedPage = () => {
           setHiredFreelancers(processedFreelancers);
         } else {
           console.log("No hired freelancers found or API returned error");
+          console.log("API response:", res.data);
           setHiredFreelancers([]);
         }
       })
       .catch((error) => {
         console.error("Error fetching hired freelancers:", error);
+        console.error("Error details:", error.response?.data || error.message);
         setHiredFreelancers([]);
         setHiredFreelancersError("Failed to load hired freelancers. Please try again.");
       })
@@ -5724,554 +5730,8 @@ const ClientJobDetailedPage = () => {
             )}
 
             {activeHireTab === "hired" && (
-              <div style={{ width: "100%" }}>
-                {hiredFreelancersLoading ? (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      padding: "40px 20px",
-                      color: "#888",
-                      fontSize: 18,
-                      background: "#fff",
-                      borderRadius: 10,
-                      border: "1px solid #eee",
-                    }}
-                  >
-                    Loading hired freelancers...
-                  </div>
-                ) : hiredFreelancersError ? (
-                  <div
-                    style={{
-                      textAlign: "center",
-                      padding: "40px 20px",
-                      color: "red",
-                      fontSize: 18,
-                      background: "#fff",
-                      borderRadius: 10,
-                      border: "1px solid #eee",
-                    }}
-                  >
-                    {hiredFreelancersError}
-                  </div>
-                ) : hiredFreelancers.length === 0 ? (
-                  <div
-                    style={{
-                      maxWidth: 400,
-                      margin: "0 auto",
-                      textAlign: "center",
-                    }}
-                  >
-                    {/* Green Folder Icon with Blue Lines */}
-                    <div
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        marginBottom: 40,
-                        position: "relative",
-                      }}
-                    >
-                      {/* Blue Lines Above Folder */}
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "center",
-                          gap: 2,
-                          marginBottom: 8,
-                          position: "relative",
-                          zIndex: 2,
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: 3,
-                            height: 12,
-                            background: "#007bff",
-                            borderRadius: 1.5,
-                          }}
-                        ></div>
-                        <div
-                          style={{
-                            width: 3,
-                            height: 8,
-                            background: "#007bff",
-                            borderRadius: 1.5,
-                          }}
-                        ></div>
-                        <div
-                          style={{
-                            width: 3,
-                            height: 16,
-                            background: "#007bff",
-                            borderRadius: 1.5,
-                          }}
-                        ></div>
-                      </div>
-
-                      {/* Green Folder Icon */}
-                      <div
-                        style={{
-                          width: 80,
-                          height: 60,
-                          background: "#28a745",
-                          borderRadius: "8px 8px 0 0",
-                          position: "relative",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          boxShadow: "0 4px 12px rgba(40, 167, 69, 0.3)",
-                        }}
-                      >
-                        {/* Folder Tab */}
-                        <div
-                          style={{
-                            position: "absolute",
-                            top: -8,
-                            left: "50%",
-                            transform: "translateX(-50%)",
-                            width: 40,
-                            height: 8,
-                            background: "#28a745",
-                            borderRadius: "4px 4px 0 0",
-                            borderTop: "2px solid #fff",
-                            borderLeft: "2px solid #fff",
-                            borderRight: "2px solid #fff",
-                          }}
-                        ></div>
-
-                        {/* Folder Content Lines */}
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 3,
-                            marginTop: 8,
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: 50,
-                              height: 2,
-                              background: "#fff",
-                              borderRadius: 1,
-                            }}
-                          ></div>
-                          <div
-                            style={{
-                              width: 40,
-                              height: 2,
-                              background: "#fff",
-                              borderRadius: 1,
-                            }}
-                          ></div>
-                          <div
-                            style={{
-                              width: 45,
-                              height: 2,
-                              background: "#fff",
-                              borderRadius: 1,
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Heading */}
-                    <div
-                      style={{
-                        fontSize: 24,
-                        fontWeight: 700,
-                        color: "#000",
-                        marginBottom: 16,
-                        lineHeight: 1.2,
-                      }}
-                    >
-                      You haven't hired any freelancers yet
-                    </div>
-
-                    {/* Descriptive Text */}
-                    <div
-                      style={{
-                        fontSize: 18,
-                        color: "#666",
-                        marginBottom: 40,
-                        lineHeight: 1.5,
-                      }}
-                    >
-                      Start by reviewing proposals and making offers to talented freelancers.
-                    </div>
-                  </div>
-                ) : (
-                  hiredFreelancers.map((freelancer, index) => (
-                    <div
-                      key={freelancer.id || index}
-                      style={{
-                        background: "#fff",
-                        borderRadius: 12,
-                        padding: 24,
-                        marginBottom: 20,
-                        border: "1px solid #e9ecef",
-                        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                      }}
-                    >
-                      {/* Top Section - Profile and Overview */}
-                      <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
-                        {/* Left Side - Profile Picture */}
-                        <div style={{ position: "relative", flexShrink: 0 }}>
-                          <img
-                            src={`${API_URL}/profile-image/${freelancer.id || freelancer._id}/`}
-                            alt={freelancer.name}
-                            style={{
-                              width: 80,
-                              height: 80,
-                              borderRadius: "50%",
-                              objectFit: "cover",
-                              border: "3px solid #fff",
-                              boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                            }}
-                            onError={(e) => {
-                              e.target.src = `https://via.placeholder.com/80x80/4CAF50/FFFFFF?text=${
-                                freelancer.name?.charAt(0) || "F"
-                              }`;
-                            }}
-                          />
-                          {/* Online Status Indicator */}
-                          <div
-                            style={{
-                              position: "absolute",
-                              top: 4,
-                              left: 4,
-                              width: 16,
-                              height: 16,
-                              backgroundColor:
-                                freelancer.onlineStatus === "online"
-                                  ? "#28a745"
-                                  : "#6c757d",
-                              borderRadius: "50%",
-                              border: "2px solid #fff",
-                            }}
-                          />
-                        </div>
-
-                        {/* Center - Freelancer Info and Performance Metrics */}
-                        <div style={{ flex: 1 }}>
-                          {/* Name and Title */}
-                          <div style={{ marginBottom: 8 }}>
-                            <h3
-                              style={{
-                                margin: "0 0 4px 0",
-                                fontSize: 20,
-                                fontWeight: 700,
-                                color: "#333",
-                              }}
-                            >
-                              {freelancer.name}
-                            </h3>
-                            <p
-                              style={{
-                                margin: "0 0 4px 0",
-                                fontSize: 16,
-                                color: "#121212",
-                                fontWeight: 500,
-                              }}
-                            >
-                              {freelancer.title || "Freelancer"}
-                            </p>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: 14,
-                                color: "#666",
-                              }}
-                            >
-                              {freelancer.location || "Location not specified"}
-                            </p>
-                          </div>
-
-                          {/* Performance Metrics - Horizontal Layout */}
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 16,
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            <span
-                              style={{
-                                fontSize: 16,
-                                fontWeight: 600,
-                                color: "#333",
-                              }}
-                            >
-                              ₹{Number(freelancer.hourlyRate || 0).toFixed(2)}
-                            </span>
-                            <span
-                              style={{
-                                fontSize: 16,
-                                fontWeight: 600,
-                                color: "#333",
-                              }}
-                            >
-                              ₹{Number(freelancer.totalEarnings || 0).toLocaleString()}+ earned
-                            </span>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                color: "#007bff",
-                                fontSize: 14,
-                                fontWeight: 600,
-                              }}
-                            >
-                              <BsCheckCircle style={{ fontSize: 16 }} />
-                              {freelancer.jobSuccess || 0}% Job Success
-                            </div>
-                            {freelancer.jobSuccess >= 90 && (
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  color: "#007bff",
-                                  fontSize: 14,
-                                  fontWeight: 600,
-                                }}
-                              >
-                                <FaStar style={{ fontSize: 16 }} />
-                                Top Rated
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Right Side - Action Buttons */}
-                        <div
-                          style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 8,
-                            alignItems: "flex-end",
-                          }}
-                        >
-                          <button
-                            onClick={() => handleMessageClick(freelancer)}
-                            style={{
-                              border: "2px solid #28a745",
-                              color: "#28a745",
-                              background: "#fff",
-                              borderRadius: 8,
-                              padding: "8px 16px",
-                              fontWeight: 600,
-                              fontSize: 14,
-                              cursor: "pointer",
-                              transition: "all 0.2s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.background = "#28a745";
-                              e.target.style.color = "#fff";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.background = "#fff";
-                              e.target.style.color = "#28a745";
-                            }}
-                          >
-                            Message
-                          </button>
-                          <button
-                            style={{
-                              border: "none",
-                              color: "#fff",
-                              background: "#28a745",
-                              borderRadius: 8,
-                              padding: "8px 16px",
-                              fontWeight: 600,
-                              fontSize: 14,
-                              cursor: "pointer",
-                              transition: "all 0.2s ease",
-                            }}
-                            onMouseEnter={(e) => {
-                              e.target.style.background = "#218838";
-                            }}
-                            onMouseLeave={(e) => {
-                              e.target.style.background = "#28a745";
-                            }}
-                          >
-                            View Contract
-                          </button>
-                        </div>
-                      </div>
-
-                                             {/* Middle Section - Job Acceptance Information */}
-                       <div style={{ marginBottom: 20 }}>
-                         {/* Job Acceptance Message */}
-                         <div
-                           style={{
-                             display: "flex",
-                             alignItems: "center",
-                             gap: 6,
-                             fontSize: 14,
-                             color: "#666",
-                             marginBottom: 12,
-                           }}
-                         >
-                           <BsPaperclip style={{ fontSize: 14 }} />
-                           <span>
-                             Received {freelancer.acceptedAt
-                               ? timeAgo(freelancer.acceptedAt)
-                               : "2 months ago"}: {freelancer.acceptanceMessage || `${freelancer.name} accepted the job offer for this project.`}
-                           </span>
-                         </div>
-
-                         {/* Skills Section */}
-              <div>
-                           <div
-                             style={{
-                               fontSize: 16,
-                               fontWeight: 600,
-                               color: "#121212",
-                               marginBottom: 8,
-                             }}
-                           >
-                             Skills -
-                           </div>
-                           <div
-                             style={{
-                               display: "flex",
-                               flexWrap: "wrap",
-                               gap: 8,
-                               alignItems: "center",
-                             }}
-                           >
-                             {freelancer.skills &&
-                             Array.isArray(freelancer.skills) &&
-                             freelancer.skills.length > 0 ? (
-                               <>
-                                 {freelancer.skills
-                                   .slice(0, 8)
-                                   .map((skill, skillIndex) => {
-                                     // Handle different skill formats
-                                     let skillName = "";
-                                     if (typeof skill === "string") {
-                                       skillName = skill;
-                                     } else if (
-                                       skill &&
-                                       typeof skill === "object"
-                                     ) {
-                                       skillName =
-                                         skill.name ||
-                                         skill.label ||
-                                         skill.title ||
-                                         "";
-                                     }
-
-                                     return (
-                                       <span
-                                         key={skillIndex}
-                                         style={{
-                                           background: "#f8f9fa",
-                                           color: "#666",
-                                           border: "1px solid #e9ecef",
-                                           borderRadius: 20,
-                                           padding: "6px 12px",
-                                           fontSize: 14,
-                                           fontWeight: 500,
-                                           transition: "all 0.3s ease",
-                                           cursor: "pointer",
-                                         }}
-                                         onMouseEnter={(e) => {
-                                           e.target.style.background = "#e9ecef";
-                                           e.target.style.color = "#333";
-                                         }}
-                                         onMouseLeave={(e) => {
-                                           e.target.style.background = "#f8f9fa";
-                                           e.target.style.color = "#666";
-                                         }}
-                                       >
-                                         {skillName}
-                                       </span>
-                                     );
-                                   })}
-                                 {freelancer.skills.length > 8 && (
-                                   <span
-                                     style={{
-                                       color: "#007bff",
-                                       fontSize: 16,
-                                       fontWeight: 600,
-                                       cursor: "pointer",
-                                     }}
-                                   >
-                                     →
-                                   </span>
-                                 )}
-                               </>
-                             ) : (
-                               <span
-                                 style={{
-                                   background: "#f8f9fa",
-                                   color: "#666",
-                                   border: "1px solid #e9ecef",
-                                   borderRadius: 20,
-                                   padding: "6px 12px",
-                                   fontSize: 14,
-                                   fontWeight: 500,
-                                   fontStyle: "italic",
-                                 }}
-                               >
-                                 No skills listed
-                               </span>
-                             )}
-                           </div>
-                         </div>
-                       </div>
-
-                                             {/* Bottom Section - Contract Information */}
-                       <div>
-                         <div
-                           style={{
-                             display: "flex",
-                             flexDirection: "column",
-                             gap: 8,
-                           }}
-                         >
-                           {/* Contract Duration */}
-                           {freelancer.contractDuration && (
-                             <div
-                               style={{
-                                 display: "flex",
-                                 alignItems: "center",
-                                 gap: 8,
-                                 fontSize: 14,
-                                 color: "#666",
-                               }}
-                             >
-                               <BsClock style={{ fontSize: 14 }} />
-                               <span>Contract Duration: {freelancer.contractDuration}</span>
-                             </div>
-                           )}
-                           
-                           {/* Project Amount */}
-                           {freelancer.projectAmount && (
-                             <div
-                               style={{
-                                 display: "flex",
-                                 alignItems: "center",
-                                 gap: 8,
-                                 fontSize: 14,
-                                 color: "#666",
-                               }}
-                             >
-                               <BsCreditCard style={{ fontSize: 14 }} />
-                               <span>Project Amount: ₹{Number(freelancer.projectAmount).toLocaleString()}</span>
-                             </div>
-                           )}
-                         </div>
-                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
+              <>
+              Hello</>
             )}
           </div>
         );

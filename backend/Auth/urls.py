@@ -137,9 +137,6 @@ urlpatterns = [
     path('job-offers/<str:offer_id>/decline/', views.decline_job_offer, name='decline_job_offer'),
     path('job-offers/<str:offer_id>/accept/', views.accept_job_offer, name='accept_job_offer'),
     path('job-offers/accepted/freelancer/<str:freelancer_id>/', views.get_freelancer_accepted_job_offers, name='get_freelancer_accepted_job_offers'),
-    path('job-offers/test-accepted/', views.test_accepted_job_offers, name='test_accepted_job_offers'),
-    path('hired-freelancers/<str:job_id>/', views.get_hired_freelancers_for_job, name='get_hired_freelancers_for_job'),
-    path('hired-freelancers-test/<str:job_id>/', views.test_hired_freelancers_simple, name='test_hired_freelancers_simple'),
     
     # Notifications
     path('notifications/create/', views.create_notification, name='create_notification'),
@@ -152,6 +149,4 @@ urlpatterns = [
     # Proposal Withdrawal with Notification
     path('proposals/withdraw/', views.withdraw_proposal_with_notification, name='withdraw_proposal_with_notification'),
     
-    # Simple Notification
-    path('notifications/simple/', views.create_simple_notification, name='create_simple_notification'),
 ]
