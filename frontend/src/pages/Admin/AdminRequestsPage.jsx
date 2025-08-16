@@ -215,7 +215,7 @@ const AdminRequestsPage = () => {
             </div>
             <div className="d-flex align-items-center">
               <button
-                className="btn btn-outline-secondary"
+                className="post-button"
                 onClick={fetchRequests}
               >
                 <i className="fas fa-sync-alt"></i>

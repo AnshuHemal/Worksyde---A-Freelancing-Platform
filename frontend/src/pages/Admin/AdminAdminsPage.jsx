@@ -30,10 +30,12 @@ const AdminAdminsPage = () => {
       });
 
       if (response.data.success) {
+        console.log("AdminAdminsPage: Raw admin data:", response.data.admins);
         // Filter out superadmin users from the display
         const filteredAdmins = response.data.admins.filter(
           (admin) => admin.role !== "superadmin"
         );
+        console.log("AdminAdminsPage: Filtered admin data:", filteredAdmins);
         setAdmins(filteredAdmins);
       } else {
         setError("Failed to fetch admin users");
@@ -76,6 +78,11 @@ const AdminAdminsPage = () => {
     );
 
     toast.success(message);
+    
+    // Refresh data after 1 second to ensure consistency with backend
+    setTimeout(() => {
+      fetchAdmins();
+    }, 1000);
   };
 
   const closeBanModal = () => {
@@ -227,8 +234,10 @@ const AdminAdminsPage = () => {
                           </td>
                           <td>
                             <div className="" role="group">
+                              {/* Debug info */}
+                              {console.log(`AdminAdminsPage: Admin ${admin.name} (${admin._id}) - isBanned:`, admin.isBanned, 'banReason:', admin.banReason)}
                               {admin.isBanned ? (
-                                <button
+                                <button className="post-button"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleBanUser(admin, "unban");

@@ -91,7 +91,7 @@ const AdminHeader = () => {
               Skills
             </Link>
           </li>
-          <li className="nav-item">
+          {/* <li className="nav-item">
             <Link
               className={`nav-link mx-lg-2 ${
                 isActive("specialities") ? "active" : ""
@@ -100,7 +100,7 @@ const AdminHeader = () => {
             >
               Specialities
             </Link>
-          </li>
+          </li> */}
           <li className="nav-item">
             <Link
               className={`nav-link mx-lg-2 ${

@@ -405,7 +405,7 @@ def get_all_admins(request):
     """Get all admin and superadmin users - Superadmin only"""
     try:
         admin_users = User.objects.filter(role__in=['admin', 'superadmin']).only(
-            'id', 'name', 'email', 'role', 'isverified', 'phoneVerified', 'createdAt', 'lastLogin'
+            'id', 'name', 'email', 'role', 'isverified', 'phoneVerified', 'createdAt', 'lastLogin', 'isBanned', 'banReason'
         )
         
         admins_data = []
