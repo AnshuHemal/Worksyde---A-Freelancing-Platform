@@ -149,4 +149,7 @@ urlpatterns = [
     # Proposal Withdrawal with Notification
     path('proposals/withdraw/', views.withdraw_proposal_with_notification, name='withdraw_proposal_with_notification'),
     
+    # Budget Prediction
+    path('predict-budget/', views.predict_job_budget, name='predict_job_budget'),
+    
 ]

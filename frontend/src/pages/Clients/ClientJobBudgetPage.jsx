@@ -14,6 +14,7 @@ const ClientJobBudgetPage = () => {
   const [budgetType, setBudgetType] = useState("fixed"); // 'hourly' or 'fixed'
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const [predictedBudget, setPredictedBudget] = useState(null);
 
   const API_URL = "http://localhost:5000/api/auth";
 
@@ -38,7 +39,7 @@ const ClientJobBudgetPage = () => {
       toast.error("Please enter a valid budget range.");
       return;
     }
-    
+
     setIsLoading(true);
     try {
       const jobIdRes = await axios.post(`${API_URL}/jobposts/draft/`, {
@@ -52,7 +53,7 @@ const ClientJobBudgetPage = () => {
         hourlyRateFrom: hourlyRateFrom, // Always send the amount (for fixed price, this is the total budget)
         hourlyRateTo: budgetType === 'hourly' ? hourlyRateTo : 0,
       };
-      
+
       console.log('Sending budget data:', budgetData);
       console.log('Data types:', {
         jobId: typeof budgetData.jobId,
@@ -60,7 +61,7 @@ const ClientJobBudgetPage = () => {
         hourlyRateFrom: typeof budgetData.hourlyRateFrom,
         hourlyRateTo: typeof budgetData.hourlyRateTo
       });
-      
+
       const res = await axios.post(`${API_URL}/add-job-budget/`, budgetData);
 
       if (res.status === 200) {
@@ -79,22 +80,57 @@ const ClientJobBudgetPage = () => {
     }
   };
 
+  const fetchPredictedBudget = async (jobData) => {
+    try {
+      console.log("Fetching budget prediction with data:", jobData);
+      console.log("API URL:", `${API_URL}/predict-budget/`);
+      
+      const res = await axios.post(`${API_URL}/predict-budget/`, jobData, {
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      console.log("Prediction response:", res.data);
+      
+      if (res.data.success) {
+        setPredictedBudget(res.data.predicted_budget);
+        toast.success(`AI suggests budget: ₹${res.data.predicted_budget}`);
+      } else {
+        toast.error(res.data.message || "Failed to get budget prediction");
+      }
+    } catch (err) {
+      console.error("Prediction error:", err);
+      if (err.response) {
+        console.error("Error response:", err.response.data);
+        toast.error(`API Error: ${err.response.data.message || err.response.statusText}`);
+      } else if (err.request) {
+        console.error("No response received:", err.request);
+        toast.error("No response from server. Is the Django server running?");
+      } else {
+        console.error("Request setup error:", err.message);
+        toast.error("Error setting up the request");
+      }
+    }
+  };
+
   const MIN_RATE = 200;
   const MAX_RATE = 9999;
 
   const isBudgetValid =
-    budgetType === 'hourly' 
+    budgetType === 'hourly'
       ? (hourlyRateFrom !== "" &&
-         hourlyRateTo !== "" &&
-         !isNaN(hourlyRateFrom) &&
-         !isNaN(hourlyRateTo) &&
-         Number(hourlyRateFrom) >= MIN_RATE &&
-         Number(hourlyRateTo) <= MAX_RATE &&
-         Number(hourlyRateFrom) <= Number(hourlyRateTo))
+        hourlyRateTo !== "" &&
+        !isNaN(hourlyRateFrom) &&
+        !isNaN(hourlyRateTo) &&
+        Number(hourlyRateFrom) >= MIN_RATE &&
+        Number(hourlyRateTo) <= MAX_RATE &&
+        Number(hourlyRateFrom) <= Number(hourlyRateTo))
       : (hourlyRateFrom !== "" &&
-         !isNaN(hourlyRateFrom) &&
-         Number(hourlyRateFrom) >= MIN_RATE &&
-         Number(hourlyRateFrom) <= MAX_RATE);
+        !isNaN(hourlyRateFrom) &&
+        Number(hourlyRateFrom) >= MIN_RATE &&
+        Number(hourlyRateFrom) <= MAX_RATE);
 
   const averageRate =
     isBudgetValid
@@ -179,7 +215,7 @@ const ClientJobBudgetPage = () => {
                         <h3 className="fw-semibold mb-4" style={{ color: "#121212", letterSpacing: '0.3px' }}>
                           Budget Configuration
                         </h3>
-                        
+
                         {/* Budget Type Section */}
                         <div className="mb-5">
                           <h5 className="fw-semibold mb-4" style={{ color: "#007674", letterSpacing: '0.3px' }}>
@@ -190,9 +226,8 @@ const ClientJobBudgetPage = () => {
                             {budgetTypeOptions.map((option) => (
                               <div key={option.value} className="col-12">
                                 <div
-                                  className={`p-4 rounded cursor-pointer border-2 ${
-                                    budgetType === option.value ? "#007674" : "border-light"
-                                  }`}
+                                  className={`p-4 rounded cursor-pointer border-2 ${budgetType === option.value ? "#007674" : "border-light"
+                                    }`}
                                   style={{
                                     background: budgetType === option.value
                                       ? "#fff"
@@ -284,7 +319,7 @@ const ClientJobBudgetPage = () => {
                         <h3 className="fw-semibold mb-4" style={{ color: "#121212", letterSpacing: '0.3px' }}>
                           Set Your Budget Range
                         </h3>
-                        
+
                         <div className="mb-4">
                           <h5 className="fw-semibold mb-3" style={{ color: "#007674", letterSpacing: '0.3px' }}>
                             {budgetType === 'hourly' ? 'Hourly Rate Range' : 'Fixed Price Budget'}
@@ -294,7 +329,7 @@ const ClientJobBudgetPage = () => {
                               ? 'This will help us match you to the right talent within your hourly range.'
                               : 'Set your total project budget to attract the right talent for your project.'}
                           </p>
-                          
+
                           {budgetType === 'hourly' ? (
                             // Hourly Rate Range Inputs
                             <div className="row g-3 align-items-end">
@@ -371,15 +406,71 @@ const ClientJobBudgetPage = () => {
                                   </span>
                                 </div>
                               </div>
+                              <div className="col-md-4">
+                                <label className="form-label fw-semibold mb-2" style={{ color: "#121212", fontSize: "0.95rem" }}>
+                                  AI Budget Suggestion
+                                </label>
+                                <button
+                                  type="button"
+                                  className="btn w-100 d-flex align-items-center justify-content-center"
+                                  style={{
+                                    backgroundColor: "#007674",
+                                    color: "white",
+                                    border: "none",
+                                    borderRadius: "8px",
+                                    padding: "12px",
+                                    fontSize: "0.9rem",
+                                    fontWeight: "600"
+                                  }}
+                                  onClick={() => fetchPredictedBudget({
+                                    description: "Sample project description",
+                                    category: "Web Development",
+                                    experience_level: "Intermediate",
+                                    client_country: "India",
+                                    payment_type: budgetType === 'hourly' ? 'Hourly' : 'Fixed'
+                                  })}
+                                >
+                                  <BsCalculator className="me-2" size={16} />
+                                  Get AI Suggestion
+                                </button>
+                              </div>
                             </div>
                           )}
-                          
+
                           <div className="d-flex justify-content-between align-items-center mt-3">
                             <small style={{ color: "#666" }}>
-                              {budgetType === 'hourly' 
+                              {budgetType === 'hourly'
                                 ? `Range: ₹${MIN_RATE} - ₹${MAX_RATE} per hour`
                                 : `Budget: ₹${MIN_RATE} - ₹${MAX_RATE} total`
                               }
+                              {predictedBudget && (
+                                <>
+                                  <span style={{ marginLeft: "10px", color: "#28a745", fontWeight: "600" }}>
+                                    (AI Suggested: ₹{predictedBudget})
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="btn btn-sm ms-2"
+                                    style={{
+                                      backgroundColor: "#28a745",
+                                      color: "white",
+                                      border: "none",
+                                      borderRadius: "4px",
+                                      fontSize: "0.8rem",
+                                      padding: "2px 8px"
+                                    }}
+                                    onClick={() => {
+                                      setHourlyRateFrom(predictedBudget.toString());
+                                      if (budgetType === 'fixed') {
+                                        setHourlyRateTo(predictedBudget.toString());
+                                      }
+                                      toast.success("AI suggestion applied!");
+                                    }}
+                                  >
+                                    Apply
+                                  </button>
+                                </>
+                              )}
                             </small>
                             {isBudgetValid && hourlyRateFrom !== "" && (
                               <motion.div
@@ -394,12 +485,12 @@ const ClientJobBudgetPage = () => {
                               </motion.div>
                             )}
                           </div>
-                          
+
                           {/* Help Text */}
                           {hourlyRateFrom === "" && (
                             <div className="mt-2">
                               <small style={{ color: "#666", fontStyle: "italic" }}>
-                                {budgetType === 'hourly' 
+                                {budgetType === 'hourly'
                                   ? "Enter your hourly rate range to continue"
                                   : "Enter your project budget to continue"
                                 }
@@ -468,7 +559,7 @@ const ClientJobBudgetPage = () => {
                             style={{ backgroundColor: "#fff3cd", border: "1px solid #ffeaa7", color: "#856404" }}
                           >
                             <small>
-                              {budgetType === 'hourly' 
+                              {budgetType === 'hourly'
                                 ? `Please enter a valid range between ₹${MIN_RATE} and ₹${MAX_RATE} per hour`
                                 : `Please enter a valid budget between ₹${MIN_RATE} and ₹${MAX_RATE} total`
                               }
@@ -483,7 +574,7 @@ const ClientJobBudgetPage = () => {
                             background: hourlyRateFrom === "" ? "#6c757d" : "#007674",
                             color: "#fff",
                             fontSize: "1.1rem",
-                            boxShadow: hourlyRateFrom === "" 
+                            boxShadow: hourlyRateFrom === ""
                               ? "0 2px 8px rgba(0, 0, 0, 0.1)"
                               : "0 6px 20px rgba(0, 118, 116, 0.3)",
                             border: "none",
@@ -496,9 +587,9 @@ const ClientJobBudgetPage = () => {
                           whileHover={
                             hourlyRateFrom !== "" && isBudgetValid
                               ? {
-                                  scale: 1.02,
-                                  boxShadow: "0 8px 25px rgba(0, 118, 116, 0.4)",
-                                }
+                                scale: 1.02,
+                                boxShadow: "0 8px 25px rgba(0, 118, 116, 0.4)",
+                              }
                               : {}
                           }
                           whileTap={{ scale: 0.98 }}
@@ -509,7 +600,7 @@ const ClientJobBudgetPage = () => {
                             </div>
                           ) : (
                             <>
-                              {hourlyRateFrom === "" 
+                              {hourlyRateFrom === ""
                                 ? "Enter Budget to Continue"
                                 : "Next, Add Description"
                               }

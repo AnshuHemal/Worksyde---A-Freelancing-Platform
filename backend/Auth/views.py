@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.utils.timezone import make_aware, is_naive, get_default_timezone
 from django.conf import settings
 from django.db import models
+from ml_models.budget_predictor import budget_predictor
 from Auth.models import (
     User,
     Category,
@@ -6068,3 +6069,48 @@ def withdraw_proposal_with_notification(request):
     except Exception as e:
         print("Error in withdraw_proposal_with_notification:", e)
         return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(['POST'])
+def predict_job_budget(request):
+    """
+    Predict budget for a job based on job details using ML model
+    """
+    try:
+        data = request.data
+        
+        # Extract job details from request
+        job_data = {
+            "description": data.get("description", ""),
+            "category": data.get("category", "Web Development"),
+            "experience_level": data.get("experience_level", "Intermediate"),
+            "client_country": data.get("client_country", "India"),
+            "payment_type": data.get("payment_type", "Fixed"),
+            "applicants_num": data.get("applicants_num", 15.0),
+            "freelancers_num": data.get("freelancers_num", 8.0)
+        }
+        
+        # Get prediction from ML model
+        prediction_result = budget_predictor.predict_budget(job_data)
+        
+        if prediction_result["success"]:
+            return Response({
+                "success": True,
+                "predicted_budget": prediction_result["predicted_budget"],
+                "confidence": prediction_result.get("confidence", "medium"),
+                "message": "Budget predicted successfully"
+            })
+        else:
+            return Response({
+                "success": False,
+                "message": prediction_result["message"],
+                "predicted_budget": None
+            }, status=400)
+            
+    except Exception as e:
+        print("Error in predict_job_budget:", e)
+        return Response({
+            "success": False,
+            "message": "Server error during budget prediction",
+            "error": str(e)
+        }, status=500)
