@@ -125,6 +125,7 @@ const ClientJobDescPage = () => {
       const formData = new FormData();
       formData.append("jobId", jobId);
       formData.append("description", bioText);
+      formData.append("isContractToHire", "No, not at this time");
 
       // Only append file if one is uploaded
       if (uploadedFiles.length > 0 && uploadedFiles[0]) {

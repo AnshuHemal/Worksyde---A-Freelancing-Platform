@@ -2272,6 +2272,7 @@ def add_job_budget(request):
 def upload_job_post_attachment(request):
     job_id = request.data.get("jobId")
     description = request.data.get("description")
+    is_contract_to_hire = request.data.get("isContractToHire", "No, not at this time")
     file = request.FILES.get("file")
 
     if not job_id:
@@ -2291,20 +2292,26 @@ def upload_job_post_attachment(request):
         if not job_post:
             return Response({"message": "Job post not found"}, status=404)
 
-        # Update job post with description
+        # Update job post with description and contract type
         if description:
             job_post.description = description
+            
+        # Set the contract to hire status
+        job_post.isContractToHire = is_contract_to_hire
         
         # Handle file upload if provided
         if file:
             # Check if attachment exists for this job
             attachment = JobAttachment.objects(jobId=job_post).first()
 
+            # Read file content once
+            file_content = file.read()
+            
             if attachment:
                 attachment.fileName = file.name
                 attachment.contentType = file.content_type
                 attachment.fileSize = file.size
-                attachment.data = file.read()
+                attachment.data = file_content
                 attachment.save()
             else:
                 attachment = JobAttachment.objects.create(
@@ -2312,7 +2319,7 @@ def upload_job_post_attachment(request):
                     fileName=file.name,
                     contentType=file.content_type,
                     fileSize=file.size,
-                    data=file.read(),
+                    data=file_content,
                 )
 
             # Generate download URL
