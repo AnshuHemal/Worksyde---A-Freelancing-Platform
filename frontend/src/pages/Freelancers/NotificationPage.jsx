@@ -5,6 +5,7 @@ import { FaInfo, FaRocket, FaUser, FaTimes, FaCheck } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useUser } from "../../contexts/UserContext";
 import axios from "axios";
+import Loader from "../../components/Loader";
 
 const NotificationPage = () => {
   const navigate = useNavigate();
@@ -428,11 +429,8 @@ const NotificationPage = () => {
 
             {/* Notifications List */}
             {loading ? (
-              <div style={{ textAlign: "center", padding: "40px" }}>
-                <div className="spinner-border text-primary" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
-                <div style={{ marginTop: "16px", color: "#666" }}>Loading notifications...</div>
+              <div style={{ textAlign: "center", padding: "40px 0" }}>
+                <Loader message="Loading notifications..." />
               </div>
             ) : error ? (
               <div style={{ textAlign: "center", padding: "40px", color: "#dc2626" }}>

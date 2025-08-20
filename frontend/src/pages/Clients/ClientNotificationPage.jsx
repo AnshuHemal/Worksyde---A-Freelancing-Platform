@@ -5,6 +5,7 @@ import { FaInfo, FaRocket, FaUser, FaTimesCircle, FaCheck } from "react-icons/fa
 import { motion } from "framer-motion";
 import { useUser } from "../../contexts/UserContext";
 import axios from "axios";
+import Loader from "../../components/Loader";
 
 const ClientNotificationPage = () => {
   const navigate = useNavigate();
@@ -234,14 +235,7 @@ const ClientNotificationPage = () => {
 
   return (
     <>
-      <style>
-        {`
-          @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-        `}
-      </style>
+      
       <div
         className="section-container"
         style={{
@@ -454,27 +448,8 @@ const ClientNotificationPage = () => {
 
             {/* Loading State */}
             {loading && (
-              <div
-                style={{
-                  textAlign: "center",
-                  padding: "60px 20px",
-                  color: "#666",
-                }}
-              >
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    border: "4px solid #f3f3f3",
-                    borderTop: "4px solid #007674",
-                    borderRadius: "50%",
-                    animation: "spin 1s linear infinite",
-                    margin: "0 auto 16px auto",
-                  }}
-                />
-                <p style={{ margin: 0, fontSize: "18px" }}>
-                  Loading notifications...
-                </p>
+              <div style={{ textAlign: "center", padding: "40px 0" }}>
+                <Loader message="Loading notifications..." />
               </div>
             )}
 

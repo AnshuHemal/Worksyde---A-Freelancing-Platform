@@ -161,4 +161,5 @@ urlpatterns = [
     path('submissions/submit/', views.submit_project_submission),
     path('submissions/<str:submission_id>/request-changes/', views.request_changes_submission),
     path('submissions/<str:submission_id>/release-payment/', views.release_payment_submission),
+    path('submissions/<str:submission_id>/pdf/', views.get_submission_pdf),
 ]

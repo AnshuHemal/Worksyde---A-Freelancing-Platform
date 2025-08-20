@@ -56,7 +56,7 @@ from datetime import datetime, timedelta
 @verify_token
 def submit_project_submission(request):
     """Freelancer submits project for an accepted offer.
-    Expects: acceptedOfferId, title, description, pdfLink (optional), pdfFile (optional multipart)
+    Expects: acceptedOfferId, title, description, pdfFile (PDF only)
     """
     try:
         user = request.user
@@ -64,7 +64,7 @@ def submit_project_submission(request):
         accepted_offer_id = data.get('acceptedOfferId')
         title = (data.get('title') or '').strip()
         description = data.get('description') or ''
-        pdf_link = data.get('pdfLink')
+        pdf_link = None  # disallow external links for submissions
 
         if not accepted_offer_id or not title:
             return Response({"success": False, "message": "acceptedOfferId and title are required"}, status=400)
@@ -92,10 +92,17 @@ def submit_project_submission(request):
         try:
             pdf_file = request.FILES.get('pdfFile') if hasattr(request, 'FILES') else None
             if pdf_file:
+                content_type = getattr(pdf_file, 'content_type', '') or ''
+                name_lower = getattr(pdf_file, 'name', '').lower()
+                if content_type != 'application/pdf' and not name_lower.endswith('.pdf'):
+                    return Response({"success": False, "message": "Only PDF files are allowed"}, status=400)
                 submission.pdfFile = pdf_file.read()
-                submission.pdfFileContentType = pdf_file.content_type
+                submission.pdfFileContentType = 'application/pdf'
+            else:
+                # No file provided -> reject as we require PDF only
+                return Response({"success": False, "message": "Please attach a PDF file"}, status=400)
         except Exception:
-            pass
+            return Response({"success": False, "message": "Invalid file upload"}, status=400)
 
         submission.save()
 
@@ -203,7 +210,17 @@ def release_payment_submission(request, submission_id):
                 payout_amount = float(getattr(entry, 'estimatedFreelancerPayout', None) or getattr(entry, 'expectedPayout', 0.0) or 0.0)
                 # deduct from wallet entry amount and wallet balance
                 try:
+                    # reduce platform wallet balance by payout to freelancer
                     wallet.balance = float(wallet.balance or 0) - payout_amount
+                    # When releasing, consider both payout and platform fee as leaving escrow
+                    current_amount = float(getattr(entry, 'amount', 0.0) or 0.0)
+                    platform_fee = float(getattr(entry, 'platformFee', 0.0) or 0.0)
+                    amount_to_clear = payout_amount + platform_fee
+                    # If amount_to_clear covers or exceeds escrow, set to 0; else subtract
+                    if amount_to_clear >= current_amount or current_amount == 0:
+                        entry.amount = 0.0
+                    else:
+                        entry.amount = max(0.0, current_amount - amount_to_clear)
                 except Exception:
                     pass
                 break
@@ -220,6 +237,18 @@ def release_payment_submission(request, submission_id):
         # Update submission status
         submission.status = 'Completed'
         submission.save()
+
+        # Update accepted offer financials snapshot if needed
+        try:
+            offer = submission.acceptedOfferId
+            # Increase milestonesPaid, decrease inEscrow
+            current_paid = float(getattr(offer, 'milestonesPaid', 0.0) or 0.0)
+            setattr(offer, 'milestonesPaid', current_paid + payout_amount)
+            current_escrow = float(getattr(offer, 'inEscrow', 0.0) or 0.0)
+            setattr(offer, 'inEscrow', max(0.0, current_escrow - payout_amount))
+            offer.save()
+        except Exception as upd_err:
+            print('Warning: could not update offer aggregates:', upd_err)
 
         # Notify freelancer
         try:
@@ -239,6 +268,36 @@ def release_payment_submission(request, submission_id):
         return Response({"success": True, "amount": payout_amount, "freelancerWalletBalance": freelancer.walletBalance, "worksydeWalletBalance": wallet.balance})
     except Exception as e:
         print('release_payment_submission error:', e)
+        return Response({"success": False, "message": "Server error"}, status=500)
+
+@api_view(["GET"])
+@verify_token
+def get_submission_pdf(request, submission_id):
+    """Serve the submission PDF either from stored binary or return external link if present."""
+    try:
+        user = request.user
+        try:
+            submission = ProjectSubmission.objects.get(id=submission_id)
+        except ProjectSubmission.DoesNotExist:
+            return Response({"success": False, "message": "Submission not found"}, status=404)
+
+        # Only related client or freelancer can access
+        if str(submission.clientId.id) != str(user.id) and str(submission.freelancerId.id) != str(user.id):
+            return Response({"success": False, "message": "Unauthorized"}, status=403)
+
+        if getattr(submission, 'pdfFile', None):
+            content_type = submission.pdfFileContentType or 'application/pdf'
+            response = HttpResponse(submission.pdfFile, content_type=content_type)
+            filename = (submission.title or 'submission').replace(' ', '_') + '.pdf'
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+
+        if submission.pdfLink:
+            return Response({"success": True, "pdfLink": submission.pdfLink})
+
+        return Response({"success": False, "message": "No PDF available"}, status=404)
+    except Exception as e:
+        print('get_submission_pdf error:', e)
         return Response({"success": False, "message": "Server error"}, status=500)
 
 import json
@@ -6752,16 +6811,15 @@ def get_accepted_job_offer_details(request, accepted_job_offer_id):
                 print(f"Error converting project amount '{accepted_offer.projectAmount}' to float, using 0")
                 project_amount = 0
         
-        # For fixed price projects, show the full amount
+        # Initialize financials; will be refined using wallet entries if available
         if accepted_offer.paymentSchedule == "fixed_price":
-            in_escrow = project_amount  # Full amount in escrow
-            milestones_paid = 0  # Nothing paid yet
+            in_escrow = project_amount
+            milestones_paid = 0.0
             milestones_remaining = project_amount
-            total_earnings = 0
+            total_earnings = 0.0
         else:
-            # For milestone projects, use the original calculation
-            in_escrow = project_amount * 0.6  # 60% in escrow
-            milestones_paid = project_amount * 0.4  # 40% paid
+            in_escrow = project_amount * 0.6
+            milestones_paid = project_amount * 0.4
             milestones_remaining = in_escrow
             total_earnings = milestones_paid
         
@@ -6785,11 +6843,16 @@ def get_accepted_job_offer_details(request, accepted_job_offer_id):
                 except Exception:
                     matches_job = False
                 if matches_accepted or matches_job:
-                    # Override in_escrow from wallet entry amount if set
+                    # Override in_escrow from wallet entry amount if set, and derive paid amount
                     try:
                         entry_amount = float(getattr(entry, 'amount', None) or 0.0)
-                        if entry_amount > 0:
+                        if entry_amount >= 0:
                             in_escrow = entry_amount
+                            # Derive paid from project amount - escrow
+                            if project_amount and project_amount > 0:
+                                milestones_paid = max(0.0, project_amount - entry_amount)
+                                milestones_remaining = max(0.0, entry_amount)
+                                total_earnings = milestones_paid
                     except Exception:
                         pass
                     # Pick estimated payout fields
@@ -6869,6 +6932,7 @@ def get_accepted_job_offer_details(request, accepted_job_offer_id):
                     'title': s.title,
                     'description': s.description,
                     'pdfLink': s.pdfLink,
+                    'hasPdfFile': True if getattr(s, 'pdfFile', None) else False,
                     'createdAt': s.createdAt.isoformat() if s.createdAt else None,
                     'status': s.status,
                     'comments': [{'by': str(c.commenterId.id) if c.commenterId else None, 'text': c.text, 'createdAt': c.createdAt.isoformat() if c.createdAt else None} for c in (s.comments or [])]

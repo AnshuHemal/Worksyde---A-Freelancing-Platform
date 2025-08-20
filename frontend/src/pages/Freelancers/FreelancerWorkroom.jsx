@@ -10,6 +10,7 @@ import {
 import { motion } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
+import Loader from "../../components/Loader";
 
 const API_URL = "http://localhost:5000/api/auth";
 
@@ -24,6 +25,7 @@ const FreelancerWorkroom = () => {
   const [submitDesc, setSubmitDesc] = useState("");
   const [submitPdfLink, setSubmitPdfLink] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("full");
   const [customAmount, setCustomAmount] = useState("");
   const [message, setMessage] = useState("");
@@ -33,6 +35,7 @@ const FreelancerWorkroom = () => {
 
   const refreshContract = async () => {
     try {
+      setRefreshing(true);
       const response = await axios.get(
         `${API_URL}/accepted-job-offer/${acceptedjobofferId}/`,
         { withCredentials: true }
@@ -62,7 +65,7 @@ const FreelancerWorkroom = () => {
             projectAmount: originalProjectAmount,
             inEscrow,
             milestonesPaid,
-            totalEarnings,
+            totalEarnings: milestonesPaid, // ensure received reflects payouts
             progressPercentage,
           },
         };
@@ -70,6 +73,8 @@ const FreelancerWorkroom = () => {
       }
     } catch (e) {
       // ignore
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -103,7 +108,7 @@ const FreelancerWorkroom = () => {
               contractData.financials?.milestonesPaid || 0
             );
             const totalEarnings = parseFloat(
-              contractData.financials?.totalEarnings || 0
+              contractData.financials?.milestonesPaid || 0
             );
 
             console.log("Original project amount:", originalProjectAmount);
@@ -193,12 +198,17 @@ const FreelancerWorkroom = () => {
 
   const handleFileChange = (event) => {
     const file = event.target.files[0];
-    if (file && file.size <= 25 * 1024 * 1024) {
-      // 25MB limit
-      setSelectedFile(file);
-    } else {
-      toast.error("File size must be less than 25MB");
+    if (!file) return;
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    if (!isPdf) {
+      toast.error("Please upload a PDF file");
+      return;
     }
+    if (file.size > 25 * 1024 * 1024) {
+      toast.error("File size must be less than 25MB");
+      return;
+    }
+    setSelectedFile(file);
   };
 
   const handleUploadClick = () => {
@@ -222,12 +232,16 @@ const FreelancerWorkroom = () => {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      if (file.size <= 25 * 1024 * 1024) {
-        // 25MB limit
-        setSelectedFile(file);
-      } else {
-        toast.error("File size must be less than 25MB");
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      if (!isPdf) {
+        toast.error("Please upload a PDF file");
+        return;
       }
+      if (file.size > 25 * 1024 * 1024) {
+        toast.error("File size must be less than 25MB");
+        return;
+      }
+      setSelectedFile(file);
     }
   };
 
@@ -247,33 +261,7 @@ const FreelancerWorkroom = () => {
   };
 
   if (loading) {
-    return (
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          background: "#ffffff",
-          fontFamily:
-            "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div
-            style={{
-              width: 20,
-              height: 20,
-              border: "2px solid #e5e7eb",
-              borderTop: "2px solid #007674",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-            }}
-          />
-          Loading contract details...
-        </div>
-      </div>
-    );
+    return <Loader fullscreen message="Loading contract details..." />;
   }
 
   if (error || !contract) {
@@ -556,7 +544,7 @@ const FreelancerWorkroom = () => {
                       color: "white",
                       padding: "4px 12px",
                       borderRadius: 20,
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: 600,
                     }}
                   >
@@ -831,6 +819,7 @@ const FreelancerWorkroom = () => {
               border: "1px solid #e9ecef",
               boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
               height: "fit-content",
+              position: "relative",
             }}
           >
             {/* Header row with title and refresh */}
@@ -846,11 +835,11 @@ const FreelancerWorkroom = () => {
               >
                 Recent files
               </h2>
-              <div
+              <button
                 title="Refresh"
                 style={{
-                  width: 34,
-                  height: 34,
+                  width: 38,
+                  height: 38,
                   border: "2px solid #e5e7eb",
                   borderRadius: "50%",
                   display: "flex",
@@ -859,13 +848,36 @@ const FreelancerWorkroom = () => {
                   color: "#007674",
                   background: "#fff",
                   boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                  cursor: "pointer",
+                  cursor: refreshing ? "not-allowed" : "pointer",
                 }}
                 onClick={refreshContract}
+                disabled={refreshing}
               >
-                ↻
-              </div>
+                {refreshing ? (
+                  <div className="spinner-border spinner-border-sm" role="status" aria-label="Refreshing" />
+                ) : (
+                  <span style={{ transform: "translateY(-1px)" }}>↻</span>
+                )}
+              </button>
             </div>
+            {refreshing && (
+              <div
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  background: "rgba(255,255,255,0.7)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  flexDirection: "column",
+                  zIndex: 10,
+                  borderRadius: 12,
+                }}
+              >
+                <div className="spinner-border" role="status" aria-label="Refreshing" style={{ color: "#007674" }} />
+                <div style={{ marginTop: 8, color: "#121212", fontSize: 16 }}>Refreshing…</div>
+              </div>
+            )}
 
             {contract?.recentFiles?.length ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -880,25 +892,27 @@ const FreelancerWorkroom = () => {
                   >
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontWeight: 700, color: "#111827", fontSize: 16 }}>{file.title || "Submission"}</span>
-                      <span style={{ marginLeft: "auto", fontSize: 12, padding: "2px 8px", borderRadius: 999, background: file.status === 'Completed' ? '#d1fae5' : file.status === 'Changes Requested' ? '#fee2e2' : '#e5e7eb', color: '#111827' }}>{file.status || 'Pending'}</span>
+                      <span style={{ marginLeft: "auto", fontSize: 16, padding: "2px 8px", borderRadius: 999, background: file.status === 'Completed' ? '#d1fae5' : file.status === 'Changes Requested' ? '#fee2e2' : '#e5e7eb', color: '#111827' }}>{file.status || 'Pending'}</span>
                     </div>
                     {file.description ? (
-                      <div style={{ color: "#374151", fontSize: 14, marginTop: 6 }}>{file.description}</div>
+                      <div style={{ color: "#374151", fontSize: 16, marginTop: 6 }}>{file.description}</div>
                     ) : null}
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, color: "#6b7280", fontSize: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, color: "#6b7280", fontSize: 16 }}>
                       <span>{file.createdAt ? new Date(file.createdAt).toLocaleString() : ''}</span>
                       {file.pdfLink ? (
                         <a href={file.pdfLink} target="_blank" rel="noreferrer" style={{ color: "#007674", textDecoration: "none" }}>View PDF</a>
+                      ) : file.hasPdfFile ? (
+                        <a href={`${API_URL}/submissions/${file.id}/pdf/`} target="_blank" rel="noreferrer" style={{ color: "#007674", textDecoration: "none" }}>View PDF</a>
                       ) : null}
                     </div>
                     {Array.isArray(file.comments) && file.comments.length ? (
                       <div style={{ marginTop: 8 }}>
-                        <div style={{ fontSize: 12, color: "#111827", fontWeight: 600, marginBottom: 4 }}>Feedback</div>
+                        <div style={{ fontSize: 16, color: "#111827", fontWeight: 600, marginBottom: 4 }}>Feedback</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                           {file.comments.map((c, idx) => (
-                            <div key={idx} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 8, color: "#374151", fontSize: 13 }}>
+                            <div key={idx} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 8, color: "#374151", fontSize: 16 }}>
                               {c.text}
-                              <div style={{ color: "#9ca3af", fontSize: 11, marginTop: 4 }}>{c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}</div>
+                              <div style={{ color: "#9ca3af", fontSize: 16, marginTop: 4 }}>{c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}</div>
                             </div>
                           ))}
                         </div>
@@ -914,7 +928,7 @@ const FreelancerWorkroom = () => {
                     <div style={{ position: "absolute", left: 10, top: -14, width: 86, height: 28, background: " #007674", borderRadius: "6px 6px 0 0", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }} />
                   </div>
                 </div>
-                <div style={{ color: "#6b7280", fontSize: 14, textAlign: "center", lineHeight: 1.6 }}>
+                <div style={{ color: "#6b7280", fontSize: 16, textAlign: "center", lineHeight: 1.6 }}>
                   Files shared in messages, work submissions, or as part of the requirements, will be shown here
                 </div>
               </>
@@ -1044,7 +1058,7 @@ const FreelancerWorkroom = () => {
                     color: "white",
                     padding: "4px 12px",
                     borderRadius: "20px",
-                    fontSize: "14px",
+                    fontSize: "16px",
                     fontWeight: 600,
                   }}
                 >
@@ -1250,10 +1264,10 @@ const FreelancerWorkroom = () => {
                   style={{
                     margin: 0,
                     color: "#666",
-                    fontSize: "14px",
+                    fontSize: "16px",
                   }}
                 >
-                  Maximum file size: 25MB • All formats supported
+                  Maximum file size: 25MB • PDF only
                 </p>
               </div>
 
@@ -1261,7 +1275,7 @@ const FreelancerWorkroom = () => {
                 type="file"
                 ref={fileInputRef}
                 style={{ display: "none" }}
-                accept="*/*"
+                accept="application/pdf,.pdf"
                 onChange={handleFileChange}
               />
 
@@ -1301,12 +1315,12 @@ const FreelancerWorkroom = () => {
                             fontWeight: 600,
                             margin: "0 0 4px 0",
                             color: "#121212",
-                            fontSize: "14px",
+                            fontSize: "16px",
                           }}
                         >
                           {selectedFile.name}
                         </h6>
-                        <small style={{ color: "#666", fontSize: "12px" }}>
+                        <small style={{ color: "#666", fontSize: "16px" }}>
                           {formatFileSize(selectedFile.size)}
                         </small>
                       </div>
@@ -1375,20 +1389,24 @@ const FreelancerWorkroom = () => {
                 style={{
                   padding: "10px 20px",
                   border: "none",
-                  background: "#007674",
+                  background: submitting ? "#cbd5e1" : "#007674",
                   color: "#fff",
                   fontSize: "16px",
                   fontWeight: "600",
-                  cursor: "pointer",
+                  cursor: submitting ? "not-allowed" : "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
                 whileHover={{
-                  background: "#005a58",
+                  background: submitting ? "#cbd5e1" : "#005a58",
                 }}
                 whileTap={{ scale: 0.95 }}
+                disabled={submitting}
               >
-                Submit
+                {submitting ? (
+                  <span className="spinner-border spinner-border-sm" role="status" aria-label="Submitting" />
+                ) : null}
+                <span style={{ marginLeft: submitting ? 8 : 0 }}>{submitting ? "Submitting..." : "Submit"}</span>
               </motion.button>
             </div>
           </motion.div>
