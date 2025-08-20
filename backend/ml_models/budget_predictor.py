@@ -11,29 +11,29 @@ class BudgetPredictor:
     
     def load_model(self):
         """Load the trained budget prediction model"""
-        print("🔍 Attempting to load ML model...")
+        print("[INFO] Attempting to load ML model...")
         
         try:
             model_path = os.path.join(os.path.dirname(__file__), 'budget_model.pkl')
-            print(f"🔍 Looking for model at: {model_path}")
-            print(f"📁 Directory contents: {os.listdir(os.path.dirname(__file__))}")
-            print(f"📄 Model file exists: {os.path.exists(model_path)}")
+            print(f"[INFO] Looking for model at: {model_path}")
+            print(f"[INFO] Directory contents: {os.listdir(os.path.dirname(__file__))}")
+            print(f"[INFO] Model file exists: {os.path.exists(model_path)}")
             
             if not os.path.exists(model_path):
-                print(f"❌ Model file not found at {model_path}")
-                print("✅ Using intelligent rule-based prediction system instead")
+                print(f"[ERROR] Model file not found at {model_path}")
+                print("[INFO] Using intelligent rule-based prediction system instead")
                 self.model = None
                 return
             
             with open(model_path, 'rb') as f:
                 self.model = pickle.load(f)
-            print("✅ Budget prediction model loaded successfully!")
-            print(f"🤖 Model type: {type(self.model)}")
-            print("🎉 ML model is ready for predictions!")
+            print("[SUCCESS] Budget prediction model loaded successfully!")
+            print(f"[INFO] Model type: {type(self.model)}")
+            print("[INFO] ML model is ready for predictions!")
             
         except Exception as e:
-            print(f"❌ Error loading budget model: {e}")
-            print("✅ Falling back to intelligent rule-based prediction system")
+            print(f"[ERROR] Error loading budget model: {e}")
+            print("[INFO] Falling back to intelligent rule-based prediction system")
             import traceback
             traceback.print_exc()
             self.model = None
