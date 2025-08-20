@@ -553,22 +553,10 @@ const OfferSendingPage = () => {
         attachments: offerData.attachments,
         milestones: milestones,
       };
-
-      // Create job offer API call
-      const response = await axios.post(
-        `${API_URL}/job-offers/create/`,
-        jobOfferData,
-        {
-          withCredentials: true,
-        }
-      );
-
-      if (response.data.success) {
-        navigate(`/ws/client/payments/checkout/${response.data.jobOfferId}`);
-      }
+      // Navigate to checkout with data; create on successful transfer
+      navigate(`/ws/client/payments/checkout`, { state: { jobOfferData } });
     } catch (error) {
-      console.error("Error creating job offer:", error);
-      alert("Error creating job offer. Please try again.");
+      console.error("Error preparing job offer:", error);
     } finally {
       setSubmitting(false);
     }

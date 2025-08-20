@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import ClientHeader from "../../components/ClientHeader";
 import { BsArrowLeft, BsQuestionCircle, BsShield } from "react-icons/bs";
+import { ImInfo } from "react-icons/im";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { PAYPAL_CONFIG, PAYPAL_BUTTON_STYLES } from "../../config/paypal";
 import toast from "react-hot-toast";
 import worksydeLogo from "../../assets/worksyde.png";
 import paypalLogo from "../../assets/paypal.svg";
+import { TiTick } from "react-icons/ti";
+import { motion } from "framer-motion";
+import { RxCross2 } from "react-icons/rx";
+import { FaInfo } from "react-icons/fa6";
 
 const API_URL = "http://localhost:5000/api/auth";
 
@@ -24,132 +29,153 @@ const paypalOptions = {
 const ClientJobOfferCheckout = () => {
   const { jobofferid } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [loading, setLoading] = useState(true);
   const [jobOffer, setJobOffer] = useState(null);
   const [freelancer, setFreelancer] = useState(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
-  const [companyAddress, setCompanyAddress] = useState({
-    country: "India",
-    addressLine1: "",
-    addressLine2: "",
-    city: "",
-    postalCode: "",
-  });
-  const [savedAddress, setSavedAddress] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("paypal");
   const [processing, setProcessing] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [transferTextIndex, setTransferTextIndex] = useState(0);
+  const transferTexts = [
+    "Transferring Money from Client Wallet to Worksyde Wallet…",
+    "Securing funds in Worksyde Escrow…",
+    "Almost there…",
+  ];
   const [paypalOrderId, setPaypalOrderId] = useState(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0.0);
+  const [walletLoading, setWalletLoading] = useState(false);
+  
+  // PayPal wallet states
+  const [paypalAmount, setPaypalAmount] = useState("");
+  const [showPayPalWalletFlow, setShowPayPalWalletFlow] = useState(false);
+  const [showPayPalButton, setShowPayPalButton] = useState(false);
+  const [processingPayPal, setProcessingPayPal] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [worksydeWalletBalance, setWorksydeWalletBalance] = useState(null);
+
+  // Ensure PayPal amount input shows by default when entering Step 2
+  useEffect(() => {
+    if (currentStep === 2 && paymentMethod === "paypal") {
+      setShowPayPalWalletFlow(true);
+      // Do not auto-show PayPal button; require amount first
+      setShowPayPalButton(false);
+    }
+  }, [currentStep, paymentMethod]);
 
   useEffect(() => {
-    const fetchJobOfferData = async () => {
+    const init = async () => {
       try {
         setLoading(true);
 
-        // Fetch job offer details
-        const jobOfferResponse = await axios.get(
-          `${API_URL}/job-offers/${jobofferid}`,
-          {
-            withCredentials: true,
-          }
-        );
-        // Handle nested response structure
-        const jobOfferData =
-          jobOfferResponse.data.jobOffer || jobOfferResponse.data;
-        setJobOffer(jobOfferData);
+        // If we have an id, load from backend
+        if (jobofferid) {
+          const jobOfferResponse = await axios.get(
+            `${API_URL}/job-offers/${jobofferid}`,
+            { withCredentials: true }
+          );
+          const jobOfferData = jobOfferResponse.data.jobOffer || jobOfferResponse.data;
+          setJobOffer(jobOfferData);
 
-        // Fetch freelancer details if job offer has freelancer ID
-        if (jobOfferData.freelancerId) {
-          try {
-            // Use the correct freelancer complete profile endpoint
-            const freelancerResponse = await axios.get(
-              `${API_URL}/freelancer/complete-profile/${jobOfferData.freelancerId}/`,
-              {
-                withCredentials: true,
-              }
-            );
-            setFreelancer(freelancerResponse.data);
-          } catch (freelancerError) {
-            console.error("Error fetching freelancer:", freelancerError);
-            console.error(
-              "Freelancer error details:",
-              freelancerError.response?.data
-            );
-
-            // Try alternative endpoint as fallback
+          if (jobOfferData.freelancerId) {
             try {
-              const altFreelancerResponse = await axios.get(
-                `${API_URL}/freelancer/profile/${jobOfferData.freelancerId}/`,
-                {
-                  withCredentials: true,
-                }
+              const freelancerResponse = await axios.get(
+                `${API_URL}/freelancer/complete-profile/${jobOfferData.freelancerId}/`,
+                { withCredentials: true }
               );
-              setFreelancer(altFreelancerResponse.data);
-            } catch (altError) {
-              console.error(
-                "Alternative freelancer endpoint also failed:",
-                altError
-              );
-              // Continue without freelancer data
+              setFreelancer(freelancerResponse.data);
+            } catch (freelancerError) {
+              console.error("Error fetching freelancer:", freelancerError);
+              try {
+                const altFreelancerResponse = await axios.get(
+                  `${API_URL}/freelancer/profile/${jobOfferData.freelancerId}/`,
+                  { withCredentials: true }
+                );
+                setFreelancer(altFreelancerResponse.data);
+              } catch (altError) {
+                console.error("Alternative freelancer endpoint also failed:", altError);
+              }
             }
           }
-        } else {
-          console.log("No freelancer ID found in job offer data");
+        } else if (location.state?.jobOfferData) {
+          const stateOffer = location.state.jobOfferData;
+          setJobOffer(stateOffer);
+
+          if (stateOffer.freelancerId) {
+            try {
+              const freelancerResponse = await axios.get(
+                `${API_URL}/freelancer/complete-profile/${stateOffer.freelancerId}/`,
+                { withCredentials: true }
+              );
+              setFreelancer(freelancerResponse.data);
+            } catch (freelancerError) {
+              console.error("Error fetching freelancer:", freelancerError);
+              try {
+                const altFreelancerResponse = await axios.get(
+                  `${API_URL}/freelancer/profile/${stateOffer.freelancerId}/`,
+                  { withCredentials: true }
+                );
+                setFreelancer(altFreelancerResponse.data);
+              } catch (altError) {
+                console.error("Alternative freelancer endpoint also failed:", altError);
+              }
+            }
+          }
         }
+
+        await fetchWalletBalance();
+        await fetchTransactions();
       } catch (error) {
-        console.error("Error fetching job offer:", error);
+        console.error("Error initializing checkout:", error);
         setJobOffer(null);
       } finally {
         setLoading(false);
       }
     };
 
-    if (jobofferid) {
-      fetchJobOfferData();
-    }
-  }, [jobofferid]);
+    init();
+  }, [jobofferid, location.state]);
 
-  const handleAddressChange = (field, value) => {
-    setCompanyAddress((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
+  const fetchTransactions = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/wallet/transactions/`, { withCredentials: true });
+      if (res.data?.success) {
+        setTransactions(res.data.transactions || []);
+        setWorksydeWalletBalance(res.data.worksydeWalletBalance ?? null);
+      }
+    } catch (e) {
+      console.error('fetchTransactions error', e);
+    }
+  };
+
+  // Fetch wallet balance
+  const fetchWalletBalance = async () => {
+    try {
+      setWalletLoading(true);
+      const response = await axios.get(`${API_URL}/wallet/balance/`, {
+        withCredentials: true,
+      });
+      if (response.data.success) {
+        setWalletBalance(response.data.walletBalance);
+      }
+    } catch (error) {
+      console.error("Error fetching wallet balance:", error);
+    } finally {
+      setWalletLoading(false);
+    }
   };
 
   const handlePaymentMethodChange = (method) => {
     setPaymentMethod(method);
   };
 
-  const isFormValid = () => {
-    return (
-      companyAddress.addressLine1.trim() !== "" &&
-      companyAddress.city.trim() !== ""
-    );
-  };
-
-  const handleSave = async () => {
-    setProcessing(true);
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setSavedAddress({ ...companyAddress });
-      setCurrentStep(2);
-      setIsEditing(false);
-    } catch (error) {
-      console.error("Save error:", error);
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleEdit = () => {
-    setIsEditing(true);
-    setCurrentStep(1);
-    // Restore the saved address values to the form
-    if (savedAddress) {
-      setCompanyAddress(savedAddress);
-    }
+  // Check if wallet has sufficient funds
+  const hasSufficientWalletBalance = () => {
+    return walletBalance >= fees.total;
   };
 
   // PayPal payment functions
@@ -233,6 +259,172 @@ const ClientJobOfferCheckout = () => {
   const onPayPalCancel = () => {
     toast.error("Payment was cancelled.");
     setProcessing(false);
+  };
+
+  // Handle fund contract & hire button click
+  const handleFundContract = async () => {
+    if (hasSufficientWalletBalance()) {
+      // Transfer from client wallet to Worksyde wallet
+      setTransferring(true);
+      setProcessing(true);
+      try {
+        // animate text
+        const interval = setInterval(() => {
+          setTransferTextIndex((i) => (i + 1) % transferTexts.length);
+        }, 900);
+
+        const response = await axios.post(
+          `${API_URL}/wallet/transfer/client-to-worksyde/`,
+          {
+            amount: fees.total,
+            currency: 'INR',
+            freelancerId: jobOffer?.freelancerId,
+            jobId: jobOffer?.jobId || jobOffer?.job?.id || null,
+            offerId: jobOffer?.id || jobofferid || null,
+            marketplaceFee: fees.marketplaceFee,
+            contractFee: fees.contractFee,
+            freelancerFeePercent: 10,
+          },
+          { withCredentials: true }
+        );
+
+        clearInterval(interval);
+
+        if (response.data?.success) {
+          await fetchWalletBalance();
+          toast.success("Funds secured in Worksyde wallet.");
+          setPaymentSuccess(true);
+
+          // If we received offer data via navigation state, create the offer now
+          const stateOffer = location.state?.jobOfferData;
+          if (stateOffer) {
+            try {
+              const createResp = await axios.post(
+                `${API_URL}/job-offers/create/`,
+                stateOffer,
+                { withCredentials: true }
+              );
+              if (!createResp.data?.success) {
+                throw new Error(createResp.data?.message || 'Failed to create job offer');
+              }
+              toast.success('Job offer created.');
+            } catch (createErr) {
+              console.error('Create job offer after transfer failed:', createErr);
+              toast.error('Payment succeeded, but creating job offer failed.');
+              return;
+            }
+          }
+
+          navigate('/ws/client/dashboard', { replace: true });
+        } else {
+          throw new Error(response.data?.message || 'Transfer failed');
+        }
+      } catch (err) {
+        console.error('Fund contract error:', err);
+        toast.error(err?.message || 'Failed to fund contract');
+      } finally {
+        setTransferring(false);
+        setProcessing(false);
+      }
+    } else {
+      // Proceed with PayPal top up flow (Step 2)
+      setCurrentStep(2);
+      setPaymentMethod('paypal');
+    }
+  };
+
+  // PayPal wallet functions
+  const handlePayPalClick = () => {
+    console.log("handlePayPalClick called");
+    setShowPayPalWalletFlow(true);
+    setPaypalAmount("");
+    setShowPayPalButton(false);
+  };
+
+  const handleClosePayPalWallet = () => {
+    setShowPayPalWalletFlow(false);
+    setPaypalAmount("");
+    setShowPayPalButton(false);
+    setProcessingPayPal(false);
+    setPaymentMethod("paypal"); // Keep PayPal selected
+  };
+
+  const handlePayPalAmountSubmit = () => {
+    console.log("handlePayPalAmountSubmit called with amount:", paypalAmount);
+    if (!paypalAmount || parseFloat(paypalAmount) <= 0) {
+      toast.error("Please enter a valid amount greater than 0.");
+      return;
+    }
+    console.log("Setting showPayPalButton to true");
+    setShowPayPalButton(true);
+  };
+
+  const createPayPalWalletOrder = async (data, actions) => {
+    try {
+      setProcessingPayPal(true);
+
+      const response = await axios.post(
+        `${API_URL}/wallet/payment/initiate/`,
+        {
+          amount: parseFloat(paypalAmount),
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (response.data.success) {
+        return response.data.paypalOrderId;
+      } else {
+        throw new Error(response.data.message || "Failed to create PayPal order");
+      }
+    } catch (error) {
+      console.error("Error creating PayPal order:", error);
+      toast.error("Failed to create PayPal order. Please try again.");
+      throw error;
+    } finally {
+      setProcessingPayPal(false);
+    }
+  };
+
+  const onPayPalWalletApprove = async (data, actions) => {
+    try {
+      setProcessingPayPal(true);
+
+      const response = await axios.post(
+        `${API_URL}/paypal/payment/complete/`,
+        {
+          paypalOrderId: data.orderID,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (response.data.success) {
+        toast.success("Payment completed successfully! Your wallet has been topped up.");
+        fetchWalletBalance(); // Refresh wallet balance
+        handleClosePayPalWallet();
+      } else {
+        throw new Error(response.data.message || "Payment capture failed");
+      }
+    } catch (error) {
+      console.error("Error completing PayPal payment:", error);
+      toast.error("Payment failed. Please try again.");
+    } finally {
+      setProcessingPayPal(false);
+    }
+  };
+
+  const onPayPalWalletError = (err) => {
+    console.error("PayPal error:", err);
+    toast.error("PayPal payment failed. Please try again.");
+    setProcessingPayPal(false);
+  };
+
+  const onPayPalWalletCancel = () => {
+    toast.error("Payment was cancelled.");
+    setProcessingPayPal(false);
   };
 
   // Removed unused PayPal SDK functions
@@ -379,7 +571,7 @@ const ClientJobOfferCheckout = () => {
               padding: 0,
             }}
           >
-            {/* Step 1: Add/Edit company address */}
+            {/* Step 1: Wallet Balance Check */}
             <div
               style={{
                 fontWeight: 700,
@@ -387,255 +579,69 @@ const ClientJobOfferCheckout = () => {
                 padding: "18px 24px",
                 borderBottom: "1px solid #f0f0f0",
                 color: currentStep >= 1 ? "#121212" : "#999",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
               }}
             >
-              <span>
-                1. {savedAddress && !isEditing ? "Edit" : "Add"} company address
-              </span>
-              {savedAddress && !isEditing && (
-                <button
-                  onClick={handleEdit}
-                  style={{
-                    background: "none",
-                    border: "none",
-                    color: "#007674",
-                    cursor: "pointer",
-                    fontSize: 16,
-                    fontWeight: 600,
-                    padding: 0,
-                    fontFamily: "inherit",
-                  }}
-                >
-                  Edit
-                </button>
-              )}
+              1. Wallet Balance Check
             </div>
 
             {currentStep === 1 && (
               <div style={{ padding: "24px" }}>
-                {savedAddress && !isEditing ? (
-                  // Display saved address in read-only format
-                  <div style={{ marginBottom: 24 }}>
-                    <div
-                      style={{
-                        fontSize: 16,
-                        color: "#666",
-                        lineHeight: 1.5,
-                        padding: "16px",
-                        backgroundColor: "#f9f9f9",
-                        borderRadius: "6px",
-                        border: "1px solid #e0e0e0",
-                      }}
-                    >
-                      {savedAddress.addressLine1}
-                      {savedAddress.addressLine2 && (
-                        <>
-                          <br />
-                          {savedAddress.addressLine2}
-                        </>
-                      )}
-                      <br />
-                      {savedAddress.city}, {savedAddress.country}{" "}
-                      {savedAddress.postalCode}
-                    </div>
+                {walletLoading ? (
+                  <div style={{ textAlign: "center", padding: "20px" }}>
+                    <div style={{ color: "#007674" }}>Checking wallet balance...</div>
                   </div>
                 ) : (
-                  // Show address form for editing/adding
-                  <>
+                  <div>
                     <div style={{ marginBottom: 24 }}>
-                      <label
-                        style={{
-                          display: "block",
-                          fontSize: 16,
-                          fontWeight: 500,
-                          color: "#121212",
-                          marginBottom: 8,
-                        }}
-                      >
-                        Country
-                      </label>
-                      <select
-                        value={companyAddress.country}
-                        onChange={(e) =>
-                          handleAddressChange("country", e.target.value)
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "12px 16px",
-                          border: "1px solid #e0e0e0",
-                          borderRadius: "6px",
-                          fontSize: 16,
-                          outline: "none",
-                          fontFamily: "inherit",
-                          backgroundColor: "#fff",
-                        }}
-                      >
-                        <option value="India">India</option>
-                        <option value="United States">United States</option>
-                        <option value="United Kingdom">United Kingdom</option>
-                        <option value="Canada">Canada</option>
-                        <option value="Australia">Australia</option>
-                      </select>
-                    </div>
-
-                    <div style={{ marginBottom: 24 }}>
-                      <label
-                        style={{
-                          display: "block",
-                          fontSize: 16,
-                          fontWeight: 500,
-                          color: "#121212",
-                          marginBottom: 8,
-                        }}
-                      >
-                        Address line 1 *
-                      </label>
-                      <input
-                        type="text"
-                        value={companyAddress.addressLine1}
-                        onChange={(e) =>
-                          handleAddressChange("addressLine1", e.target.value)
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "12px 16px",
-                          border: "1px solid #e0e0e0",
-                          borderRadius: "6px",
-                          fontSize: 16,
-                          outline: "none",
-                          fontFamily: "inherit",
-                          backgroundColor: "#fff",
-                        }}
-                      />
-                    </div>
-
-                    <div style={{ marginBottom: 24 }}>
-                      <label
-                        style={{
-                          display: "block",
-                          fontSize: 16,
-                          fontWeight: 500,
-                          color: "#121212",
-                          marginBottom: 8,
-                        }}
-                      >
-                        Address line 2 (optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={companyAddress.addressLine2}
-                        onChange={(e) =>
-                          handleAddressChange("addressLine2", e.target.value)
-                        }
-                        style={{
-                          width: "100%",
-                          padding: "12px 16px",
-                          border: "1px solid #e0e0e0",
-                          borderRadius: "6px",
-                          fontSize: 16,
-                          outline: "none",
-                          fontFamily: "inherit",
-                          backgroundColor: "#fff",
-                        }}
-                      />
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: 16,
-                        marginBottom: 32,
-                      }}
-                    >
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 16,
-                            fontWeight: 500,
-                            color: "#121212",
-                            marginBottom: 8,
-                          }}
-                        >
-                          City *
-                        </label>
-                        <input
-                          type="text"
-                          value={companyAddress.city}
-                          onChange={(e) =>
-                            handleAddressChange("city", e.target.value)
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "12px 16px",
-                            border: "1px solid #e0e0e0",
-                            borderRadius: "6px",
-                            fontSize: 16,
-                            outline: "none",
-                            fontFamily: "inherit",
-                            backgroundColor: "#fff",
-                          }}
-                        />
+                      <div style={{ fontSize: 16, color: "#666", marginBottom: 8 }}>
+                        Your wallet balance: <strong style={{ color: "#121212" }}>₹{walletBalance.toFixed(2)}</strong>
                       </div>
-
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 16,
-                            fontWeight: 500,
-                            color: "#121212",
-                            marginBottom: 8,
-                          }}
-                        >
-                          Postal code (optional)
-                        </label>
-                        <input
-                          type="text"
-                          value={companyAddress.postalCode}
-                          onChange={(e) =>
-                            handleAddressChange("postalCode", e.target.value)
-                          }
-                          style={{
-                            width: "100%",
-                            padding: "12px 16px",
-                            border: "1px solid #e0e0e0",
-                            borderRadius: "6px",
-                            fontSize: 16,
-                            outline: "none",
-                            fontFamily: "inherit",
-                            backgroundColor: "#fff",
-                          }}
-                        />
+                      <div style={{ fontSize: 16, color: "#666", marginBottom: 8 }}>
+                        Required amount: <strong style={{ color: "#121212" }}>₹{fees.total.toFixed(2)}</strong>
                       </div>
+                      {hasSufficientWalletBalance() ? (
+                        <div style={{ 
+                          padding: "12px", 
+                          backgroundColor: "#fff", 
+                          color: "#007674", 
+                          borderRadius: "6px",
+                          fontSize: 18,
+                          fontWeight: 500
+                        }}>
+                          <TiTick size={20} /> Sufficient balance available! You can proceed with wallet payment.
+                        </div>
+                      ) : (
+                        <div style={{ 
+                          padding: "12px", 
+                          backgroundColor: "#fff", 
+                          color: "#007674", 
+                          borderRadius: "6px",
+                          fontSize: 18,
+                          fontWeight: 600
+                        }}>
+                          <RxCross2 size={20} /> Insufficient balance. You need ₹{(fees.total - walletBalance).toFixed(2)} more.
+                        </div>
+                      )}
                     </div>
-
+                    
                     <button
-                      onClick={handleSave}
-                      disabled={processing || !isFormValid()}
+                      onClick={() => setCurrentStep(2)}
+                      disabled={false}
                       style={{
                         padding: "16px 32px",
-                        backgroundColor:
-                          processing || !isFormValid() ? "#ccc" : "#007674",
+                        backgroundColor: "#007674",
                         color: "#fff",
                         border: "none",
                         borderRadius: "6px",
                         fontSize: 16,
                         fontWeight: 600,
-                        cursor:
-                          processing || !isFormValid()
-                            ? "not-allowed"
-                            : "pointer",
+                        cursor: "pointer",
                         transition: "all 0.3s ease",
                       }}
                     >
-                      {processing ? "Saving..." : "Save"}
+                      Continue
                     </button>
-                  </>
+                  </div>
                 )}
               </div>
             )}
@@ -650,104 +656,186 @@ const ClientJobOfferCheckout = () => {
                 color: currentStep >= 2 && !isEditing ? "#121212" : "#999",
               }}
             >
-              2. Add a billing method
+              2. Add a billing method {hasSufficientWalletBalance() && "(Optional - Wallet payment available)"}
             </div>
 
             {currentStep === 2 && !isEditing && (
               <div style={{ padding: "24px" }}>
-                {/* Payment Method Selection */}
+                {hasSufficientWalletBalance() ? (
+                  <div style={{ 
+                    padding: "12px", 
+                    backgroundColor: "#fff", 
+                    color: "#007674", 
+                    borderRadius: "6px",
+                    fontSize: 18,
+                    fontWeight: 500,
+                    marginBottom: 24
+                  }}>
+                    💳 You have sufficient wallet balance (₹{walletBalance.toFixed(2)}). You can skip adding a billing method and use wallet payment instead.
+                  </div>
+                ) : (
+                  <div style={{ 
+                    padding: "12px", 
+                    backgroundColor: "#fff", 
+                    color: "#007674", 
+                    borderRadius: "6px",
+                    fontSize: 16,
+                    fontWeight: 500,
+                    marginBottom: 24,
+                    border: "1px solid #007674"
+                  }}>
+                    <ImInfo className="me-2" size={20}/> Your wallet has ₹{walletBalance.toFixed(2)}. Please add ₹{(fees.total - walletBalance).toFixed(2)} to continue with payment.
+                  </div>
+                )}
+                
+                {/* Payment Method Selection (PayPal only) */}
                 <div style={{ marginBottom: 32 }}>
-                  <div style={{ marginBottom: 16 }}>
-                    <label
+                  <label
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      cursor: "pointer",
+                      padding: "12px 0",
+                    }}
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="paypal"
+                      checked={paymentMethod === "paypal"}
+                      onChange={() => {
+                        handlePaymentMethodChange("paypal");
+                        handlePayPalClick();
+                      }}
+                      style={{
+                        width: "18px",
+                        height: "18px",
+                        accentColor: "#007674",
+                      }}
+                    />
+                    <div
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 12,
-                        cursor: "pointer",
-                        padding: "12px 0",
+                        gap: 8,
                       }}
                     >
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="card"
-                        checked={paymentMethod === "card"}
-                        onChange={() => handlePaymentMethodChange("card")}
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          accentColor: "#007674",
-                        }}
+                      <img
+                        src={paypalLogo}
+                        alt="PayPal"
+                        style={{ width: "90px", objectFit: "contain" }}
                       />
-                      <div>
-                        <div
-                          style={{
-                            fontSize: 16,
-                            fontWeight: 500,
-                            color: "#121212",
-                          }}
-                        >
-                          Payment card
-                        </div>
-                        <div
-                          style={{ fontSize: 14, color: "#666", marginTop: 2 }}
-                        >
-                          Visa, Mastercard, American Express, Discover, Diners
-                        </div>
-                      </div>
-                    </label>
-                  </div>
-
-                  <div>
-                    <label
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        cursor: "pointer",
-                        padding: "12px 0",
-                      }}
-                    >
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value="paypal"
-                        checked={paymentMethod === "paypal"}
-                        onChange={() => handlePaymentMethodChange("paypal")}
-                        style={{
-                          width: "18px",
-                          height: "18px",
-                          accentColor: "#007674",
-                        }}
-                      />
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                        }}
-                      >
-                        <img
-                          src={paypalLogo}
-                          alt="PayPal"
-                          style={{ width: "90px", objectFit: "contain" }}
-                        />
-                      </div>
-                    </label>
-                  </div>
+                    </div>
+                  </label>
                 </div>
 
-                {/* Redirection Notice */}
-                {paymentMethod === "paypal" && (
-                  <div style={{ marginBottom: 32, textAlign: "center" }}>
-                    {/* Redirection Graphic */}
+                
+
+                {/* PayPal Wallet Flow */}
+                {paymentMethod === "paypal" && !showPayPalWalletFlow && (
+                  <div
+                    style={{
+                      backgroundColor: "#f8f9fa",
+                      padding: "12px",
+                      borderRadius: "6px",
+                      border: "1px solid #e9ecef",
+                      marginTop: "16px",
+                    }}
+                  >
+                    <div style={{ fontSize: "14px", color: "#121212", lineHeight: "1.4" }}>
+                      Click on PayPal above to add money to your wallet and complete the payment.
+                    </div>
+                  </div>
+                )}
+
+                {/* PayPal Wallet Amount Input */}
+                {paymentMethod === "paypal" && showPayPalWalletFlow && !showPayPalButton && (
+                  <div style={{ marginTop: "24px" }}>
+                    <div style={{ marginBottom: "24px" }}>
+                      <h3 style={{
+                        fontSize: "18px",
+                        fontWeight: 600,
+                        color: "#000000",
+                        margin: "0 0 16px 0",
+                        letterSpacing: "0.3px",
+                      }}>
+                        How many INR do you want to add to your wallet?
+                      </h3>
+                      
+                      <input
+                        type="number"
+                        placeholder="Enter amount in INR"
+                        value={paypalAmount}
+                        onChange={(e) => setPaypalAmount(e.target.value)}
+                        style={{
+                          width: "100%",
+                          padding: "12px 16px",
+                          border: "1px solid #d1d5db",
+                          borderRadius: "8px",
+                          fontSize: "18px",
+                          outline: "none",
+                          boxSizing: "border-box",
+                        }}
+                      />
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: "12px",
+                      }}
+                    >
+                      <button
+                        onClick={handleClosePayPalWallet}
+                        style={{
+                          padding: "10px 20px",
+                          border: "none",
+                          background: "none",
+                          color: "#007674",
+                          fontSize: "16px",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          borderRadius: "6px",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      
+                      <button
+                        onClick={handlePayPalAmountSubmit}
+                        style={{
+                          padding: "10px 20px",
+                          border: "none",
+                          background: "#007674",
+                          color: "#fff",
+                          fontSize: "16px",
+                          fontWeight: "600",
+                          cursor: "pointer",
+                          borderRadius: "6px",
+                        }}
+                      >
+                        Pay Now
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* PayPal Wallet Payment Section */}
+                {paymentMethod === "paypal" && showPayPalWalletFlow && showPayPalButton && (
+                  <div style={{ marginTop: "24px", textAlign: "center" }}>
                     <div
                       style={{
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         gap: 16,
-                        marginBottom: 16,
+                        marginBottom: 24,
+                        // padding: "20px",
+                        backgroundColor: "#fff",
+                        borderRadius: "8px",
+                        // border: "1px solid #e9ecef",
                       }}
                     >
                       <div
@@ -828,212 +916,106 @@ const ClientJobOfferCheckout = () => {
                         fontSize: 16,
                         color: "#121212",
                         lineHeight: 1.4,
+                        marginBottom: 24,
                       }}
                     >
                       You will be redirected to PayPal so you can connect your
                       PayPal account to Worksyde.
                     </div>
-                  </div>
-                )}
 
-                {/* PayPal Payment Button */}
-                {paymentMethod === "paypal" && (
-                  <div
-                    style={{
-                      marginTop: 24,
-                      width: "100%",
-                      display: "flex",
-                      justifyContent: "center",
-                    }}
-                  >
-                    <div style={{ width: "100%", maxWidth: "400px" }}>
+                    <div style={{ 
+                      width: "100%", 
+                      maxWidth: "400px", 
+                      margin: "0 auto",
+                      // border: "2px solid #007674",
+                      padding: "20px",
+                      borderRadius: "8px",
+                      backgroundColor: "#fff"
+                    }}>
+                      
                       <PayPalButtons
-                        createOrder={createPayPalOrder}
-                        onApprove={onPayPalApprove}
-                        onError={onPayPalError}
-                        onCancel={onPayPalCancel}
-                        style={PAYPAL_BUTTON_STYLES}
-                        disabled={processing}
+                        createOrder={createPayPalWalletOrder}
+                        onApprove={onPayPalWalletApprove}
+                        onError={onPayPalWalletError}
+                        onCancel={onPayPalWalletCancel}
+                        style={{
+                          layout: "horizontal",
+                          color: "blue",
+                          shape: "rect",
+                          label: "pay",
+                          tagline: false,
+                        }}
+                        disabled={processingPayPal}
                       />
+                    </div>
+
+                    {/* Currency Conversion Notice */}
+                    <div
+                      style={{
+                        textAlign: "left",
+                        backgroundColor: "#f8f9fa",
+                        padding: "12px",
+                        borderRadius: "6px",
+                        border: "1px solid #e9ecef",
+                        marginTop: "16px",
+                      }}
+                    >
+                      <strong style={{ fontSize: "14px", fontWeight: "600" }}>
+                        Payment Info:
+                      </strong>{" "}
+                      <br />
+                      <div
+                        style={{
+                          fontSize: "14px",
+                          color: "#121212",
+                          lineHeight: "1.4",
+                          marginTop: "8px",
+                        }}
+                      >
+                        PayPal will process your payment in USD (approximately ${(parseFloat(paypalAmount) / 83).toFixed(2)}) for international compatibility. Your original amount of ₹{parseFloat(paypalAmount).toFixed(2)} will be added to your wallet.
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {/* Currency Conversion Notice */}
-                {paymentMethod === "paypal" && (
-                  <div
+                {/* Card payment removed */}
+
+                {/* Back Button */}
+                <div style={{ 
+                  display: "flex", 
+                  justifyContent: "space-between", 
+                  alignItems: "center",
+                  marginTop: "24px",
+                  paddingTop: "24px",
+                  borderTop: "1px solid #f0f0f0"
+                }}>
+                  <button
+                    onClick={() => setCurrentStep(1)}
                     style={{
-                      backgroundColor: "#fff",
-                      padding: "12px",
+                      padding: "12px 24px",
+                      backgroundColor: "transparent",
+                      color: "#007674",
+                      border: "1px solid #007674",
                       borderRadius: "6px",
-                      border: "1px solid #e9ecef",
-                      marginTop: "26px",
-                      marginBottom: "26px",
+                      fontSize: 16,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.backgroundColor = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.backgroundColor = "transparent";
                     }}
                   >
-                    <strong style={{ fontSize: "20 px", fontWeight: "600" }}>
-                      Payment Info:
-                    </strong>{" "}
-                    <br />
-                    <div
-                      style={{
-                        fontSize: "16px",
-                        color: "#121212",
-                        lineHeight: "1.4",
-                        marginTop: "10px",
-                        marginBottom: "10px",
-                      }}
-                    >
-                      PayPal will process your payment in USD (approximately $
-                      {(fees.total / 83).toFixed(2)}) for international
-                      compatibility. Your original amount of ₹
-                      {fees.total.toLocaleString()} will be displayed in your
-                      transaction history.
-                    </div>
+                    ← Back
+                  </button>
+                  
+                  <div style={{ fontSize: "14px", color: "#666" }}>
+                    Step 2 of 2
                   </div>
-                )}
-
-                {paymentMethod === "card" && (
-                  <div style={{ marginTop: 24 }}>
-                    <div style={{ marginBottom: 24 }}>
-                      <label
-                        style={{
-                          display: "block",
-                          fontSize: 16,
-                          fontWeight: 500,
-                          color: "#121212",
-                          marginBottom: 8,
-                        }}
-                      >
-                        Card number
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="1234 5678 9012 3456"
-                        style={{
-                          width: "100%",
-                          padding: "12px 16px",
-                          border: "1px solid #e0e0e0",
-                          borderRadius: "6px",
-                          fontSize: 16,
-                          outline: "none",
-                          fontFamily: "inherit",
-                          backgroundColor: "#fff",
-                        }}
-                      />
-                    </div>
-
-                    <div
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "1fr 1fr",
-                        gap: 16,
-                        marginBottom: 24,
-                      }}
-                    >
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 16,
-                            fontWeight: 500,
-                            color: "#121212",
-                            marginBottom: 8,
-                          }}
-                        >
-                          Expiry date
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="MM/YY"
-                          style={{
-                            width: "100%",
-                            padding: "12px 16px",
-                            border: "1px solid #e0e0e0",
-                            borderRadius: "6px",
-                            fontSize: 16,
-                            outline: "none",
-                            fontFamily: "inherit",
-                            backgroundColor: "#fff",
-                          }}
-                        />
-                      </div>
-
-                      <div>
-                        <label
-                          style={{
-                            display: "block",
-                            fontSize: 16,
-                            fontWeight: 500,
-                            color: "#121212",
-                            marginBottom: 8,
-                          }}
-                        >
-                          CVV
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="123"
-                          style={{
-                            width: "100%",
-                            padding: "12px 16px",
-                            border: "1px solid #e0e0e0",
-                            borderRadius: "6px",
-                            fontSize: 16,
-                            outline: "none",
-                            fontFamily: "inherit",
-                            backgroundColor: "#fff",
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div style={{ marginBottom: 32 }}>
-                      <label
-                        style={{
-                          display: "block",
-                          fontSize: 16,
-                          fontWeight: 500,
-                          color: "#121212",
-                          marginBottom: 8,
-                        }}
-                      >
-                        Cardholder name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="John Doe"
-                        style={{
-                          width: "100%",
-                          padding: "12px 16px",
-                          border: "1px solid #e0e0e0",
-                          borderRadius: "6px",
-                          fontSize: 16,
-                          outline: "none",
-                          fontFamily: "inherit",
-                          backgroundColor: "#fff",
-                        }}
-                      />
-                    </div>
-
-                    <button
-                      disabled={processing}
-                      style={{
-                        padding: "16px 32px",
-                        backgroundColor: processing ? "#ccc" : "#007674",
-                        color: "#fff",
-                        border: "none",
-                        borderRadius: "6px",
-                        fontSize: 16,
-                        fontWeight: 600,
-                        cursor: processing ? "not-allowed" : "pointer",
-                        transition: "all 0.3s ease",
-                      }}
-                    >
-                      {processing ? "Processing..." : "Save Payment Method"}
-                    </button>
-                  </div>
-                )}
+                </div>
               </div>
             )}
           </div>
@@ -1172,6 +1154,22 @@ const ClientJobOfferCheckout = () => {
                     </span>
                   </div>
 
+                  {/* <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  >
+                    <span style={{ fontSize: 18, color: "#121212" }}>
+                      Estimated payout to freelancer
+                    </span>
+                    <span style={{ fontSize: 18, color: "#059669", fontWeight: 600 }}>
+                      ₹ {(fees.subtotal - (fees.subtotal * 0.10)).toLocaleString()}
+                    </span>
+                  </div> */}
+
                   <div
                     style={{
                       display: "flex",
@@ -1250,24 +1248,25 @@ const ClientJobOfferCheckout = () => {
               </div>
 
               <button
-                disabled={currentStep < 2 || isEditing}
+                onClick={handleFundContract}
+                disabled={currentStep < 1 || isEditing || processing}
                 style={{
                   width: "100%",
                   padding: "14px",
                   backgroundColor:
-                    currentStep >= 2 && !isEditing ? "#007674" : "#f0f0f0",
-                  color: currentStep >= 2 && !isEditing ? "#fff" : "#999",
+                    (currentStep >= 1 && !isEditing && !processing) ? "#007674" : "#f0f0f0",
+                  color: (currentStep >= 1 && !isEditing && !processing) ? "#fff" : "#999",
                   border: "none",
                   borderRadius: "6px",
                   fontSize: 16,
                   fontWeight: 600,
                   cursor:
-                    currentStep >= 2 && !isEditing ? "pointer" : "not-allowed",
+                    (currentStep >= 1 && !isEditing && !processing) ? "pointer" : "not-allowed",
                   marginBottom: 16,
                   transition: "all 0.3s ease",
                 }}
               >
-                Fund contract & hire
+                {processing ? "Processing..." : (hasSufficientWalletBalance() ? "Fund contract & hire (Wallet)" : "Fund contract & hire")}
               </button>
 
               <div
@@ -1300,6 +1299,45 @@ const ClientJobOfferCheckout = () => {
           </div>
         </div>
       </div>
+
+
+      {transferring && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              background: '#fff',
+              padding: '24px 28px',
+              borderRadius: 12,
+              minWidth: 320,
+              textAlign: 'center',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)'
+            }}
+          >
+            <div style={{ fontSize: 18, fontWeight: 600, color: '#121212', marginBottom: 12 }}>
+              {transferTexts[transferTextIndex]}
+            </div>
+            <div className="spinner" style={{
+              width: 32,
+              height: 32,
+              margin: '0 auto',
+              border: '3px solid #e5e7eb',
+              borderTopColor: '#007674',
+              borderRadius: '50%',
+              animation: 'spin 0.9s linear infinite'
+            }} />
+          </div>
+        </div>
+      )}
     </PayPalScriptProvider>
   );
 };

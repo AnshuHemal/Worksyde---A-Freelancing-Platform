@@ -6,6 +6,10 @@ import ClientHeader from "../../components/ClientHeader";
 import paypal_logo from "../../assets/paypal.svg";
 import payment_illustration from "../../assets/payment.svg";
 import axios from "axios";
+import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { PAYPAL_CONFIG, PAYPAL_BUTTON_STYLES } from "../../config/paypal";
+import toast from "react-hot-toast";
+import { motion } from "framer-motion";
 
 const SIDEBAR_WIDTH = 290;
 const API_URL = "http://localhost:5000/api/auth";
@@ -43,6 +47,23 @@ const ClientBillingPage = () => {
   const [paypalError, setPaypalError] = useState("");
   const [paypalSuccess, setPaypalSuccess] = useState("");
   const [paypalEmail, setPaypalEmail] = useState("");
+  
+  // Wallet payment states
+  const [showPayNowModal, setShowPayNowModal] = useState(false);
+  const [walletAmount, setWalletAmount] = useState("");
+  const [showPayPalButton, setShowPayPalButton] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0.0);
+
+  // PayPal configuration
+  const paypalOptions = {
+    "client-id": PAYPAL_CONFIG["client-id"],
+    currency: PAYPAL_CONFIG.currency,
+    intent: PAYPAL_CONFIG.intent,
+    "disable-funding": "venmo,paylater,card",
+    components: "buttons",
+    environment: PAYPAL_CONFIG.environment,
+  };
 
   useEffect(() => {
     async function fetchCountries() {
@@ -69,6 +90,7 @@ const ClientBillingPage = () => {
     if (userId) {
       fetchPaymentCards();
       fetchPaypalAccounts();
+      fetchWalletBalance();
     }
   }, [userId]);
 
@@ -89,6 +111,25 @@ const ClientBillingPage = () => {
       console.error("Error fetching payment cards:", error);
     } finally {
       setLoadingCards(false);
+    }
+  };
+
+  // Fetch wallet balance
+  const fetchWalletBalance = async () => {
+    if (!userId) return;
+
+    try {
+      const response = await axios.get(`${API_URL}/wallet/balance/`, {
+        withCredentials: true,
+      });
+
+      console.log("Wallet balance response:", response.data);
+      if (response.data.success) {
+        setWalletBalance(response.data.walletBalance);
+        console.log("Updated wallet balance state:", response.data.walletBalance);
+      }
+    } catch (error) {
+      console.error("Error fetching wallet balance:", error);
     }
   };
 
@@ -351,6 +392,97 @@ const ClientBillingPage = () => {
     }
   };
 
+  // Wallet payment functions
+  const handlePayNowClick = () => {
+    setShowPayNowModal(true);
+    setWalletAmount("");
+    setShowPayPalButton(false);
+  };
+
+  const handleClosePayNowModal = () => {
+    setShowPayNowModal(false);
+    setWalletAmount("");
+    setShowPayPalButton(false);
+    setProcessingPayment(false);
+  };
+
+  const handleAmountSubmit = () => {
+    if (!walletAmount || parseFloat(walletAmount) <= 0) {
+      toast.error("Please enter a valid amount greater than 0.");
+      return;
+    }
+    setShowPayPalButton(true);
+  };
+
+  const createWalletPayPalOrder = async (data, actions) => {
+    try {
+      setProcessingPayment(true);
+
+      const response = await axios.post(
+        `${API_URL}/wallet/payment/initiate/`,
+        {
+          amount: parseFloat(walletAmount),
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (response.data.success) {
+        return response.data.paypalOrderId;
+      } else {
+        throw new Error(response.data.message || "Failed to create PayPal order");
+      }
+    } catch (error) {
+      console.error("Error creating PayPal order:", error);
+      toast.error("Failed to create PayPal order. Please try again.");
+      throw error;
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const onWalletPayPalApprove = async (data, actions) => {
+    try {
+      setProcessingPayment(true);
+
+      const response = await axios.post(
+        `${API_URL}/paypal/payment/complete/`,
+        {
+          paypalOrderId: data.orderID,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      if (response.data.success) {
+        console.log("Payment response:", response.data);
+        toast.success("Payment completed successfully! Your wallet has been topped up.");
+        fetchWalletBalance(); // Refresh wallet balance
+        handleClosePayNowModal();
+      } else {
+        throw new Error(response.data.message || "Payment capture failed");
+      }
+    } catch (error) {
+      console.error("Error completing PayPal payment:", error);
+      toast.error("Payment failed. Please try again.");
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const onWalletPayPalError = (err) => {
+    console.error("PayPal error:", err);
+    toast.error("PayPal payment failed. Please try again.");
+    setProcessingPayment(false);
+  };
+
+  const onWalletPayPalCancel = () => {
+    toast.error("Payment was cancelled.");
+    setProcessingPayment(false);
+  };
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#fff" }}>
       <ClientSettingsSidebar
@@ -437,23 +569,30 @@ const ClientBillingPage = () => {
               Outstanding balance
             </div>
             <div style={{ fontSize: 28, fontWeight: 700, color: "#111", marginBottom: 16 }}>
-              ₹0.00
+              ₹{walletBalance.toFixed(2)}
             </div>
             <button
+              onClick={handlePayNowClick}
               style={{
-                background: "#f2f2f2",
-                color: "#b0b0b0",
+                background: "#007674",
+                color: "#fff",
                 border: "none",
                 borderRadius: 8,
                 padding: "12px 28px",
                 fontSize: 18,
                 fontWeight: 600,
-                cursor: "not-allowed",
+                cursor: "pointer",
                 marginTop: 4,
                 width: 150,
                 textAlign: "center",
+                transition: "background 0.2s ease",
               }}
-              disabled
+              onMouseEnter={(e) => {
+                e.target.style.background = "#005a58";
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.background = "#007674";
+              }}
             >
               Pay now
             </button>
@@ -1634,6 +1773,242 @@ const ClientBillingPage = () => {
           )}
         </div>
       </main>
+
+      {/* Pay Now Modal */}
+      {showPayNowModal && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.5)",
+            backdropFilter: "blur(4px)",
+            zIndex: 9999,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={handleClosePayNowModal}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{ duration: 0.3, type: "spring", damping: 25 }}
+            style={{
+              background: "#fff",
+              borderRadius: "12px",
+              padding: "32px",
+              width: "100%",
+              maxWidth: "500px",
+              maxHeight: "90vh",
+              boxShadow: "0 20px 40px rgba(0, 0, 0, 0.15)",
+              border: "1px solid #e6e6e6",
+              overflow: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "24px",
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0,
+                  fontSize: "24px",
+                  fontWeight: "600",
+                  color: "#1a1a1a",
+                }}
+              >
+                Add Money to Wallet
+              </h3>
+              <motion.button
+                onClick={handleClosePayNowModal}
+                style={{
+                  background: "none",
+                  border: "none",
+                  fontSize: "24px",
+                  color: "#666",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "4px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  transition: "all 0.2s ease",
+                }}
+                whileHover={{
+                  color: "#1a1a1a",
+                  background: "#f8f9fa",
+                }}
+                whileTap={{ scale: 0.95 }}
+              >
+                ×
+              </motion.button>
+            </div>
+
+            {!showPayPalButton ? (
+              <>
+                {/* Amount Input Section */}
+                <div style={{ marginBottom: "24px" }}>
+                  <h3 style={{
+                    fontSize: "18px",
+                    fontWeight: 600,
+                    color: "#000000",
+                    margin: "0 0 16px 0"
+                  }}>
+                    How many INR do you want to add to your wallet?
+                  </h3>
+                  
+                  <input
+                    type="number"
+                    placeholder="Enter amount in INR"
+                    value={walletAmount}
+                    onChange={(e) => setWalletAmount(e.target.value)}
+                    style={{
+                      width: "100%",
+                      padding: "12px 16px",
+                      border: "1px solid #d1d5db",
+                      borderRadius: "8px",
+                      fontSize: "18px",
+                      outline: "none",
+                      transition: "border-color 0.2s ease",
+                      boxSizing: "border-box",
+                    }}
+                    onFocus={(e) => {
+                      e.target.style.borderColor = "#007674";
+                    }}
+                    onBlur={(e) => {
+                      e.target.style.borderColor = "#d1d5db";
+                    }}
+                  />
+                </div>
+
+                {/* Submit Button */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "flex-end",
+                    gap: "12px",
+                  }}
+                >
+                  <motion.button
+                    onClick={handleClosePayNowModal}
+                    style={{
+                      padding: "10px 20px",
+                      border: "none",
+                      background: "none",
+                      color: "#007674",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      borderRadius: "6px",
+                      transition: "all 0.2s ease",
+                    }}
+                    whileHover={{
+                      background: "#f8f9fa",
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Cancel
+                  </motion.button>
+                  
+                  <motion.button
+                    onClick={handleAmountSubmit}
+                    style={{
+                      padding: "10px 20px",
+                      border: "none",
+                      background: "#007674",
+                      color: "#fff",
+                      fontSize: "16px",
+                      fontWeight: "600",
+                      cursor: "pointer",
+                      borderRadius: "6px",
+                      transition: "all 0.2s ease",
+                    }}
+                    whileHover={{
+                      background: "#005a58",
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    Continue
+                  </motion.button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* PayPal Payment Section */}
+                <div style={{ marginBottom: "24px" }}>
+                  <h3 style={{
+                    fontSize: "18px",
+                    fontWeight: 600,
+                    color: "#000000",
+                    margin: "0 0 16px 0"
+                  }}>
+                    Complete Payment
+                  </h3>
+                  
+                  <p style={{
+                    fontSize: "16px",
+                    color: "#666",
+                    margin: "0 0 24px 0"
+                  }}>
+                    Amount: ₹{parseFloat(walletAmount).toFixed(2)} (≈ ${(parseFloat(walletAmount) / 83).toFixed(2)} USD)
+                  </p>
+
+                  <PayPalScriptProvider options={paypalOptions}>
+                    <PayPalButtons
+                      createOrder={createWalletPayPalOrder}
+                      onApprove={onWalletPayPalApprove}
+                      onError={onWalletPayPalError}
+                      onCancel={onWalletPayPalCancel}
+                      style={PAYPAL_BUTTON_STYLES}
+                      disabled={processingPayment}
+                    />
+                  </PayPalScriptProvider>
+                </div>
+
+                {/* Currency Conversion Notice */}
+                <div
+                  style={{
+                    backgroundColor: "#f8f9fa",
+                    padding: "12px",
+                    borderRadius: "6px",
+                    border: "1px solid #e9ecef",
+                    marginTop: "16px",
+                  }}
+                >
+                  <strong style={{ fontSize: "14px", fontWeight: "600" }}>
+                    Payment Info:
+                  </strong>{" "}
+                  <br />
+                  <div
+                    style={{
+                      fontSize: "14px",
+                      color: "#121212",
+                      lineHeight: "1.4",
+                      marginTop: "8px",
+                    }}
+                  >
+                    PayPal will process your payment in USD (approximately ${(parseFloat(walletAmount) / 83).toFixed(2)}) for international compatibility. Your original amount of ₹{parseFloat(walletAmount).toFixed(2)} will be added to your wallet.
+                  </div>
+                </div>
+              </>
+            )}
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 };

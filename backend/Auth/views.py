@@ -8,7 +8,6 @@ from django.utils import timezone
 from django.utils.timezone import make_aware, is_naive, get_default_timezone
 from django.conf import settings
 from django.db import models
-from ml_models.budget_predictor import budget_predictor
 from Auth.models import (
     User,
     Category,
@@ -36,6 +35,10 @@ from Auth.models import (
     AcceptedJobOffer,
     Notification,
     Milestone,
+    WorksydeWallet,
+    Transaction,
+    ProjectSubmission,
+    SubmissionComment,
 )
 from .serializers import (
     EducationSerializer,
@@ -49,6 +52,195 @@ from Admin.emails import send_otp_email, send_under_review_email
 from django.http import HttpResponse
 import jwt
 from datetime import datetime, timedelta
+@api_view(["POST"])
+@verify_token
+def submit_project_submission(request):
+    """Freelancer submits project for an accepted offer.
+    Expects: acceptedOfferId, title, description, pdfLink (optional), pdfFile (optional multipart)
+    """
+    try:
+        user = request.user
+        data = request.data
+        accepted_offer_id = data.get('acceptedOfferId')
+        title = (data.get('title') or '').strip()
+        description = data.get('description') or ''
+        pdf_link = data.get('pdfLink')
+
+        if not accepted_offer_id or not title:
+            return Response({"success": False, "message": "acceptedOfferId and title are required"}, status=400)
+
+        try:
+            accepted_offer = AcceptedJobOffer.objects.get(id=accepted_offer_id)
+        except AcceptedJobOffer.DoesNotExist:
+            return Response({"success": False, "message": "Accepted offer not found"}, status=404)
+
+        # Only freelancer who owns the offer can submit
+        if str(accepted_offer.freelancerId.id) != str(user.id):
+            return Response({"success": False, "message": "Unauthorized"}, status=403)
+
+        submission = ProjectSubmission(
+            acceptedOfferId=accepted_offer,
+            jobId=accepted_offer.jobId,
+            clientId=accepted_offer.clientId,
+            freelancerId=user,
+            title=title,
+            description=description,
+            pdfLink=pdf_link
+        )
+
+        # Optional file (multipart)
+        try:
+            pdf_file = request.FILES.get('pdfFile') if hasattr(request, 'FILES') else None
+            if pdf_file:
+                submission.pdfFile = pdf_file.read()
+                submission.pdfFileContentType = pdf_file.content_type
+        except Exception:
+            pass
+
+        submission.save()
+
+        # Notify client
+        try:
+            n = Notification(
+                recipientId=accepted_offer.clientId,
+                senderId=user,
+                jobId=accepted_offer.jobId,
+                notificationType='system',
+                title='Project submitted',
+                message=f"{user.name} submitted work for '{accepted_offer.contractTitle}'.",
+                additionalData={
+                    'acceptedOfferId': str(accepted_offer.id),
+                    'submissionId': str(submission.id),
+                    'title': title,
+                    'pdfLink': pdf_link
+                }
+            )
+            n.save()
+        except Exception as notif_err:
+            print('Warning: submit notification failed:', notif_err)
+
+        return Response({
+            'success': True,
+            'submissionId': str(submission.id)
+        })
+    except Exception as e:
+        print('submit_project_submission error:', e)
+        return Response({"success": False, "message": "Server error"}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def request_changes_submission(request, submission_id):
+    """Client requests changes: add a comment, set status"""
+    try:
+        user = request.user
+        comment_text = (request.data.get('comment') or '').strip()
+        if not comment_text:
+            return Response({"success": False, "message": "comment is required"}, status=400)
+        try:
+            submission = ProjectSubmission.objects.get(id=submission_id)
+        except ProjectSubmission.DoesNotExist:
+            return Response({"success": False, "message": "Submission not found"}, status=404)
+
+        # Only the client of this submission can request changes
+        if str(submission.clientId.id) != str(user.id):
+            return Response({"success": False, "message": "Unauthorized"}, status=403)
+
+        submission.status = 'Changes Requested'
+        submission.comments.append(SubmissionComment(commenterId=user, text=comment_text))
+        submission.save()
+
+        # Notify freelancer
+        try:
+            n = Notification(
+                recipientId=submission.freelancerId,
+                senderId=user,
+                jobId=submission.jobId,
+                notificationType='system',
+                title='Changes requested',
+                message='Client requested changes on your submission.',
+                additionalData={
+                    'submissionId': str(submission.id),
+                    'comment': comment_text
+                }
+            )
+            n.save()
+        except Exception as notif_err:
+            print('Warning: changes notification failed:', notif_err)
+
+        return Response({"success": True})
+    except Exception as e:
+        print('request_changes_submission error:', e)
+        return Response({"success": False, "message": "Server error"}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def release_payment_submission(request, submission_id):
+    """Client accepts and releases payment: move funds Worksyde -> Freelancer wallet"""
+    try:
+        user = request.user
+        try:
+            submission = ProjectSubmission.objects.get(id=submission_id)
+        except ProjectSubmission.DoesNotExist:
+            return Response({"success": False, "message": "Submission not found"}, status=404)
+
+        # Only the client can release payment
+        if str(submission.clientId.id) != str(user.id):
+            return Response({"success": False, "message": "Unauthorized"}, status=403)
+
+        # Determine payout from Worksyde wallet entry expected/estimated payout
+        wallet = _get_or_create_worksyde_wallet()
+        payout_amount = 0.0
+        for entry in wallet.entries or []:
+            matches = False
+            try:
+                matches = (str(getattr(entry, 'acceptedOfferId', None).id) == str(submission.acceptedOfferId.id))
+            except Exception:
+                matches = False
+            if matches:
+                # prefer estimatedFreelancerPayout, else expectedPayout
+                payout_amount = float(getattr(entry, 'estimatedFreelancerPayout', None) or getattr(entry, 'expectedPayout', 0.0) or 0.0)
+                # deduct from wallet entry amount and wallet balance
+                try:
+                    wallet.balance = float(wallet.balance or 0) - payout_amount
+                except Exception:
+                    pass
+                break
+
+        # Credit freelancer wallet
+        freelancer = submission.freelancerId
+        try:
+            freelancer.walletBalance = float(freelancer.walletBalance or 0) + payout_amount
+        except Exception:
+            pass
+        wallet.save()
+        freelancer.save()
+
+        # Update submission status
+        submission.status = 'Completed'
+        submission.save()
+
+        # Notify freelancer
+        try:
+            n = Notification(
+                recipientId=freelancer,
+                senderId=user,
+                jobId=submission.jobId,
+                notificationType='system',
+                title='Payment released',
+                message=f'Client released payment: ₹{payout_amount:.2f}',
+                additionalData={'submissionId': str(submission.id), 'amount': payout_amount}
+            )
+            n.save()
+        except Exception as notif_err:
+            print('Warning: payout notification failed:', notif_err)
+
+        return Response({"success": True, "amount": payout_amount, "freelancerWalletBalance": freelancer.walletBalance, "worksydeWalletBalance": wallet.balance})
+    except Exception as e:
+        print('release_payment_submission error:', e)
+        return Response({"success": False, "message": "Server error"}, status=500)
+
 import json
 from bson import ObjectId
 from django.shortcuts import get_object_or_404
@@ -121,6 +313,216 @@ def generate_token_and_set_cookie(response, user_id):
         max_age=7 * 24 * 60 * 60,  # 7 days
     )
     return token
+def _get_or_create_worksyde_wallet():
+    wallet = WorksydeWallet.objects().first()
+    if not wallet:
+        wallet = WorksydeWallet(balance=0.0).save()
+    return wallet
+
+
+@api_view(["POST"])
+@verify_token
+def transfer_client_to_worksyde(request):
+    try:
+        data = request.data
+        amount = float(data.get("amount", 0))
+        currency = data.get("currency", "INR")
+        client_id = request.user.id
+        freelancer_id = data.get("freelancerId")  # optional context
+
+        if amount <= 0:
+            return Response({"success": False, "message": "Invalid amount"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects(id=client_id).first()
+        if not user:
+            return Response({"success": False, "message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if user.walletBalance < amount:
+            return Response({"success": False, "message": "Insufficient wallet balance"}, status=status.HTTP_400_BAD_REQUEST)
+
+        wallet = _get_or_create_worksyde_wallet()
+
+        # Perform updates
+        old_client_balance = float(user.walletBalance)
+        old_worksyde_balance = float(wallet.balance)
+        user.walletBalance = old_client_balance - amount
+        wallet.balance = old_worksyde_balance + amount
+        user.save()
+        wallet.save()
+
+        # Record transaction
+        txn = Transaction(
+            fromType="client",
+            toType="worksyde",
+            clientId=user,
+            amount=amount,
+            currency=currency,
+            type="Funding",
+            status="Success",
+        ).save()
+
+        # Optional escrow metadata
+        try:
+            job_id = data.get("jobId")
+            offer_id = data.get("offerId")
+            if job_id or offer_id:
+                from .models import WorksydeWallet as WorksydeWalletModel
+                from .models import JobPosts, AcceptedJobOffer, ProjectSubmission, SubmissionComment
+                entry = WorksydeWalletModel.WorksydeWalletEntry()
+                if job_id:
+                    try:
+                        entry.jobId = JobPosts.objects.get(id=job_id)
+                    except Exception:
+                        entry.jobId = None
+                entry.offerId = str(offer_id) if offer_id else None
+                entry.amount = float(amount)
+                # Compute expected payout to freelancer = subtotal; platform fees are not paid to freelancer
+                try:
+                    # The request from UI charges fixed fees over projectAmount
+                    # For safety, try to recompute from JobOffer if available
+                    subtotal = 0.0
+                    if offer_id:
+                        try:
+                            jo = JobOffer.objects.get(id=offer_id)
+                            # projectAmount could be string like "₹4,000"; sanitize
+                            pa = str(jo.projectAmount).replace('₹','').replace(',','').strip()
+                            subtotal = float(pa) if pa else 0.0
+                        except Exception:
+                            pass
+                    # If not found, fallback to amount minus known fixed fees if provided
+                    marketplace_fee = float(data.get('marketplaceFee', 50))
+                    contract_fee = float(data.get('contractFee', 100))
+                    if subtotal <= 0.0:
+                        subtotal = max(0.0, float(amount) - marketplace_fee - contract_fee)
+                    entry.expectedPayout = subtotal
+                    entry.platformFee = float(amount) - subtotal
+                    # Freelancer fee input; default 10%
+                    freelancer_fee_percent = float(data.get('freelancerFeePercent', 10))
+                    entry.freelancerFeePercent = freelancer_fee_percent
+                    entry.freelancerFee = round(subtotal * (freelancer_fee_percent / 100.0), 2)
+                    entry.estimatedFreelancerPayout = max(0.0, round(subtotal - entry.freelancerFee, 2))
+                except Exception as fee_err:
+                    print('Warning: failed to compute expected payout:', fee_err)
+                wallet.entries.append(entry)
+                wallet.save()
+        except Exception as escrow_err:
+            print("Warning: failed to append escrow entry:", escrow_err)
+
+        return Response({
+            "success": True,
+            "message": "Funds transferred to Worksyde wallet",
+            "clientWalletBalance": user.walletBalance,
+            "worksydeWalletBalance": wallet.balance,
+            "transactionId": str(txn.id),
+        })
+    except Exception as e:
+        print("transfer_client_to_worksyde error:", e)
+        # best-effort rollback if we already deducted/added
+        try:
+            user = User.objects(id=request.user.id).first()
+            wallet = WorksydeWallet.objects().first()
+            # naive rollback not guaranteed in concurrency
+            # only roll back if available
+            if user and wallet:
+                pass
+        except Exception:
+            pass
+        return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
+@verify_token
+def transfer_worksyde_to_freelancer(request):
+    try:
+        data = request.data
+        amount = float(data.get("amount", 0))
+        currency = data.get("currency", "INR")
+        freelancer_id = data.get("freelancerId")
+
+        if amount <= 0 or not freelancer_id:
+            return Response({"success": False, "message": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
+
+        freelancer = User.objects(id=freelancer_id).first()
+        if not freelancer:
+            return Response({"success": False, "message": "Freelancer not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        wallet = _get_or_create_worksyde_wallet()
+        if wallet.balance < amount:
+            return Response({"success": False, "message": "Insufficient Worksyde wallet balance"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Perform updates
+        old_worksyde_balance = float(wallet.balance)
+        old_freelancer_balance = float(freelancer.walletBalance or 0)
+        wallet.balance = old_worksyde_balance - amount
+        freelancer.walletBalance = old_freelancer_balance + amount
+        wallet.save()
+        freelancer.save()
+
+        # Record transaction
+        txn = Transaction(
+            fromType="worksyde",
+            toType="freelancer",
+            freelancerId=freelancer,
+            amount=amount,
+            currency=currency,
+            type="Payout",
+            status="Success",
+        ).save()
+
+        return Response({
+            "success": True,
+            "message": "Payout sent to freelancer",
+            "worksydeWalletBalance": wallet.balance,
+            "freelancerWalletBalance": freelancer.walletBalance,
+            "transactionId": str(txn.id),
+        })
+    except Exception as e:
+        print("transfer_worksyde_to_freelancer error:", e)
+        return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@verify_token
+def get_wallet_transactions(request):
+    try:
+        user_id = request.user.id
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"success": False, "message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Fetch transactions where user is involved (as client or freelancer)
+        txns = Transaction.objects.filter(
+            __raw__={
+                "$or": [
+                    {"clientId": user.id},
+                    {"freelancerId": user.id},
+                ]
+            }
+        ).order_by("-timestamp").limit(20)
+
+        items = []
+        for t in txns:
+            items.append({
+                "id": str(t.id),
+                "from": t.fromType,
+                "to": t.toType,
+                "amount": float(t.amount),
+                "currency": t.currency,
+                "type": t.type,
+                "status": t.status,
+                "timestamp": t.timestamp.isoformat(),
+            })
+
+        wallet = _get_or_create_worksyde_wallet()
+        return Response({
+            "success": True,
+            "transactions": items,
+            "worksydeWalletBalance": float(wallet.balance),
+        })
+    except Exception as e:
+        print("get_wallet_transactions error:", e)
+        return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 
 @api_view(["POST"])
@@ -2272,7 +2674,6 @@ def add_job_budget(request):
 def upload_job_post_attachment(request):
     job_id = request.data.get("jobId")
     description = request.data.get("description")
-    is_contract_to_hire = request.data.get("isContractToHire", "No, not at this time")
     file = request.FILES.get("file")
 
     if not job_id:
@@ -2292,26 +2693,20 @@ def upload_job_post_attachment(request):
         if not job_post:
             return Response({"message": "Job post not found"}, status=404)
 
-        # Update job post with description and contract type
+        # Update job post with description
         if description:
             job_post.description = description
-            
-        # Set the contract to hire status
-        job_post.isContractToHire = is_contract_to_hire
         
         # Handle file upload if provided
         if file:
             # Check if attachment exists for this job
             attachment = JobAttachment.objects(jobId=job_post).first()
 
-            # Read file content once
-            file_content = file.read()
-            
             if attachment:
                 attachment.fileName = file.name
                 attachment.contentType = file.content_type
                 attachment.fileSize = file.size
-                attachment.data = file_content
+                attachment.data = file.read()
                 attachment.save()
             else:
                 attachment = JobAttachment.objects.create(
@@ -2319,7 +2714,7 @@ def upload_job_post_attachment(request):
                     fileName=file.name,
                     contentType=file.content_type,
                     fileSize=file.size,
-                    data=file_content,
+                    data=file.read(),
                 )
 
             # Generate download URL
@@ -4107,7 +4502,63 @@ def complete_paypal_payment(request):
                 transaction.paypalResponse = capture_data
                 transaction.save()
                 
+                # Update wallet balance if this is a wallet payment
+                print(f"Transaction description: {transaction.description}")
+                print(f"Transaction jobOfferId: {transaction.jobOfferId}")
+                
+                # Check if this is a wallet payment (no job offer ID and description contains wallet/top-up)
+                is_wallet_payment = (
+                    transaction.jobOfferId is None and 
+                    transaction.description and 
+                    ("wallet" in transaction.description.lower() or "top-up" in transaction.description.lower())
+                )
+                
+                print(f"Is wallet payment: {is_wallet_payment}")
+                
+                if is_wallet_payment:
+                    try:
+                        user = User.objects.get(id=request.user.id)
+                        print(f"Current wallet balance: {user.walletBalance}")
+                        # Convert decimal to float for the addition
+                        amount_float = float(transaction.amount)
+                        user.walletBalance += amount_float
+                        user.save()
+                        print(f"Wallet balance updated for user {user.id}: +₹{amount_float}, new balance: {user.walletBalance}")
+                        
+                        # Refresh the user object to get updated balance
+                        user.refresh_from_db()
+                        print(f"After refresh - wallet balance: {user.walletBalance}")
+                    except Exception as wallet_error:
+                        print(f"Error updating wallet balance: {wallet_error}")
+                        import traceback
+                        print(f"Wallet error traceback: {traceback.format_exc()}")
+                else:
+                    print(f"Not a wallet payment - jobOfferId: {transaction.jobOfferId}, description: {transaction.description}")
+                
                 print(f"Payment completed successfully for transaction: {transaction.transactionId}")
+                
+                # Get the updated user object to return correct wallet balance
+                updated_user = User.objects.get(id=request.user.id)
+                
+                # If this was a wallet payment and balance wasn't updated, try to update it now
+                if (transaction.jobOfferId is None and 
+                    transaction.description and 
+                    ("wallet" in transaction.description.lower() or "top-up" in transaction.description.lower()) and
+                    updated_user.walletBalance == 0):
+                    
+                    print("Attempting to update wallet balance as fallback...")
+                    try:
+                        # Convert decimal to float for the addition
+                        amount_float = float(transaction.amount)
+                        updated_user.walletBalance += amount_float
+                        updated_user.save()
+                        print(f"Fallback wallet balance update: +₹{amount_float}, new balance: {updated_user.walletBalance}")
+                    except Exception as fallback_error:
+                        print(f"Fallback wallet update failed: {fallback_error}")
+                
+                # Final check - get the user again to ensure we have the latest balance
+                final_user = User.objects.get(id=request.user.id)
+                print(f"Final wallet balance check: {final_user.walletBalance}")
                 
                 return Response(
                     {
@@ -4118,7 +4569,8 @@ def complete_paypal_payment(request):
                         "transactionId": transaction.transactionId,
                         "amount": transaction.amount,
                         "currency": transaction.currency,
-                        "status": capture_data.get('status')
+                        "status": capture_data.get('status'),
+                        "walletBalance": final_user.walletBalance
                     },
                     status=status.HTTP_200_OK,
                 )
@@ -4156,6 +4608,186 @@ def complete_paypal_payment(request):
         print(f"Full traceback: {traceback.format_exc()}")
         return Response(
             {"success": False, "message": f"Error completing payment: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def initiate_wallet_payment(request):
+    """Initiate a PayPal payment for wallet top-up"""
+    import requests
+    import base64
+    import uuid
+    from django.conf import settings
+    from .models import PaymentTransaction
+    from django.utils import timezone
+    
+    try:
+        user_id = request.user.id
+        amount = request.data.get('amount')
+        
+        print(f"Wallet payment initiation started for user: {request.user}")
+        print(f"Request data: {request.data}")
+        
+        if not amount:
+            return Response(
+                {"success": False, "message": "Amount is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Validate amount
+        try:
+            amount = float(amount)
+            if amount <= 0:
+                return Response(
+                    {"success": False, "message": "Amount must be greater than 0."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except ValueError:
+            return Response(
+                {"success": False, "message": "Invalid amount format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Convert INR to USD for PayPal
+        usd_amount = round(amount / 83, 2)
+        if usd_amount < 1.00:
+            usd_amount = 1.00  # PayPal minimum
+        
+        # Generate unique transaction ID
+        transaction_id = str(uuid.uuid4())
+        
+        # Get PayPal access token
+        auth_url = "https://api.sandbox.paypal.com/v1/oauth2/token"
+        
+        auth_string = f"{settings.PAYPAL_CLIENT_ID}:{settings.PAYPAL_CLIENT_SECRET}"
+        auth_bytes = auth_string.encode('ascii')
+        auth_b64 = base64.b64encode(auth_bytes).decode('ascii')
+        
+        auth_headers = {
+            'Authorization': f'Basic {auth_b64}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        
+        auth_data = 'grant_type=client_credentials'
+        auth_response = requests.post(auth_url, headers=auth_headers, data=auth_data)
+        
+        if auth_response.status_code != 200:
+            print(f"PayPal authentication failed: {auth_response.status_code} - {auth_response.text}")
+            return Response(
+                {"success": False, "message": "Failed to authenticate with PayPal."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        access_token = auth_response.json()['access_token']
+        print(f"PayPal access token obtained successfully")
+        
+        # Create PayPal order for wallet top-up
+        orders_url = "https://api.sandbox.paypal.com/v2/checkout/orders"
+        
+        order_data = {
+            "intent": "CAPTURE",
+            "purchase_units": [{
+                "amount": {
+                    "currency_code": "USD",
+                    "value": f"{usd_amount:.2f}"
+                },
+                "description": f"Wallet Top-up: ₹{amount} INR"
+            }],
+            "application_context": {
+                "return_url": f"http://localhost:3000/payment/success?transactionId={transaction_id}",
+                "cancel_url": f"http://localhost:3000/payment/cancel?transactionId={transaction_id}",
+                "shipping_preference": "NO_SHIPPING"
+            }
+        }
+        
+        order_headers = {
+            'Authorization': f'Bearer {access_token}',
+            'Content-Type': 'application/json',
+            'PayPal-Request-Id': transaction_id
+        }
+        
+        print(f"Sending wallet order data to PayPal: {order_data}")
+        
+        order_response = requests.post(orders_url, headers=order_headers, json=order_data)
+        
+        print(f"PayPal API response status: {order_response.status_code}")
+        print(f"PayPal API response: {order_response.text}")
+        
+        if order_response.status_code == 201:
+            order = order_response.json()
+            order_id = order['id']
+            
+            # Create transaction record in database
+            transaction = PaymentTransaction(
+                transactionId=transaction_id,
+                paypalOrderId=order_id,
+                userId=request.user,
+                jobOfferId=None,  # No job offer for wallet payments
+                amount=amount,  # Store original INR amount
+                currency="INR",
+                description=f"Wallet Top-up: ₹{amount} INR (PayPal: ${usd_amount} USD)",
+                paymentMethod='paypal',
+                status='pending',
+                paypalResponse=order
+            )
+            transaction.save()
+            
+            return Response(
+                {
+                    "success": True,
+                    "message": "PayPal order created successfully for wallet top-up.",
+                    "paypalOrderId": order_id,
+                    "transactionId": transaction_id,
+                    "originalAmount": amount,
+                    "originalCurrency": "INR",
+                    "paypalAmount": usd_amount,
+                    "paypalCurrency": "USD"
+                },
+                status=status.HTTP_200_OK,
+            )
+        else:
+            print("Error while creating PayPal order for wallet:")
+            print(order_response.text)
+            return Response(
+                {
+                    "success": False,
+                    "message": "Failed to create PayPal order for wallet top-up.",
+                    "error": order_response.text
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+    except Exception as e:
+        import traceback
+        print(f"Wallet payment initiation error: {str(e)}")
+        print(f"Full traceback: {traceback.format_exc()}")
+        return Response(
+            {"success": False, "message": f"Error initiating wallet payment: {str(e)}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@verify_token
+def get_wallet_balance(request):
+    """Get the current wallet balance for the authenticated user"""
+    try:
+        user = User.objects.get(id=request.user.id)
+        wallet_balance = getattr(user, 'walletBalance', 0.0)
+        print(f"User {user.id} wallet balance: {wallet_balance}")
+        return Response(
+            {
+                "success": True,
+                "walletBalance": wallet_balance
+            },
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        print(f"Error in get_wallet_balance: {e}")
+        return Response(
+            {"success": False, "message": f"Error fetching wallet balance: {str(e)}"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
 
@@ -4761,9 +5393,11 @@ def get_verified_freelancers(request):
     try:
         # Find all users with role 'freelancer'
         freelancers = User.objects(role="freelancer")
+        print(f"Total freelancers found: {freelancers.count()}")
         verified_freelancers = []
         for user in freelancers:
-            req = Requests.objects(userId=user, status="verified").first()
+            req = Requests.objects(userId=user, status="approved").first()
+            print(f"Freelancer {user.name} (ID: {user.id}) - Request status: {req.status if req else 'No request found'}")
             if req:
                 # Calculate earnings and job success rate
                 proposals = JobProposals.objects(userId=user)
@@ -4804,6 +5438,55 @@ def get_verified_freelancers(request):
                     "onlineStatus": user.onlineStatus if hasattr(user, 'onlineStatus') else "offline",
                     "lastSeen": user.lastSeen if hasattr(user, 'lastSeen') else None,
                 })
+        
+        # If no approved freelancers found, show freelancers with any request status
+        if not verified_freelancers:
+            print("No approved freelancers found, showing freelancers with any request status...")
+            for user in freelancers:
+                req = Requests.objects(userId=user).first()
+                if req:
+                    print(f"Freelancer {user.name} (ID: {user.id}) - Request status: {req.status}")
+                    # Calculate earnings and job success rate
+                    proposals = JobProposals.objects(userId=user)
+                    total_earnings = sum([float(p.youReceive or 0) for p in proposals])
+                    completed_count = sum(1 for p in proposals if getattr(p, 'status', None) == 'completed')
+                    job_success = int((completed_count / proposals.count()) * 100) if proposals.count() > 0 else 0
+                    
+                    # Format location
+                    location_parts = []
+                    if hasattr(req, 'city') and req.city:
+                        location_parts.append(req.city)
+                    if hasattr(req, 'country') and req.country:
+                        location_parts.append(req.country)
+                    location = ", ".join(location_parts) if location_parts else "N/A"
+                    
+                    # Format earnings
+                    if total_earnings > 0:
+                        if total_earnings >= 1000:
+                            earned_display = f"₹{int(total_earnings/1000)}K+ earned"
+                        else:
+                            earned_display = f"₹{int(total_earnings)}+ earned"
+                    else:
+                        earned_display = "₹0 earned"
+                    
+                    verified_freelancers.append({
+                        "id": str(user.id),
+                        "name": user.name,
+                        "email": user.email,
+                        "title": req.title,
+                        "location": location,
+                        "rate": float(req.hourlyRate) if hasattr(req, 'hourlyRate') and req.hourlyRate else 0,
+                        "jobSuccess": job_success,
+                        "earned": earned_display,
+                        "totalEarnings": total_earnings,
+                        "avatar": True if user.profileImage else None,
+                        "skills": [{"id": str(s.id), "name": s.name} for s in getattr(req, 'skills', [])],
+                        "bio": req.bio if hasattr(req, 'bio') else None,
+                        "onlineStatus": user.onlineStatus if hasattr(user, 'onlineStatus') else "offline",
+                        "lastSeen": user.lastSeen if hasattr(user, 'lastSeen') else None,
+                    })
+        
+        print(f"Returning {len(verified_freelancers)} freelancers")
         return Response({"success": True, "freelancers": verified_freelancers})
     except Exception as e:
         return Response({"success": False, "message": str(e)}, status=500)
@@ -5511,7 +6194,7 @@ def delete_job_offer(request, offer_id):
 @api_view(["POST"])
 @verify_token
 def decline_job_offer(request, offer_id):
-    """Decline a job offer, delete it, and create a notification"""
+    """Decline a job offer, refund escrow to client, delete it, and notify client"""
     try:
         data = request.data
         user = request.user
@@ -5530,13 +6213,70 @@ def decline_job_offer(request, offer_id):
         decline_reason = data.get('declineReason', 'No reason provided')
         decline_message = data.get('declineMessage', '')
         
-        # Store offer details before deletion for notification
+        # Store offer details before deletion for notification and refund calc
         client_id = job_offer.clientId.id
         job_id = job_offer.jobId.id
         contract_title = job_offer.contractTitle
         project_amount = job_offer.projectAmount
+        client = job_offer.clientId
         
-        # Delete the job offer
+        # Calculate refund amount to return to client (same logic as funding: subtotal + fixed fees)
+        try:
+            clean_amount_str = str(project_amount).replace('₹', '').replace(',', '').strip()
+            base_amount = float(clean_amount_str) if clean_amount_str else 0.0
+        except Exception:
+            base_amount = 0.0
+        marketplace_fee = 50.0
+        contract_fee = 100.0
+        refund_amount = base_amount + marketplace_fee + contract_fee
+        currency = 'INR'
+
+        # Perform refund: deduct from Worksyde wallet, add back to client's wallet
+        wallet = _get_or_create_worksyde_wallet()
+        if wallet.balance < refund_amount:
+            return Response({
+                "success": False,
+                "message": "Insufficient Worksyde wallet balance to process refund"
+            }, status=400)
+        
+        old_worksyde_balance = float(wallet.balance or 0)
+        old_client_balance = float(client.walletBalance or 0)
+        wallet.balance = old_worksyde_balance - refund_amount
+        client.walletBalance = old_client_balance + refund_amount
+        # Remove escrow entry for this job/offer if present
+        try:
+            updated_entries = []
+            removed_any = False
+            for entry in wallet.entries or []:
+                matches_offer = (str(getattr(entry, 'offerId', None)) == str(offer_id))
+                matches_job = (str(getattr(entry, 'jobId', None).id) == str(job_id)) if getattr(entry, 'jobId', None) else False
+                # Also consider acceptedOfferId link just in case
+                try:
+                    matches_accepted = (str(getattr(getattr(entry, 'acceptedOfferId', None), 'id', None)) == str(offer_id))
+                except Exception:
+                    matches_accepted = False
+                if matches_offer or matches_job or matches_accepted:
+                    removed_any = True
+                    continue
+                updated_entries.append(entry)
+            wallet.entries = updated_entries
+        except Exception as entry_err:
+            print('Warning: failed to remove escrow entry on decline:', entry_err)
+        wallet.save()
+        client.save()
+        
+        # Record refund transaction
+        refund_txn = Transaction(
+            fromType="worksyde",
+            toType="client",
+            clientId=client,
+            amount=refund_amount,
+            currency=currency,
+            type="Refund",
+            status="Success",
+        ).save()
+        
+        # Delete the job offer after refund is processed
         job_offer.delete()
         
         # Create notification for the client
@@ -5557,11 +6297,35 @@ def decline_job_offer(request, offer_id):
             }
         )
         notification.save()
+
+        # Create refund notification for the client
+        try:
+            refund_notification = Notification(
+                recipientId=client,
+                senderId=user,
+                jobId=JobPosts.objects.get(id=job_id),
+                notificationType='payment_received',
+                title='Refund Processed',
+                message='Your amount has been refunded to your wallet.',
+                additionalData={
+                    'amount': refund_amount,
+                    'currency': currency,
+                    'type': 'Refund',
+                    'transactionId': str(refund_txn.id)
+                }
+            )
+            refund_notification.save()
+        except Exception as notif_err:
+            # Do not fail the decline if notification creation fails
+            print('Warning: refund notification creation failed:', notif_err)
         
         return Response({
             "success": True, 
-            "message": "Job offer declined and deleted successfully",
-            "notificationId": str(notification.id)
+            "message": "Job offer declined and refund processed successfully",
+            "notificationId": str(notification.id),
+            "refundAmount": refund_amount,
+            "clientWalletBalance": client.walletBalance,
+            "worksydeWalletBalance": wallet.balance
         })
         
     except User.DoesNotExist:
@@ -5652,6 +6416,22 @@ def accept_job_offer(request, offer_id):
         print(f"Expected start date: {expected_start_date}")
         print(f"Estimated completion date: {estimated_completion_date}")
         
+        # Compute funded amount from PaymentTransaction records related to this job offer
+        from .models import PaymentTransaction
+        try:
+            # Sum of completed transactions tied to this job offer by the client
+            related_txns = PaymentTransaction.objects(
+                jobOfferId=str(job_offer.id), status='completed'
+            )
+            funded_amount_total = 0.0
+            for t in related_txns:
+                try:
+                    funded_amount_total += float(t.amount or 0)
+                except Exception:
+                    pass
+        except Exception:
+            funded_amount_total = 0.0
+
         # Create accepted job offer record
         try:
             accepted_offer = AcceptedJobOffer(
@@ -5670,7 +6450,8 @@ def accept_job_offer(request, offer_id):
                 expectedStartDate=expected_start_date,
                 estimatedCompletionDate=estimated_completion_date,
                 termsAndConditions=terms_and_conditions,
-                specialRequirements=special_requirements
+                specialRequirements=special_requirements,
+                fundedAmount=funded_amount_total,
             )
             accepted_offer.save()
             print(f"Successfully created accepted job offer with ID: {accepted_offer.id}")
@@ -5680,8 +6461,29 @@ def accept_job_offer(request, offer_id):
             print("Save error traceback:", traceback.format_exc())
             return Response({"success": False, "message": "Error creating accepted job offer", "error": str(save_error)}, status=500)
         
-        # Delete the original job offer after successful acceptance
-        job_offer.delete()
+        # Optionally update original job offer status/timestamps before deletion
+        try:
+            job_offer.status = "accepted"
+            job_offer.acceptedAt = timezone.now()
+            job_offer.fundedAmount = funded_amount_total
+            job_offer.save()
+        except Exception as update_offer_err:
+            print("Warning: failed to update original job offer before deletion:", update_offer_err)
+
+        # Update Worksyde wallet escrow entry to link acceptedOfferId
+        try:
+            wallet = _get_or_create_worksyde_wallet()
+            updated = False
+            for entry in wallet.entries or []:
+                matches_offer = (str(getattr(entry, 'offerId', None)) == str(offer_id))
+                matches_job = (str(getattr(entry, 'jobId', None).id) == str(job_offer.jobId.id)) if getattr(entry, 'jobId', None) else False
+                if matches_offer or matches_job:
+                    entry.acceptedOfferId = accepted_offer
+                    updated = True
+            if updated:
+                wallet.save()
+        except Exception as link_err:
+            print('Warning: failed to link acceptedOfferId to Worksyde wallet entry:', link_err)
         
         # Create notification for the client
         notification = Notification(
@@ -5702,12 +6504,19 @@ def accept_job_offer(request, offer_id):
             }
         )
         notification.save()
+
+        # Delete the original job offer entry after successful acceptance and notification
+        try:
+            job_offer.delete()
+        except Exception as del_err:
+            print("Warning: failed to delete original job offer after acceptance:", del_err)
         
         return Response({
             "success": True, 
             "message": "Job offer accepted successfully",
             "acceptedOfferId": str(accepted_offer.id),
-            "notificationId": str(notification.id)
+            "notificationId": str(notification.id),
+            "fundedAmount": funded_amount_total
         })
         
     except User.DoesNotExist:
@@ -5724,56 +6533,96 @@ def accept_job_offer(request, offer_id):
 @api_view(["GET"])
 @verify_token
 def get_freelancer_accepted_job_offers(request, freelancer_id):
-    """Get all accepted job offers for a freelancer"""
+    """Get all accepted job offers for a freelancer - OPTIMIZED VERSION"""
     try:
         if not freelancer_id:
             return Response({"success": True, "acceptedJobOffers": []})
         
-        # Fetch accepted job offers for the freelancer
+        # Get pagination parameters
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 20))  # Reduced from 50 to 20 for faster loading
+        skip = (page - 1) * page_size
+        
+        print(f"Fetching accepted job offers for freelancer {freelancer_id}, page {page}, size {page_size}")
+        
+        # Optimized query with select_related to reduce database calls
         accepted_offers = AcceptedJobOffer.objects(
             freelancerId=freelancer_id, 
             status="active"
-        ).order_by('-acceptedAt').limit(50)  # Limit to prevent memory issues
+        ).order_by('-acceptedAt').skip(skip).limit(page_size)
         
         print(f"Found {len(accepted_offers)} accepted job offers for freelancer {freelancer_id}")
+        
+        # Pre-fetch related data to avoid N+1 queries
+        client_ids = [offer.clientId for offer in accepted_offers if offer.clientId]
+        job_ids = [offer.jobId for offer in accepted_offers if offer.jobId]
+        
+        # Batch fetch clients and jobs
+        clients = {}
+        jobs = {}
+        
+        if client_ids:
+            try:
+                client_objects = User.objects(id__in=client_ids)
+                clients = {str(client.id): client for client in client_objects}
+                print(f"Successfully fetched {len(clients)} clients: {list(clients.keys())}")
+            except Exception as e:
+                print(f"Error batch fetching clients: {e}")
+        else:
+            print("No client IDs found in accepted offers")
+        
+        if job_ids:
+            try:
+                job_objects = JobPosts.objects(id__in=job_ids)
+                jobs = {str(job.id): job for job in job_objects}
+            except Exception as e:
+                print(f"Error batch fetching jobs: {e}")
         
         offers_data = []
         for offer in accepted_offers:
             try:
-                # Safely get client name
-                client_name = "Unknown Client"
-                try:
-                    if offer.clientId and hasattr(offer.clientId, 'name'):
-                        client_name = offer.clientId.name or "Unknown Client"
-                except Exception as client_error:
-                    print(f"Error getting client name for offer {offer.id}: {client_error}")
-                    client_name = "Unknown Client"
+                # Get client name from pre-fetched data
+                client_name = "Client"
+                if offer.clientId:
+                    try:
+                        # First try to get from pre-fetched clients
+                        client = clients.get(str(offer.clientId.id))
+                        if client and hasattr(client, 'name') and client.name:
+                            client_name = client.name
+                            print(f"Found client name from pre-fetch: {client_name} for offer {offer.id}")
+                        else:
+                            # Try to get directly from the offer's clientId reference
+                            if hasattr(offer.clientId, 'name') and offer.clientId.name:
+                                client_name = offer.clientId.name
+                                print(f"Found client name directly: {client_name} for offer {offer.id}")
+                            else:
+                                print(f"Could not get client name for offer {offer.id}, using default: Client")
+                    except Exception as e:
+                        print(f"Error getting client name for offer {offer.id}: {e}")
+                        client_name = "Client"
+                else:
+                    print(f"No clientId for offer {offer.id}")
                 
-                # Safely get job title
+                # Get job details from pre-fetched data
                 job_title = offer.contractTitle or "Job Offer"
-                try:
-                    if offer.jobId and hasattr(offer.jobId, 'title'):
-                        job_title = offer.jobId.title or offer.contractTitle or "Job Offer"
-                except Exception as job_error:
-                    print(f"Error getting job title for offer {offer.id}: {job_error}")
-                    job_title = offer.contractTitle or "Job Offer"
-                
-                # Safely get work scope
                 work_scope = "General Development"
-                try:
-                    if offer.jobId and hasattr(offer.jobId, 'scopeOfWork'):
-                        work_scope = offer.jobId.scopeOfWork or "General Development"
-                except Exception as scope_error:
-                    print(f"Error getting work scope for offer {offer.id}: {scope_error}")
-                    work_scope = "General Development"
                 
-                # Build offer data
+                if offer.jobId:
+                    job = jobs.get(str(offer.jobId.id))
+                    if job:
+                        if hasattr(job, 'title') and job.title:
+                            job_title = job.title
+                        if hasattr(job, 'scopeOfWork') and job.scopeOfWork:
+                            work_scope = job.scopeOfWork
+                
+                # Build offer data with minimal processing
                 offer_data = {
                     "id": str(offer.id),
                     "contractTitle": offer.contractTitle or job_title,
                     "projectAmount": str(offer.projectAmount) if offer.projectAmount else "0",
                     "status": offer.status or "active",
                     "acceptedAt": offer.acceptedAt.isoformat() if offer.acceptedAt else None,
+                    "fundedAmount": float(getattr(offer, 'fundedAmount', 0.0) or 0.0),
                     "clientName": client_name,
                     "jobTitle": job_title,
                     "workScope": work_scope,
@@ -5783,28 +6632,450 @@ def get_freelancer_accepted_job_offers(request, freelancer_id):
                     "estimatedCompletionDate": offer.estimatedCompletionDate.isoformat() if offer.estimatedCompletionDate else None
                 }
                 
-                print(f"Processed offer {offer.id}: {offer_data['contractTitle']} for {offer_data['clientName']}")
-                
                 offers_data.append(offer_data)
                 
             except Exception as offer_error:
                 print(f"Error processing offer {offer.id}: {offer_error}")
-                import traceback
-                print(f"Full traceback for offer {offer.id}:", traceback.format_exc())
                 continue
         
         print(f"Successfully processed {len(offers_data)} offers for freelancer {freelancer_id}")
         return Response({
             "success": True, 
-            "acceptedJobOffers": offers_data
+            "acceptedJobOffers": offers_data,
+            "pagination": {
+                "page": page,
+                "page_size": page_size,
+                "total_offers": len(offers_data),
+                "has_more": len(offers_data) == page_size
+            }
         })
         
     except Exception as e:
         print("Error in get_freelancer_accepted_job_offers:", e)
+        import traceback
+        print("Full traceback:", traceback.format_exc())
+        return Response({
+            "success": True, 
+            "acceptedJobOffers": [],
+            "pagination": {
+                "page": 1,
+                "page_size": 20,
+                "total_offers": 0,
+                "has_more": False
+            }
+        })
+
+
+@api_view(["GET"])
+@verify_token
+def get_accepted_job_offer_details(request, accepted_job_offer_id):
+    """Get detailed information for a specific accepted job offer"""
+    try:
+        if not accepted_job_offer_id:
+            return Response({"success": False, "message": "Accepted job offer ID is required"})
+        
+        # Fetch the accepted job offer
+        try:
+            accepted_offer = AcceptedJobOffer.objects.get(id=accepted_job_offer_id)
+        except AcceptedJobOffer.DoesNotExist:
+            return Response({"success": False, "message": "Accepted job offer not found"})
+        
+        # Get client and freelancer details
+        client_name = "Unknown Client"
+        freelancer_name = "Unknown Freelancer"
+        freelancer_location = "Unknown Location"
+        freelancer_online_status = "offline"
+        
+        try:
+            if accepted_offer.clientId:
+                client_name = accepted_offer.clientId.name or "Unknown Client"
+                # Get client location if available
+                client_location = "Location not specified"
+                try:
+                    if accepted_offer.clientId.location:
+                        client_location = accepted_offer.clientId.location
+                    elif accepted_offer.clientId.city:
+                        location_parts = []
+                        if accepted_offer.clientId.city:
+                            location_parts.append(accepted_offer.clientId.city)
+                        if accepted_offer.clientId.state:
+                            location_parts.append(accepted_offer.clientId.state)
+                        if accepted_offer.clientId.country:
+                            location_parts.append(accepted_offer.clientId.country)
+                        client_location = ", ".join(location_parts) if location_parts else "Location not specified"
+                except Exception as e:
+                    print(f"Error getting client location: {e}")
+                    client_location = "Location not specified"
+        except Exception as e:
+            print(f"Error getting client details: {e}")
+            client_location = "Location not specified"
+        
+        try:
+            if accepted_offer.freelancerId:
+                freelancer_name = accepted_offer.freelancerId.name or "Unknown Freelancer"
+                # Get freelancer online status
+                try:
+                    if accepted_offer.freelancerId.onlineStatus:
+                        freelancer_online_status = accepted_offer.freelancerId.onlineStatus
+                except Exception as e:
+                    print(f"Error getting freelancer online status: {e}")
+                    freelancer_online_status = "offline"
+                
+                # Get freelancer location
+                try:
+                    freelancer_profile = Requests.objects.get(userId=accepted_offer.freelancerId.id, status="approved")
+                    if freelancer_profile:
+                        location_parts = []
+                        if freelancer_profile.city:
+                            location_parts.append(freelancer_profile.city)
+                        if freelancer_profile.state:
+                            location_parts.append(freelancer_profile.state)
+                        if freelancer_profile.country:
+                            location_parts.append(freelancer_profile.country)
+                        freelancer_location = ", ".join(location_parts) if location_parts else "Location not specified"
+                except Requests.DoesNotExist:
+                    freelancer_location = "Location not specified"
+                except Exception as e:
+                    print(f"Error getting freelancer location: {e}")
+                    freelancer_location = "Location not specified"
+        except Exception as e:
+            print(f"Error getting freelancer details: {e}")
+        
+        # Calculate financial data
+        project_amount = 0
+        if accepted_offer.projectAmount:
+            try:
+                # Remove currency symbols and convert to float
+                clean_amount = str(accepted_offer.projectAmount).replace('₹', '').replace('$', '').replace(',', '').strip()
+                project_amount = float(clean_amount) if clean_amount else 0
+            except (ValueError, TypeError):
+                print(f"Error converting project amount '{accepted_offer.projectAmount}' to float, using 0")
+                project_amount = 0
+        
+        # For fixed price projects, show the full amount
+        if accepted_offer.paymentSchedule == "fixed_price":
+            in_escrow = project_amount  # Full amount in escrow
+            milestones_paid = 0  # Nothing paid yet
+            milestones_remaining = project_amount
+            total_earnings = 0
+        else:
+            # For milestone projects, use the original calculation
+            in_escrow = project_amount * 0.6  # 60% in escrow
+            milestones_paid = project_amount * 0.4  # 40% paid
+            milestones_remaining = in_escrow
+            total_earnings = milestones_paid
+        
+        # Try to enrich financials from Worksyde wallet escrow entry
+        try:
+            wallet = _get_or_create_worksyde_wallet()
+            estimated_payout = None
+            expected_payout = None
+            freelancer_fee = None
+            freelancer_fee_percent = None
+            entry_amount = None
+            for entry in wallet.entries or []:
+                matches_accepted = False
+                try:
+                    matches_accepted = (str(getattr(getattr(entry, 'acceptedOfferId', None), 'id', None)) == str(accepted_job_offer_id))
+                except Exception:
+                    matches_accepted = False
+                matches_job = False
+                try:
+                    matches_job = (str(getattr(entry, 'jobId', None).id) == str(accepted_offer.jobId.id)) if getattr(entry, 'jobId', None) else False
+                except Exception:
+                    matches_job = False
+                if matches_accepted or matches_job:
+                    # Override in_escrow from wallet entry amount if set
+                    try:
+                        entry_amount = float(getattr(entry, 'amount', None) or 0.0)
+                        if entry_amount > 0:
+                            in_escrow = entry_amount
+                    except Exception:
+                        pass
+                    # Pick estimated payout fields
+                    try:
+                        estimated_payout = float(getattr(entry, 'estimatedFreelancerPayout', None) or 0.0)
+                    except Exception:
+                        estimated_payout = None
+                    try:
+                        expected_payout = float(getattr(entry, 'expectedPayout', None) or 0.0)
+                    except Exception:
+                        expected_payout = None
+                    try:
+                        freelancer_fee = float(getattr(entry, 'freelancerFee', None) or 0.0)
+                    except Exception:
+                        freelancer_fee = None
+                    try:
+                        freelancer_fee_percent = float(getattr(entry, 'freelancerFeePercent', None) or 0.0)
+                    except Exception:
+                        freelancer_fee_percent = None
+                    break
+        except Exception as enrich_err:
+            print('Warning: failed to enrich financials from wallet:', enrich_err)
+
+        # Build contract data
+        print(f"Building contract data for freelancer: {freelancer_name}")
+        print(f"Freelancer location: {freelancer_location}")
+        print(f"Freelancer profile image URL: https://via.placeholder.com/50x50/007674/FFFFFF?text={freelancer_name[0] if freelancer_name else 'F'}")
+        
+        contract_data = {
+            "id": str(accepted_offer.id),
+            "projectTitle": accepted_offer.contractTitle or "Project",
+            "client": {
+                "id": str(accepted_offer.clientId.id) if accepted_offer.clientId else None,
+                "name": client_name,
+                "location": client_location,
+            },
+            "clientName": client_name,  # Keep for backward compatibility
+            "freelancer": {
+                "id": str(accepted_offer.freelancerId.id) if accepted_offer.freelancerId else None,
+                "name": freelancer_name,
+                "profileImage": None,  # Set to None to trigger fallback
+                "location": freelancer_location,
+                "lastSeen": "Wed 1:11 AM",
+                "onlineStatus": freelancer_online_status,
+            },
+            "financials": {
+                "projectPrice": project_amount,
+                "inEscrow": in_escrow,
+                "milestonesPaid": milestones_paid,
+                "milestonesRemaining": milestones_remaining,
+                "totalEarnings": total_earnings,
+                "paymentType": accepted_offer.paymentSchedule or "Fixed-price",
+                "milestonesCount": 1,
+                "remainingMilestonesCount": 1,
+                # Enriched fields (may be None if not available)
+                "estimatedFreelancerPayout": estimated_payout,
+                "expectedPayout": expected_payout,
+                "freelancerFee": freelancer_fee,
+                "freelancerFeePercent": freelancer_fee_percent,
+            },
+            "contractDetails": {
+                "workDescription": accepted_offer.workDescription or "",
+                "acceptedAt": accepted_offer.acceptedAt.isoformat() if accepted_offer.acceptedAt else None,
+                "expectedStartDate": accepted_offer.expectedStartDate.isoformat() if accepted_offer.expectedStartDate else None,
+                "estimatedCompletionDate": accepted_offer.estimatedCompletionDate.isoformat() if accepted_offer.estimatedCompletionDate else None,
+                "status": accepted_offer.status or "active",
+            }
+        }
+        
+        # Attach recent submissions (latest 5)
+        try:
+            submissions = ProjectSubmission.objects(acceptedOfferId=accepted_offer.id).order_by('-createdAt').limit(5)
+            files = []
+            for s in submissions:
+                files.append({
+                    'id': str(s.id),
+                    'title': s.title,
+                    'description': s.description,
+                    'pdfLink': s.pdfLink,
+                    'createdAt': s.createdAt.isoformat() if s.createdAt else None,
+                    'status': s.status,
+                    'comments': [{'by': str(c.commenterId.id) if c.commenterId else None, 'text': c.text, 'createdAt': c.createdAt.isoformat() if c.createdAt else None} for c in (s.comments or [])]
+                })
+            contract_data['recentFiles'] = files
+        except Exception as e:
+            print('Warning: could not attach submissions:', e)
+
+        return Response({"success": True, "contract": contract_data})
+        
+    except Exception as e:
+        print("Error in get_accepted_job_offer_details:", e)
+        import traceback
+        print("Full traceback:", traceback.format_exc())
+        return Response({
+            "success": False,
+            "message": "Failed to load contract details"
+        })
+
+
+@api_view(["GET"])
+@verify_token
+def get_hired_freelancers_for_job(request, job_id):
+    """Get all hired freelancers for a specific job"""
+    try:
+        if not job_id:
+            return Response({"success": True, "hiredFreelancers": []})
+        
+        # Fetch accepted job offers for the specific job
+        accepted_offers = AcceptedJobOffer.objects(
+            jobId=job_id, 
+            status__in=["active", "in_progress"]
+        ).order_by('-acceptedAt').limit(50)  # Limit to prevent memory issues
+        
+        print(f"Found {len(accepted_offers)} hired freelancers for job {job_id}")
+        
+        hired_freelancers_data = []
+        for offer in accepted_offers:
+            try:
+                # Get freelancer details
+                freelancer = offer.freelancerId
+                if not freelancer:
+                    print(f"Freelancer not found for offer {offer.id}")
+                    continue
+                
+                # Get freelancer profile details from Requests model
+                freelancer_profile = None
+                try:
+                    print(f"Debug: Looking for Requests with userId={freelancer.id} and status=approved")
+                    freelancer_profile = Requests.objects.get(userId=freelancer.id, status="approved")
+                    print(f"Debug: Found freelancer_profile: {freelancer_profile is not None}")
+                except Requests.DoesNotExist:
+                    print(f"Approved freelancer profile not found for user {freelancer.id}")
+                    # Try to find any profile for this user
+                    try:
+                        any_profile = Requests.objects.filter(userId=freelancer.id).first()
+                        if any_profile:
+                            print(f"Debug: Found profile with status '{any_profile.status}' for user {freelancer.id}")
+                            freelancer_profile = any_profile
+                        else:
+                            print(f"Debug: No profile at all found for user {freelancer.id}")
+                    except Exception as e:
+                        print(f"Debug: Error checking for any profile: {e}")
+                
+                # Get freelancer skills
+                skills = []
+                try:
+                    if freelancer_profile and freelancer_profile.skills:
+                        skills = [skill.name for skill in freelancer_profile.skills if skill.name]
+                except Exception as skills_error:
+                    print(f"Error getting skills for freelancer {freelancer.id}: {skills_error}")
+                
+                # Get freelancer title
+                title = "Freelancer"
+                try:
+                    if freelancer_profile and freelancer_profile.title:
+                        title = freelancer_profile.title
+                except Exception as title_error:
+                    print(f"Error getting title for freelancer {freelancer.id}: {title_error}")
+                
+                # Get freelancer location
+                location = "Location not specified"
+                try:
+                    if freelancer_profile and freelancer_profile.city:
+                        location_parts = []
+                        if freelancer_profile.city:
+                            location_parts.append(freelancer_profile.city)
+                        if freelancer_profile.state:
+                            location_parts.append(freelancer_profile.state)
+                        if freelancer_profile.country:
+                            location_parts.append(freelancer_profile.country)
+                        location = ", ".join(location_parts) if location_parts else "Location not specified"
+                except Exception as location_error:
+                    print(f"Error getting location for freelancer {freelancer.id}: {location_error}")
+                
+                # Get hourly rate
+                hourly_rate = "25.00"  # Default hourly rate
+                try:
+                    print(f"Debug: freelancer_profile exists: {freelancer_profile is not None}")
+                    if freelancer_profile:
+                        print(f"Debug: freelancer_profile.hourlyRate: {freelancer_profile.hourlyRate}")
+                        print(f"Debug: type of hourlyRate: {type(freelancer_profile.hourlyRate)}")
+                        if freelancer_profile.hourlyRate and freelancer_profile.hourlyRate > 0:
+                            hourly_rate = str(freelancer_profile.hourlyRate)
+                            print(f"Debug: Set hourly_rate to: {hourly_rate}")
+                        else:
+                            print(f"Debug: hourlyRate is None, empty, or 0 for freelancer {freelancer.id}")
+                            # Try to get hourly rate from job post
+                            try:
+                                job_post = offer.jobId
+                                if job_post and hasattr(job_post, 'hourlyRateFrom') and job_post.hourlyRateFrom:
+                                    hourly_rate = str(job_post.hourlyRateFrom)
+                                    print(f"Debug: Using hourly rate from job post: {hourly_rate}")
+                                elif job_post and hasattr(job_post, 'hourlyRateTo') and job_post.hourlyRateTo:
+                                    hourly_rate = str(job_post.hourlyRateTo)
+                                    print(f"Debug: Using hourly rate from job post (to): {hourly_rate}")
+                                else:
+                                    print(f"Debug: Using default hourly rate: {hourly_rate}")
+                            except Exception as job_error:
+                                print(f"Debug: Error getting hourly rate from job post: {job_error}")
+                                print(f"Debug: Using default hourly rate: {hourly_rate}")
+                    else:
+                        print(f"Debug: No freelancer_profile found for freelancer {freelancer.id}")
+                        # Try to get hourly rate from job post
+                        try:
+                            job_post = offer.jobId
+                            if job_post and hasattr(job_post, 'hourlyRateFrom') and job_post.hourlyRateFrom:
+                                hourly_rate = str(job_post.hourlyRateFrom)
+                                print(f"Debug: Using hourly rate from job post (no profile): {hourly_rate}")
+                            else:
+                                print(f"Debug: Using default hourly rate (no profile): {hourly_rate}")
+                        except Exception as job_error:
+                            print(f"Debug: Error getting hourly rate from job post (no profile): {job_error}")
+                            print(f"Debug: Using default hourly rate (no profile): {hourly_rate}")
+                except Exception as rate_error:
+                    print(f"Error getting hourly rate for freelancer {freelancer.id}: {rate_error}")
+                    import traceback
+                    print(f"Full traceback for hourly rate error:", traceback.format_exc())
+                    print(f"Debug: Using default hourly rate (error): {hourly_rate}")
+                
+                # Get job success percentage (default to 100% for approved freelancers)
+                job_success = "100"
+                
+                # Get total earnings (default to 0 for now)
+                total_earnings = "0"
+                
+                # Get completed jobs count (default to 0 for now)
+                completed_jobs = 0
+                
+                # Get online status
+                online_status = "offline"
+                try:
+                    if freelancer.onlineStatus:
+                        online_status = freelancer.onlineStatus
+                except Exception as status_error:
+                    print(f"Error getting online status for freelancer {freelancer.id}: {status_error}")
+                
+                # Build freelancer data
+                freelancer_data = {
+                    "id": str(freelancer.id),
+                    "acceptedJobOfferId": str(offer.id),
+                    "name": freelancer.name or "Unknown Freelancer",
+                    "title": title,
+                    "location": location,
+                    "hourlyRate": hourly_rate,
+                    "jobSuccess": job_success,
+                    "completedJobs": completed_jobs,
+                    "earnings": total_earnings,
+                    "skills": skills,
+                    "onlineStatus": online_status,
+                    # Job acceptance data
+                    "acceptedAt": offer.acceptedAt.isoformat() if offer.acceptedAt else None,
+                    "acceptanceMessage": offer.acceptanceMessage or f"{freelancer.name} accepted the job offer for this project.",
+                    "lastCommunication": offer.acceptanceMessage or f"{freelancer.name} accepted the job offer for this project.",
+                    "estimatedCompletionDate": offer.estimatedCompletionDate.isoformat() if offer.estimatedCompletionDate else None,
+                    "projectAmount": str(offer.projectAmount) if offer.projectAmount else "0",
+                    # Additional contract data
+                    "contractTitle": offer.contractTitle or "No title provided",
+                    "workDescription": offer.workDescription or "No work description provided",
+                    "paymentSchedule": offer.paymentSchedule or "fixed_price",
+                    "status": offer.status or "active",
+                }
+                
+                print(f"Processed hired freelancer {freelancer.id}: {freelancer_data['name']} for job {job_id}")
+                
+                hired_freelancers_data.append(freelancer_data)
+                
+            except Exception as freelancer_error:
+                print(f"Error processing hired freelancer for offer {offer.id}: {freelancer_error}")
+                import traceback
+                print(f"Full traceback for offer {offer.id}:", traceback.format_exc())
+                continue
+        
+        print(f"Successfully processed {len(hired_freelancers_data)} hired freelancers for job {job_id}")
+        return Response({
+            "success": True, 
+            "hiredFreelancers": hired_freelancers_data
+        })
+        
+    except Exception as e:
+        print("Error in get_hired_freelancers_for_job:", e)
+        import traceback
+        print("Full traceback:", traceback.format_exc())
         # Return empty array on error instead of failing completely
         return Response({
             "success": True, 
-            "acceptedJobOffers": []
+            "hiredFreelancers": []
         })
 
 
@@ -6077,47 +7348,3 @@ def withdraw_proposal_with_notification(request):
         print("Error in withdraw_proposal_with_notification:", e)
         return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
 
-
-@api_view(['POST'])
-def predict_job_budget(request):
-    """
-    Predict budget for a job based on job details using ML model
-    """
-    try:
-        data = request.data
-        
-        # Extract job details from request
-        job_data = {
-            "description": data.get("description", ""),
-            "category": data.get("category", "Web Development"),
-            "experience_level": data.get("experience_level", "Intermediate"),
-            "client_country": data.get("client_country", "India"),
-            "payment_type": data.get("payment_type", "Fixed"),
-            "applicants_num": data.get("applicants_num", 15.0),
-            "freelancers_num": data.get("freelancers_num", 8.0)
-        }
-        
-        # Get prediction from ML model
-        prediction_result = budget_predictor.predict_budget(job_data)
-        
-        if prediction_result["success"]:
-            return Response({
-                "success": True,
-                "predicted_budget": prediction_result["predicted_budget"],
-                "confidence": prediction_result.get("confidence", "medium"),
-                "message": "Budget predicted successfully"
-            })
-        else:
-            return Response({
-                "success": False,
-                "message": prediction_result["message"],
-                "predicted_budget": None
-            }, status=400)
-            
-    except Exception as e:
-        print("Error in predict_job_budget:", e)
-        return Response({
-            "success": False,
-            "message": "Server error during budget prediction",
-            "error": str(e)
-        }, status=500)

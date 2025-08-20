@@ -48,7 +48,7 @@ const FreelancersJobOfferDetails = () => {
         }
 
         setJobOffer(offerData);
-        
+
         // Auto-redirect if offer is already accepted
         if (offerData.status === "accepted") {
           setRedirecting(true);
@@ -75,13 +75,13 @@ const FreelancersJobOfferDetails = () => {
         if (offerData.attachments) {
           setLoadingAttachments(true);
           try {
-            const attachments = Array.isArray(offerData.attachments) 
-              ? offerData.attachments 
+            const attachments = Array.isArray(offerData.attachments)
+              ? offerData.attachments
               : [offerData.attachments];
-            
+
             const detailsPromises = attachments.map(async (attachment) => {
               const details = await fetchAttachmentDetails(attachment);
-              
+
               // If we don't have file size from backend, try HEAD request
               let fileSize = null;
               if (!details?.fileSize) {
@@ -89,10 +89,10 @@ const FreelancersJobOfferDetails = () => {
               } else {
                 fileSize = details.fileSize;
               }
-              
+
               return { url: attachment, details, fileSize };
             });
-            
+
             const attachmentDetailsResults = await Promise.all(detailsPromises);
             const detailsMap = {};
             const sizesMap = {};
@@ -104,7 +104,7 @@ const FreelancersJobOfferDetails = () => {
                 sizesMap[url] = fileSize;
               }
             });
-            
+
             setAttachmentDetails(detailsMap);
             setFileSizes(sizesMap);
           } catch (error) {
@@ -204,10 +204,14 @@ const FreelancersJobOfferDetails = () => {
     "No description provided";
 
   const attachments = jobOffer?.attachments || null;
-  
+
   // Handle attachments - could be a single URL or an array
-  const attachmentList = Array.isArray(attachments) ? attachments : (attachments ? [attachments] : []);
-  
+  const attachmentList = Array.isArray(attachments)
+    ? attachments
+    : attachments
+    ? [attachments]
+    : [];
+
   // Debug: Log attachment data for troubleshooting
   console.log("Attachment URL:", attachments);
   console.log("Attachment List:", attachmentList);
@@ -274,23 +278,23 @@ const FreelancersJobOfferDetails = () => {
   // Function to fetch attachment details
   const fetchAttachmentDetails = async (attachmentUrl) => {
     if (!attachmentUrl) return null;
-    
+
     try {
       // Extract attachment ID from URL
       const attachmentId = attachmentUrl.split("/").pop()?.split("?")[0];
       if (!attachmentId) return null;
-      
+
       // Fetch attachment details from the backend
       const response = await axios.get(
         `${API_URL}/jobposts/attachments/${attachmentId}/details/`,
         { withCredentials: true }
       );
-      
+
       if (response.data && response.data.fileName) {
         return {
           fileName: response.data.fileName,
           fileSize: response.data.fileSize,
-          contentType: response.data.contentType
+          contentType: response.data.contentType,
         };
       }
     } catch (error) {
@@ -303,7 +307,7 @@ const FreelancersJobOfferDetails = () => {
   const getFileSizeFromUrl = async (url) => {
     try {
       const response = await axios.head(url, { withCredentials: true });
-      const contentLength = response.headers['content-length'];
+      const contentLength = response.headers["content-length"];
       if (contentLength) {
         return parseInt(contentLength);
       }
@@ -361,10 +365,11 @@ const FreelancersJobOfferDetails = () => {
       );
 
       if (response.data.success) {
-        // Show success message
+        // Show success message and confirm refund processed
         setDeclineSuccess(true);
-        // Redirect immediately
-        navigate("/ws/proposals");
+        toast.success("Refund processed to client wallet.");
+        // Redirect after brief delay to allow visibility
+        setTimeout(() => navigate("/ws/proposals"), 1000);
       } else {
         setDeclineError(response.data.message || "Failed to decline offer");
       }
@@ -379,61 +384,69 @@ const FreelancersJobOfferDetails = () => {
     }
   };
 
-    const handleConfirmAccept = async () => {
+  const handleConfirmAccept = async () => {
     if (!agreeToTerms) {
       setAcceptError("Please agree to the terms to continue.");
       return;
     }
-    
+
     // Validate optional message (if provided, it should be at least 10 characters)
     if (acceptMessage.trim() && acceptMessage.trim().length < 10) {
-      setAcceptError("If you provide a message, it should be at least 10 characters long.");
+      setAcceptError(
+        "If you provide a message, it should be at least 10 characters long."
+      );
       return;
     }
-    
+
     try {
       setIsAccepting(true);
       setAcceptError("");
-      
+
       // Calculate dates
       const now = new Date();
       const startDate = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // Start in 2 days
       const completionDate = new Date(now.getTime() + 32 * 24 * 60 * 60 * 1000); // Complete in 32 days
-      
+
       // Prepare attachment details to send
       const attachmentDetailsToSend = {};
       if (attachmentList.length > 0) {
         attachmentList.forEach((attachment, index) => {
           const details = attachmentDetails[attachment];
           const fileSize = fileSizes[attachment];
-          
+
           attachmentDetailsToSend[attachment] = {
             fileName: details?.fileName || `Attachment_${index + 1}`,
             fileSize: details?.fileSize || fileSize || null,
             contentType: details?.contentType || null,
-            url: attachment
+            url: attachment,
           };
         });
       }
-      
+
       console.log("Sending attachment details:", attachmentDetailsToSend);
-      
-              const response = await axios.post(
-          `${API_URL}/job-offers/${jobofferid}/accept/`,
-          {
-            acceptanceMessage: acceptMessage.trim() || "No additional message provided",
-            expectedStartDate: startDate.toISOString(),
-            estimatedCompletionDate: completionDate.toISOString(),
-            termsAndConditions: "Standard terms and conditions apply",
-            specialRequirements: "None",
-            attachmentDetails: attachmentDetailsToSend
-          },
-          { withCredentials: true }
-        );
-      
-                    if (response.data.success) {
+
+      const response = await axios.post(
+        `${API_URL}/job-offers/${jobofferid}/accept/`,
+        {
+          acceptanceMessage:
+            acceptMessage.trim() || "No additional message provided",
+          expectedStartDate: startDate.toISOString(),
+          estimatedCompletionDate: completionDate.toISOString(),
+          termsAndConditions: "Standard terms and conditions apply",
+          specialRequirements: "None",
+          attachmentDetails: attachmentDetailsToSend,
+        },
+        { withCredentials: true }
+      );
+
+      if (response.data.success) {
         // Optimistically update local state
-        setJobOffer((prev) => ({ ...(prev || {}), status: "accepted" }));
+        setJobOffer((prev) => ({
+          ...(prev || {}),
+          status: "accepted",
+          acceptedAt: new Date().toISOString(),
+          fundedAmount: response.data?.fundedAmount ?? prev?.fundedAmount ?? 0,
+        }));
         handleCloseAcceptModal();
         toast.success("Job Offer accepted.");
         // Redirect immediately
@@ -441,14 +454,20 @@ const FreelancersJobOfferDetails = () => {
       }
     } catch (err) {
       console.error("Error accepting offer:", err);
-      const errorMessage = err?.response?.data?.message || "Failed to accept the offer. Please try again.";
-      
+      const errorMessage =
+        err?.response?.data?.message ||
+        "Failed to accept the offer. Please try again.";
+
       // Handle specific error cases
       if (errorMessage.includes("already been accepted")) {
-        setAcceptError("This job offer has already been accepted. You will be redirected to your proposals page.");
+        setAcceptError(
+          "This job offer has already been accepted. You will be redirected to your proposals page."
+        );
         navigate("/ws/proposals");
       } else if (errorMessage.includes("declined")) {
-        setAcceptError("This job offer has been declined and cannot be accepted.");
+        setAcceptError(
+          "This job offer has been declined and cannot be accepted."
+        );
       } else if (errorMessage.includes("expired")) {
         setAcceptError("This job offer has expired and cannot be accepted.");
       } else {
@@ -494,16 +513,16 @@ const FreelancersJobOfferDetails = () => {
             gap: "20px",
           }}
         >
-                      <div
-              style={{
-                width: "40px",
-                height: "40px",
-                border: "4px solid #f3f3f3",
-                borderTop: "4px solid #007674",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-              }}
-            ></div>
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              border: "4px solid #f3f3f3",
+              borderTop: "4px solid #007674",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+            }}
+          ></div>
           <div
             style={{ color: "#007674", fontSize: "18px", fontWeight: "500" }}
           >
@@ -560,19 +579,20 @@ const FreelancersJobOfferDetails = () => {
           <div
             style={{ color: "#6c757d", fontSize: "16px", textAlign: "center" }}
           >
-            This job offer has already been accepted. Redirecting you to your proposals page...
+            This job offer has already been accepted. Redirecting you to your
+            proposals page...
           </div>
-                      <div
-              style={{
-                width: "40px",
-                height: "40px",
-                border: "4px solid #f3f3f3",
-                borderTop: "4px solid #007674",
-                borderRadius: "50%",
-                animation: "spin 1s linear infinite",
-                marginTop: "20px",
-              }}
-            ></div>
+          <div
+            style={{
+              width: "40px",
+              height: "40px",
+              border: "4px solid #f3f3f3",
+              borderTop: "4px solid #007674",
+              borderRadius: "50%",
+              animation: "spin 1s linear infinite",
+              marginTop: "20px",
+            }}
+          ></div>
         </div>
         <style>{`
           @keyframes spin {
@@ -773,7 +793,7 @@ const FreelancersJobOfferDetails = () => {
               >
                 ×
               </motion.button>
-      </div>
+            </div>
 
             {/* Modal Body */}
             <div style={{ marginBottom: "24px" }}>
@@ -786,7 +806,8 @@ const FreelancersJobOfferDetails = () => {
                   lineHeight: "1.5",
                 }}
               >
-                You're about to accept this job offer. Please review the terms and add any message you'd like to share with the client.
+                You're about to accept this job offer. Please review the terms
+                and add any message you'd like to share with the client.
               </p>
 
               {/* Message Section */}
@@ -809,7 +830,8 @@ const FreelancersJobOfferDetails = () => {
                     marginBottom: "12px",
                   }}
                 >
-                  Add an optional message to share with the client when you accept this offer.
+                  Add an optional message to share with the client when you
+                  accept this offer.
                 </p>
                 <textarea
                   value={acceptMessage}
@@ -921,13 +943,18 @@ const FreelancersJobOfferDetails = () => {
                   color: "#fff",
                   fontSize: "16px",
                   fontWeight: "600",
-                  cursor: !agreeToTerms || isAccepting ? "not-allowed" : "pointer",
+                  cursor:
+                    !agreeToTerms || isAccepting ? "not-allowed" : "pointer",
                   borderRadius: "6px",
                   transition: "all 0.2s ease",
                 }}
-                whileHover={agreeToTerms && !isAccepting ? {
-                  background: "#005a58",
-                } : {}}
+                whileHover={
+                  agreeToTerms && !isAccepting
+                    ? {
+                        background: "#005a58",
+                      }
+                    : {}
+                }
                 whileTap={agreeToTerms && !isAccepting ? { scale: 0.95 } : {}}
               >
                 {isAccepting ? "Accepting..." : "Accept offer"}
@@ -964,7 +991,7 @@ const FreelancersJobOfferDetails = () => {
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ duration: 0.3, type: "spring", damping: 25 }}
             style={{
-        background: "#fff", 
+              background: "#fff",
               borderRadius: "12px",
               padding: "24px",
               width: "100%",
@@ -1009,10 +1036,14 @@ const FreelancersJobOfferDetails = () => {
                   justifyContent: "center",
                   transition: "all 0.2s ease",
                 }}
-                whileHover={!declineSuccess ? {
-                  color: "#121212",
-                  background: "#fff",
-                } : {}}
+                whileHover={
+                  !declineSuccess
+                    ? {
+                        color: "#121212",
+                        background: "#fff",
+                      }
+                    : {}
+                }
                 whileTap={!declineSuccess ? { scale: 0.95 } : {}}
               >
                 ×
@@ -1171,7 +1202,8 @@ const FreelancersJobOfferDetails = () => {
                     borderRadius: "6px",
                   }}
                 >
-                  ✓ Offer declined successfully! Redirecting to proposals page...
+                  ✓ Offer declined successfully! Redirecting to proposals
+                  page...
                 </div>
               )}
             </div>
@@ -1212,7 +1244,9 @@ const FreelancersJobOfferDetails = () => {
                     padding: "10px 20px",
                     border: "none",
                     background:
-                      !selectedDeclineReason || isDeclining ? "#ccc" : "#007674",
+                      !selectedDeclineReason || isDeclining
+                        ? "#ccc"
+                        : "#007674",
                     color: "#fff",
                     fontSize: "16px",
                     fontWeight: "600",
@@ -1245,7 +1279,13 @@ const FreelancersJobOfferDetails = () => {
                   padding: "10px 0",
                 }}
               >
-                <div style={{ color: "#059669", fontSize: "16px", fontWeight: "500" }}>
+                <div
+                  style={{
+                    color: "#059669",
+                    fontSize: "16px",
+                    fontWeight: "500",
+                  }}
+                >
                   Redirecting in 2 seconds...
                 </div>
               </div>
@@ -1253,6 +1293,77 @@ const FreelancersJobOfferDetails = () => {
           </motion.div>
         </motion.div>
       )}
+      {/* Global Processing Overlay */}
+      {(isAccepting || isDeclining || redirecting) && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            backgroundColor: "rgba(0, 0, 0, 0.45)",
+            backdropFilter: "blur(2px)",
+            zIndex: 10000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 12,
+              padding: 24,
+              width: "90%",
+              maxWidth: 420,
+              textAlign: "center",
+              boxShadow: "0 20px 40px rgba(0,0,0,0.2)",
+              border: "1px solid #e6e6e6",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                marginBottom: 12,
+              }}
+            >
+              <div
+                style={{
+                  width: 28,
+                  height: 28,
+                  border: "3px solid #e5e7eb",
+                  borderTop: "3px solid #007674",
+                  borderRadius: "50%",
+                  animation: "spin 1s linear infinite",
+                }}
+              />
+            </div>
+            <div
+              style={{
+                fontWeight: 600,
+                fontSize: 18,
+                color: "#121212",
+                marginBottom: 6,
+              }}
+            >
+              Please wait
+            </div>
+            <div style={{ fontSize: 15, color: "#374151" }}>
+              {isAccepting
+                ? "Accepting offer and preparing your workroom..."
+                : isDeclining
+                ? "Declining offer and refunding client wallet..."
+                : "Redirecting..."}
+            </div>
+          </div>
+          <style>{`@keyframes spin {0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);}}`}</style>
+        </div>
+      )}
+
       {/* Main Offer Container */}
       <div
         style={{
@@ -1277,10 +1388,10 @@ const FreelancersJobOfferDetails = () => {
                 width: 80,
                 height: 80,
                 background: "#f8f9fa",
-              borderRadius: "50%", 
-              display: "flex", 
-              alignItems: "center", 
-              justifyContent: "center",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
                 border: "2px solid #e9ecef",
                 position: "relative",
               }}
@@ -1298,12 +1409,12 @@ const FreelancersJobOfferDetails = () => {
                 {/* White letter peeking out */}
                 <div
                   style={{
-                  position: "absolute",
+                    position: "absolute",
                     top: 4,
                     left: 4,
                     width: 36,
                     height: 24,
-                  background: "#ffffff",
+                    background: "#ffffff",
                     borderRadius: "3px 3px 0 0",
                     border: "1px solid #e9ecef",
                   }}
@@ -1311,23 +1422,23 @@ const FreelancersJobOfferDetails = () => {
                 {/* Green ribbon */}
                 <div
                   style={{
-                  position: "absolute",
+                    position: "absolute",
                     top: -14,
-                  left: "50%",
-                  transform: "translateX(-50%)",
+                    left: "50%",
+                    transform: "translateX(-50%)",
                     width: 22,
                     height: 14,
-                  background: "#28a745",
+                    background: "#28a745",
                     borderRadius: "7px 7px 0 0",
                   }}
                 ></div>
               </div>
             </div>
-            
+
             {/* Sparkles around envelope */}
             <div
               style={{
-              position: "absolute",
+                position: "absolute",
                 top: -12,
                 right: -12,
                 width: 18,
@@ -1343,35 +1454,35 @@ const FreelancersJobOfferDetails = () => {
                 position: "absolute",
                 top: 18,
                 right: -14,
-              width: 14,
-              height: 14,
-              background: "#ffd700",
-              borderRadius: "50%",
+                width: 14,
+                height: 14,
+                background: "#ffd700",
+                borderRadius: "50%",
                 boxShadow: "0 0 8px rgba(255, 215, 0, 0.7)",
               }}
             ></div>
             <div
               style={{
-              position: "absolute",
+                position: "absolute",
                 bottom: 12,
                 right: -8,
                 width: 16,
                 height: 16,
-              background: "#ffd700",
-              borderRadius: "50%",
+                background: "#ffd700",
+                borderRadius: "50%",
                 transform: "rotate(30deg)",
                 boxShadow: "0 0 8px rgba(255, 215, 0, 0.7)",
               }}
             ></div>
           </div>
-          
+
           {/* Header Text */}
           <div style={{ flex: 1, paddingTop: 8 }}>
             <h1
               style={{
                 fontSize: 38,
                 fontWeight: 600,
-              color: "#121212", 
+                color: "#121212",
                 margin: "0 0 16px 0",
                 lineHeight: 1.1,
                 letterSpacing: 0.3,
@@ -1383,7 +1494,7 @@ const FreelancersJobOfferDetails = () => {
               style={{
                 fontSize: 18,
                 color: "#6c757d",
-              margin: 0,
+                margin: 0,
                 lineHeight: 1.4,
               }}
             >
@@ -1398,9 +1509,9 @@ const FreelancersJobOfferDetails = () => {
           <h2
             style={{
               fontSize: 28,
-            fontWeight: 600, 
-            color: "#121212", 
-            margin: 0,
+              fontWeight: 600,
+              color: "#121212",
+              margin: 0,
               lineHeight: 1.3,
               letterSpacing: 0.3,
             }}
@@ -1412,7 +1523,7 @@ const FreelancersJobOfferDetails = () => {
         {/* Main Content Grid */}
         <div
           style={{
-          display: "grid", 
+            display: "grid",
             gridTemplateColumns: "1fr 420px",
             gap: 40,
             alignItems: "flex-start",
@@ -1424,7 +1535,7 @@ const FreelancersJobOfferDetails = () => {
             {/* Payment Details Section */}
             <div
               style={{
-              background: "#fff", 
+                background: "#fff",
                 border: "1px solid #e0e0e0",
                 borderRadius: "8px",
                 padding: 32,
@@ -1434,21 +1545,21 @@ const FreelancersJobOfferDetails = () => {
               <h3
                 style={{
                   fontSize: 24,
-                fontWeight: 600, 
-                color: "#121212", 
+                  fontWeight: 600,
+                  color: "#121212",
                   letterSpacing: 0.3,
                   margin: "0 0 24px 0",
                 }}
               >
                 Payment details
               </h3>
-              
+
               <div style={{ marginBottom: 24 }}>
                 <div
                   style={{
-                  display: "flex", 
-                  justifyContent: "space-between", 
-                  alignItems: "center",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                     marginBottom: 6,
                   }}
                 >
@@ -1460,7 +1571,7 @@ const FreelancersJobOfferDetails = () => {
                   <span
                     style={{
                       fontSize: 20,
-                    fontWeight: 700, 
+                      fontWeight: 700,
                       color: "#121212",
                     }}
                   >
@@ -1481,9 +1592,9 @@ const FreelancersJobOfferDetails = () => {
               <div style={{ marginBottom: 24 }}>
                 <div
                   style={{
-                  display: "flex", 
-                  justifyContent: "space-between", 
-                  alignItems: "center",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                     marginBottom: 8,
                   }}
                 >
@@ -1509,9 +1620,9 @@ const FreelancersJobOfferDetails = () => {
               >
                 <div
                   style={{
-                  display: "flex", 
-                  justifyContent: "space-between", 
-                  alignItems: "center",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                     marginBottom: 8,
                   }}
                 >
@@ -1523,26 +1634,26 @@ const FreelancersJobOfferDetails = () => {
                       style={{
                         marginLeft: 10,
                         color: "#121212",
-                      cursor: "pointer",
+                        cursor: "pointer",
                         width: 20,
                         height: 20,
                         background: "#f0f0f0",
-                      borderRadius: "50%",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: 12,
+                        borderRadius: "50%",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: 12,
                         fontWeight: "bold",
                         border: "1px solid #e3e3e3",
                       }}
                     >
                       ?
-                  </span>
+                    </span>
                   </span>
                   <span
                     style={{
                       fontSize: 22,
-                    fontWeight: 700, 
+                      fontWeight: 700,
                       color: "#007674",
                     }}
                   >
@@ -1559,7 +1670,7 @@ const FreelancersJobOfferDetails = () => {
             {/* Offer Description Section */}
             <div
               style={{
-              background: "#fff", 
+                background: "#fff",
                 border: "1px solid #e0e0e0",
                 borderRadius: "8px",
                 padding: 32,
@@ -1568,8 +1679,8 @@ const FreelancersJobOfferDetails = () => {
               <h3
                 style={{
                   fontSize: 24,
-                fontWeight: 600, 
-                color: "#121212", 
+                  fontWeight: 600,
+                  color: "#121212",
                   margin: "0 0 24px 0",
                   letterSpacing: 0.3,
                 }}
@@ -1608,7 +1719,9 @@ const FreelancersJobOfferDetails = () => {
                 >
                   Attachments ({attachmentList.length})
                 </h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div
+                  style={{ display: "flex", flexDirection: "column", gap: 12 }}
+                >
                   {attachmentList.map((attachment, index) => (
                     <div
                       key={index}
@@ -1621,7 +1734,8 @@ const FreelancersJobOfferDetails = () => {
                         border: "1px solid #e3e3e3",
                         cursor: "pointer",
                         transition: "all 0.2s ease",
-                        marginBottom: index < attachmentList.length - 1 ? "12px" : "0",
+                        marginBottom:
+                          index < attachmentList.length - 1 ? "12px" : "0",
                       }}
                       onClick={() => window.open(attachment, "_blank")}
                       onMouseEnter={(e) => {
@@ -1640,10 +1754,15 @@ const FreelancersJobOfferDetails = () => {
                           try {
                             const cleanUrl = url.split("?")[0];
                             const urlParts = cleanUrl.split("/");
-                            const filename = urlParts[urlParts.length - 1] || "";
-                            fileExtension = filename.split(".").pop()?.toLowerCase() || "";
+                            const filename =
+                              urlParts[urlParts.length - 1] || "";
+                            fileExtension =
+                              filename.split(".").pop()?.toLowerCase() || "";
                           } catch (error) {
-                            console.error("Error parsing file extension:", error);
+                            console.error(
+                              "Error parsing file extension:",
+                              error
+                            );
                           }
                         }
 
@@ -1658,9 +1777,15 @@ const FreelancersJobOfferDetails = () => {
                             iconColor = "#007bff"; // Blue for Word docs
                           } else if (["xls", "xlsx"].includes(fileExtension)) {
                             iconColor = "#28a745"; // Green for Excel
-                          } else if (["jpg", "jpeg", "png", "gif", "webp"].includes(fileExtension)) {
+                          } else if (
+                            ["jpg", "jpeg", "png", "gif", "webp"].includes(
+                              fileExtension
+                            )
+                          ) {
                             iconColor = "#ffc107"; // Yellow for images
-                          } else if (["zip", "rar", "7z"].includes(fileExtension)) {
+                          } else if (
+                            ["zip", "rar", "7z"].includes(fileExtension)
+                          ) {
                             iconColor = "#6f42c1"; // Purple for archives
                           }
                         }
@@ -1709,23 +1834,42 @@ const FreelancersJobOfferDetails = () => {
                                 // Remove query parameters and get the last part of the URL
                                 const cleanUrl = url.split("?")[0];
                                 const urlParts = cleanUrl.split("/");
-                                filename = urlParts[urlParts.length - 1] || "Attachment";
+                                filename =
+                                  urlParts[urlParts.length - 1] || "Attachment";
 
                                 // Decode URL-encoded characters
                                 filename = decodeURIComponent(filename);
 
                                 // Check if the filename looks like an ID (24 character hex string)
                                 const isId = /^[a-f0-9]{24}$/i.test(filename);
-                                
+
                                 // If filename is empty, too short, looks like an ID, or just extension, try to get a better name
-                                if (!filename || filename.length < 3 || filename.startsWith(".") || isId) {
+                                if (
+                                  !filename ||
+                                  filename.length < 3 ||
+                                  filename.startsWith(".") ||
+                                  isId
+                                ) {
                                   if (contractTitle) {
                                     // Try to get file extension from URL
-                                    const urlExtension = url.split(".").pop()?.split("?")[0];
-                                    if (urlExtension && urlExtension.length <= 5 && !urlExtension.includes("/")) {
-                                      filename = `${contractTitle.replace(/[^a-zA-Z0-9]/g, '_')}_attachment.${urlExtension}`;
+                                    const urlExtension = url
+                                      .split(".")
+                                      .pop()
+                                      ?.split("?")[0];
+                                    if (
+                                      urlExtension &&
+                                      urlExtension.length <= 5 &&
+                                      !urlExtension.includes("/")
+                                    ) {
+                                      filename = `${contractTitle.replace(
+                                        /[^a-zA-Z0-9]/g,
+                                        "_"
+                                      )}_attachment.${urlExtension}`;
                                     } else {
-                                      filename = `${contractTitle.replace(/[^a-zA-Z0-9]/g, '_')}_attachment`;
+                                      filename = `${contractTitle.replace(
+                                        /[^a-zA-Z0-9]/g,
+                                        "_"
+                                      )}_attachment`;
                                     }
                                   } else {
                                     filename = "Job_Offer_Attachment";
@@ -1734,14 +1878,26 @@ const FreelancersJobOfferDetails = () => {
 
                                 // If filename doesn't have an extension, try to add one based on URL
                                 if (!filename.includes(".")) {
-                                  const extension = url.split(".").pop()?.split("?")[0];
-                                  if (extension && extension.length <= 5 && !extension.includes("/")) {
+                                  const extension = url
+                                    .split(".")
+                                    .pop()
+                                    ?.split("?")[0];
+                                  if (
+                                    extension &&
+                                    extension.length <= 5 &&
+                                    !extension.includes("/")
+                                  ) {
                                     filename = `${filename}.${extension}`;
                                   }
                                 }
                               } catch (error) {
-                                console.error("Error parsing attachment URL:", error);
-                                filename = contractTitle ? `${contractTitle}_attachment` : "Job_Offer_Attachment";
+                                console.error(
+                                  "Error parsing attachment URL:",
+                                  error
+                                );
+                                filename = contractTitle
+                                  ? `${contractTitle}_attachment`
+                                  : "Job_Offer_Attachment";
                               }
                             }
 
@@ -1763,38 +1919,49 @@ const FreelancersJobOfferDetails = () => {
 
                             // First try to get file size from attachment details state
                             if (attachmentDetails[attachment]?.fileSize) {
-                              return formatFileSize(attachmentDetails[attachment].fileSize);
+                              return formatFileSize(
+                                attachmentDetails[attachment].fileSize
+                              );
                             }
 
                             // Then try to get file size from job offer data
                             if (jobOffer?.attachmentDetails?.fileSize) {
-                              return formatFileSize(jobOffer.attachmentDetails.fileSize);
+                              return formatFileSize(
+                                jobOffer.attachmentDetails.fileSize
+                              );
                             }
 
                             // Check if we have file size in job offer data
                             if (jobOffer?.attachmentSize) {
                               return formatFileSize(jobOffer.attachmentSize);
                             }
-                            
+
                             // Check if we have file size from HEAD request
                             if (fileSizes[attachment]) {
                               return formatFileSize(fileSizes[attachment]);
                             }
-                            
+
                             // Try to extract from URL if it contains size info
                             const url = attachment;
                             if (url) {
                               try {
-                                const urlParams = new URLSearchParams(url.split("?")[1] || "");
-                                const sizeParam = urlParams.get("size") || urlParams.get("filesize");
+                                const urlParams = new URLSearchParams(
+                                  url.split("?")[1] || ""
+                                );
+                                const sizeParam =
+                                  urlParams.get("size") ||
+                                  urlParams.get("filesize");
                                 if (sizeParam) {
                                   return formatFileSize(parseInt(sizeParam));
                                 }
                               } catch (error) {
-                                console.error("Error parsing URL parameters:", error);
+                                console.error(
+                                  "Error parsing URL parameters:",
+                                  error
+                                );
                               }
                             }
-                            
+
                             // If no size available, show a placeholder
                             return "File size not available";
                           })()}
@@ -1925,13 +2092,13 @@ const FreelancersJobOfferDetails = () => {
                     </div>
                   </div>
                 )}
+              </div>
             </div>
-          </div>
 
             {/* Contract details Section */}
             <div
               style={{
-            background: "#fff", 
+                background: "#fff",
                 border: "1px solid #e0e0e0",
                 borderRadius: "8px",
                 padding: 0,
@@ -1965,8 +2132,8 @@ const FreelancersJobOfferDetails = () => {
                   <div style={{ color: "#121212" }}>Status</div>
                   <div
                     style={{
-                display: "flex",
-                alignItems: "center",
+                      display: "flex",
+                      alignItems: "center",
                       gap: 12,
                       flexWrap: "wrap",
                     }}
@@ -1987,8 +2154,8 @@ const FreelancersJobOfferDetails = () => {
                       Expires on {formatDate(expiryDate)}
                     </span>
                   </div>
-              </div>
-              
+                </div>
+
                 {/* Job category */}
                 <div
                   style={{
@@ -2001,11 +2168,11 @@ const FreelancersJobOfferDetails = () => {
                 >
                   <div style={{ color: "#121212" }}>Job category</div>
                   <div style={{ color: "#121212" }}>{jobCategory}</div>
-              </div>
+                </div>
 
                 {/* Offer expires */}
                 <div
-                  style={{ 
+                  style={{
                     display: "grid",
                     gridTemplateColumns: "1fr 2fr",
                     padding: "16px 24px",
@@ -2017,7 +2184,7 @@ const FreelancersJobOfferDetails = () => {
                   <div style={{ color: "#121212" }}>
                     {formatDate(expiryDate)}
                   </div>
-              </div>
+                </div>
 
                 {/* Payment Schedule */}
                 <div
@@ -2068,7 +2235,7 @@ const FreelancersJobOfferDetails = () => {
                 style={{
                   padding: "16px 20px",
                   borderBottom: "1px solid #f0f0f0",
-                cursor: "pointer",
+                  cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "space-between",
@@ -2140,8 +2307,8 @@ const FreelancersJobOfferDetails = () => {
                     payment is automatically released.
                   </p>
                 </div>
+              </div>
             </div>
-          </div>
           </div>
 
           {/* Right Column - Client Information Sidebar */}
@@ -2171,183 +2338,184 @@ const FreelancersJobOfferDetails = () => {
                 }}
               >
                 Once you accept, you can begin working right away.
-        </div>
+              </div>
 
-        {/* Action Buttons */}
-        {status === "accepted" ? (
-          <div
-            style={{
-              textAlign: "center",
-              marginBottom: 24,
-            }}
-          >
-            <div
-              style={{
-                background: "#d4edda",
-                color: "#155724",
-                border: "1px solid #c3e6cb",
-                padding: "16px 20px",
-                borderRadius: "8px",
-                fontSize: 16,
-                fontWeight: 600,
-                marginBottom: 16,
-              }}
-            >
-              ✅ Offer Accepted
-            </div>
-            <div
-              style={{
-                fontSize: 14,
-                color: "#6c757d",
-                lineHeight: 1.4,
-              }}
-            >
-              This job offer has been accepted. You can view your proposals and active contracts.
-            </div>
-            <button
-              style={{
-                background: "#007674",
-                color: "white",
-                border: "none",
-                padding: "10px 20px",
-                borderRadius: "25px",
-                fontSize: 16,
-                fontWeight: 600,
-                cursor: "pointer",
-                minWidth: 140,
-                marginTop: 16,
-                transition: "all 0.3s ease-in-out",
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = "translateY(0)";
-              }}
-              onClick={() => navigate("/ws/proposals")}
-            >
-              Go to Proposals
-            </button>
-          </div>
-        ) : status === "declined" ? (
-          <div
-            style={{
-              textAlign: "center",
-              marginBottom: 24,
-            }}
-          >
-            <div
-              style={{
-                background: "#f8d7da",
-                color: "#721c24",
-                border: "1px solid #f5c6cb",
-                padding: "16px 20px",
-                borderRadius: "8px",
-                fontSize: 16,
-                fontWeight: 600,
-                marginBottom: 16,
-              }}
-            >
-              ❌ Offer Declined
-            </div>
-            <div
-              style={{
-                fontSize: 14,
-                color: "#6c757d",
-                lineHeight: 1.4,
-              }}
-            >
-              This job offer has been declined and cannot be accepted.
-            </div>
-          </div>
-        ) : status === "expired" ? (
-          <div
-            style={{
-              textAlign: "center",
-              marginBottom: 24,
-            }}
-          >
-            <div
-              style={{
-                background: "#fff3cd",
-                color: "#856404",
-                border: "1px solid #ffeaa7",
-                padding: "16px 20px",
-                borderRadius: "8px",
-                fontSize: 16,
-                fontWeight: 600,
-                marginBottom: 16,
-              }}
-            >
-              ⏰ Offer Expired
-            </div>
-            <div
-              style={{
-                fontSize: 14,
-                color: "#6c757d",
-                lineHeight: 1.4,
-              }}
-            >
-              This job offer has expired and can no longer be accepted.
-            </div>
-          </div>
-        ) : (
-          <div
-            style={{
-              display: "flex", 
-              gap: 20,
-              justifyContent: "center",
-              marginBottom: 24,
-            }}
-          >
-            <button
-              style={{
-                background: "#007674",
-                color: "white",
-                border: "none",
-                padding: "10px 20px",
-                borderRadius: "25px",
-                fontSize: 16,
-                fontWeight: 600,
-                cursor: "pointer",
-                minWidth: 140,
-                transition: "all 0.3s ease-in-out",
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = "translateY(-2px)";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = "translateY(0)";
-              }}
-              onClick={handleOpenAcceptModal}
-            >
-              Accept offer
-            </button>
-            <button
-              style={{
-                background: "transparent",
-                color: "#007674",
-                border: "none",
-                padding: "10px 20px",
-                borderRadius: "25px",
-                fontSize: 16,
-                fontWeight: 600,
-                cursor: "pointer",
-                minWidth: 140,
-                transition: "all 0.3s ease-in-out",
-              }}
-              onMouseEnter={(e) => {
-                e.target.style.background = "#f8f9fa";
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.background = "transparent";
-              }}
-              onClick={handleOpenDeclineModal}
-            >
-              Decline offer
-            </button>
-          </div>
-        )}
+              {/* Action Buttons */}
+              {status === "accepted" ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    marginBottom: 24,
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "#d4edda",
+                      color: "#155724",
+                      border: "1px solid #c3e6cb",
+                      padding: "16px 20px",
+                      borderRadius: "8px",
+                      fontSize: 16,
+                      fontWeight: 600,
+                      marginBottom: 16,
+                    }}
+                  >
+                    ✅ Offer Accepted
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      color: "#6c757d",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    This job offer has been accepted. You can view your
+                    proposals and active contracts.
+                  </div>
+                  <button
+                    style={{
+                      background: "#007674",
+                      color: "white",
+                      border: "none",
+                      padding: "10px 20px",
+                      borderRadius: "25px",
+                      fontSize: 16,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      minWidth: 140,
+                      marginTop: 16,
+                      transition: "all 0.3s ease-in-out",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.transform = "translateY(-2px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.transform = "translateY(0)";
+                    }}
+                    onClick={() => navigate("/ws/proposals")}
+                  >
+                    Go to Proposals
+                  </button>
+                </div>
+              ) : status === "declined" ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    marginBottom: 24,
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "#f8d7da",
+                      color: "#721c24",
+                      border: "1px solid #f5c6cb",
+                      padding: "16px 20px",
+                      borderRadius: "8px",
+                      fontSize: 16,
+                      fontWeight: 600,
+                      marginBottom: 16,
+                    }}
+                  >
+                    ❌ Offer Declined
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      color: "#6c757d",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    This job offer has been declined and cannot be accepted.
+                  </div>
+                </div>
+              ) : status === "expired" ? (
+                <div
+                  style={{
+                    textAlign: "center",
+                    marginBottom: 24,
+                  }}
+                >
+                  <div
+                    style={{
+                      background: "#fff3cd",
+                      color: "#856404",
+                      border: "1px solid #ffeaa7",
+                      padding: "16px 20px",
+                      borderRadius: "8px",
+                      fontSize: 16,
+                      fontWeight: 600,
+                      marginBottom: 16,
+                    }}
+                  >
+                    ⏰ Offer Expired
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      color: "#6c757d",
+                      lineHeight: 1.4,
+                    }}
+                  >
+                    This job offer has expired and can no longer be accepted.
+                  </div>
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 20,
+                    justifyContent: "center",
+                    marginBottom: 24,
+                  }}
+                >
+                  <button
+                    style={{
+                      background: "#007674",
+                      color: "white",
+                      border: "none",
+                      padding: "10px 20px",
+                      borderRadius: "25px",
+                      fontSize: 16,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      minWidth: 140,
+                      transition: "all 0.3s ease-in-out",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.transform = "translateY(-2px)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.transform = "translateY(0)";
+                    }}
+                    onClick={handleOpenAcceptModal}
+                  >
+                    Accept offer
+                  </button>
+                  <button
+                    style={{
+                      background: "transparent",
+                      color: "#007674",
+                      border: "none",
+                      padding: "10px 20px",
+                      borderRadius: "25px",
+                      fontSize: 16,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      minWidth: 140,
+                      transition: "all 0.3s ease-in-out",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.target.style.background = "#f8f9fa";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.target.style.background = "transparent";
+                    }}
+                    onClick={handleOpenDeclineModal}
+                  >
+                    Decline offer
+                  </button>
+                </div>
+              )}
 
               {/* Offer Expiration */}
               <div

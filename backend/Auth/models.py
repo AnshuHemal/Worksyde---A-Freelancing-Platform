@@ -13,6 +13,7 @@ from mongoengine import (
     MapField,
     EmbeddedDocument,
     EmbeddedDocumentField,
+    FloatField,
     fields
 )
 from django.utils import timezone
@@ -40,6 +41,9 @@ class User(Document):
     banReason = StringField()
     bannedBy = ReferenceField('self')  # Reference to admin who banned
     bannedAt = DateTimeField()
+    
+    # Wallet balance for clients
+    walletBalance = FloatField(default=0.0)
     
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
@@ -499,6 +503,77 @@ class PaymentTransaction(Document):
         return super().save(*args, **kwargs)
 
 
+class WorksydeWallet(Document):
+    """Singleton-like document holding Worksyde platform wallet balance"""
+    balance = FloatField(default=0.0)
+    currency = StringField(default='INR')
+    # Track escrow entries per job/offer
+    class WorksydeWalletEntry(EmbeddedDocument):
+        jobId = ReferenceField('JobPosts')
+        offerId = StringField()  # original JobOffer ID as string
+        acceptedOfferId = ReferenceField('AcceptedJobOffer')
+        amount = FloatField(default=0.0)
+        expectedPayout = FloatField(default=0.0)  # Amount to pay freelancer upon completion
+        platformFee = FloatField(default=0.0)  # Client-paid platform fees included in funding
+        freelancerFeePercent = FloatField(default=10.0)  # Default 10%
+        freelancerFee = FloatField(default=0.0)
+        estimatedFreelancerPayout = FloatField(default=0.0)
+        createdAt = DateTimeField(default=timezone.now)
+
+    entries = ListField(EmbeddedDocumentField(WorksydeWalletEntry), default=list)
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+
+    meta = {
+        "collection": "worksyde_wallet",
+        "ordering": ["-createdAt"],
+    }
+
+    def save(self, *args, **kwargs):
+        if not self.createdAt:
+            self.createdAt = timezone.now()
+        self.updatedAt = timezone.now()
+        return super().save(*args, **kwargs)
+
+
+class Transaction(Document):
+    """Generic transaction record for wallet transfers"""
+    FROM_CHOICES = [
+        ("client", "Client"),
+        ("worksyde", "Worksyde"),
+    ]
+    TO_CHOICES = [
+        ("worksyde", "Worksyde"),
+        ("freelancer", "Freelancer"),
+        ("client", "Client"),
+    ]
+    TYPE_CHOICES = [
+        ("Funding", "Funding"),
+        ("Payout", "Payout"),
+        ("Refund", "Refund"),
+    ]
+    STATUS_CHOICES = [
+        ("Pending", "Pending"),
+        ("Success", "Success"),
+        ("Failed", "Failed"),
+    ]
+
+    fromType = StringField(required=True, choices=[c[0] for c in FROM_CHOICES])
+    toType = StringField(required=True, choices=[c[0] for c in TO_CHOICES])
+    clientId = ReferenceField(User)
+    freelancerId = ReferenceField(User)
+    amount = FloatField(required=True, min_value=0.0)
+    currency = StringField(default='INR')
+    type = StringField(choices=[c[0] for c in TYPE_CHOICES], required=True)
+    status = StringField(choices=[c[0] for c in STATUS_CHOICES], default='Pending')
+    timestamp = DateTimeField(default=timezone.now)
+
+    meta = {
+        "collection": "transactions",
+        "indexes": ["fromType", "toType", "clientId", "freelancerId", "status", "timestamp"],
+        "ordering": ["-timestamp"],
+    }
+
 class JobInvitation(Document):
     jobId = ReferenceField(JobPosts, required=True)
     clientId = ReferenceField(User, required=True)
@@ -541,6 +616,9 @@ class JobOffer(Document):
     attachments = StringField()  # URL to attachment
     status = StringField(choices=["pending", "accepted", "declined", "expired"], default="pending")
     offerExpires = DateTimeField()  # When the offer expires (7 days after creation)
+    # Acceptance & funding tracking
+    fundedAmount = FloatField(default=0.0)
+    acceptedAt = DateTimeField()
     createdAt = DateTimeField(default=timezone.now)
     updatedAt = DateTimeField(default=timezone.now)
     
@@ -582,6 +660,7 @@ class AcceptedJobOffer(Document):
     acceptedAt = DateTimeField(default=timezone.now)
     expectedStartDate = DateTimeField()  # When freelancer expects to start
     estimatedCompletionDate = DateTimeField()  # Expected completion date
+    fundedAmount = FloatField(default=0.0)  # Total amount funded by client for this offer
     
     # Milestone details (if applicable)
     milestones = ListField(EmbeddedDocumentField(Milestone))
@@ -613,6 +692,45 @@ class AcceptedJobOffer(Document):
         self.updatedAt = timezone.now()
         return super().save(*args, **kwargs)
 
+
+class SubmissionComment(EmbeddedDocument):
+    commenterId = ReferenceField('User')
+    text = StringField()
+    createdAt = DateTimeField(default=timezone.now)
+
+
+class ProjectSubmission(Document):
+    """Stores a freelancer's project submission for a fixed/milestone project"""
+    acceptedOfferId = ReferenceField(AcceptedJobOffer, required=True)
+    jobId = ReferenceField(JobPosts, required=True)
+    clientId = ReferenceField(User, required=True)
+    freelancerId = ReferenceField(User, required=True)
+
+    title = StringField(required=True)
+    description = StringField()
+
+    # Either store file binary or a link. We support both.
+    pdfFile = BinaryField()
+    pdfFileContentType = StringField()
+    pdfLink = StringField()
+
+    status = StringField(choices=["Pending", "Changes Requested", "Completed"], default="Pending")
+    comments = ListField(EmbeddedDocumentField(SubmissionComment), default=list)
+
+    createdAt = DateTimeField(default=timezone.now)
+    updatedAt = DateTimeField(default=timezone.now)
+
+    meta = {
+        'collection': 'projectsubmissions',
+        'indexes': ['acceptedOfferId', 'jobId', 'clientId', 'freelancerId', 'status'],
+        'ordering': ['-createdAt']
+    }
+
+    def save(self, *args, **kwargs):
+        if not self.createdAt:
+            self.createdAt = timezone.now()
+        self.updatedAt = timezone.now()
+        return super().save(*args, **kwargs)
 
 class Notification(Document):
     """Model for storing notifications for users"""

@@ -20,6 +20,10 @@ const FreelancersProposals = () => {
   const [loadingAcceptedOffers, setLoadingAcceptedOffers] = useState(true);
   const [acceptedOffersError, setAcceptedOffersError] = useState("");
 
+  // Simple cache for accepted job offers
+  const [acceptedOffersCache, setAcceptedOffersCache] = useState({});
+  const [cacheTimestamp, setCacheTimestamp] = useState(0);
+
   useEffect(() => {
     // Fetch all data with robust error handling
     const fetchAllData = async () => {
@@ -38,7 +42,6 @@ const FreelancersProposals = () => {
         try {
           userRes = await axios.get(`${API_URL}/current-user/`, {
             withCredentials: true,
-            timeout: 5000,
           });
         } catch (error) {
           console.error("Error fetching current user:", error);
@@ -58,36 +61,42 @@ const FreelancersProposals = () => {
 
         // Make API calls with error handling for each
         let invitationsRes, proposalsRes, offersRes, acceptedOffersRes;
-        
+
         try {
           // Fetch job invitations
-          invitationsRes = await axios.get(`${API_URL}/job-invite/freelancer/`, {
-            withCredentials: true,
-            timeout: 3000,
-          });
+          invitationsRes = await axios.get(
+            `${API_URL}/job-invite/freelancer/`,
+            {
+              withCredentials: true,
+            }
+          );
         } catch (error) {
           console.error("Error fetching invitations:", error);
           invitationsRes = { data: { invitations: [] } };
         }
-        
+
         try {
           // Fetch submitted proposals
-          proposalsRes = await axios.get(`${API_URL}/jobproposals/freelancer/`, {
-            withCredentials: true,
-            timeout: 3000,
-          });
+          proposalsRes = await axios.get(
+            `${API_URL}/jobproposals/freelancer/`,
+            {
+              withCredentials: true,
+            }
+          );
         } catch (error) {
           console.error("Error fetching proposals:", error);
           proposalsRes = { data: { success: true, proposals: [] } };
         }
-        
+
         try {
           // Fetch job offers (only if we have freelancer ID)
           if (freelancerId) {
-            offersRes = await axios.get(`${API_URL}/job-offers/freelancer/${freelancerId}/`, {
-              withCredentials: true,
-              timeout: 3000,
-            });
+            offersRes = await axios.get(
+              `${API_URL}/job-offers/freelancer/${freelancerId}/`,
+              {
+                withCredentials: true,
+              }
+            );
           } else {
             offersRes = { data: { success: true, jobOffers: [] } };
           }
@@ -95,26 +104,66 @@ const FreelancersProposals = () => {
           console.error("Error fetching job offers:", error);
           offersRes = { data: { success: true, jobOffers: [] } };
         }
-        
+
         try {
-          // Fetch accepted job offers (only if we have freelancer ID)
+          // Fetch accepted job offers (only if we have freelancer ID) - OPTIMIZED WITH CACHE
           if (freelancerId) {
-            acceptedOffersRes = await axios.get(`${API_URL}/job-offers/accepted/freelancer/${freelancerId}/`, {
-              withCredentials: true,
-              timeout: 5000,
-            });
+            // Check cache first (cache valid for 2 minutes)
+            const now = Date.now();
+            const cacheKey = `accepted_offers_${freelancerId}`;
+            const cacheValid = now - cacheTimestamp < 120000; // 2 minutes
+
+            if (cacheValid && acceptedOffersCache[cacheKey]) {
+              console.log("Using cached accepted job offers");
+              acceptedOffersRes = {
+                data: {
+                  success: true,
+                  acceptedJobOffers: acceptedOffersCache[cacheKey],
+                },
+              };
+            } else {
+              console.log("Fetching fresh accepted job offers");
+              acceptedOffersRes = await axios.get(
+                `${API_URL}/job-offers/accepted/freelancer/${freelancerId}/?page=1&page_size=10`,
+                {
+                  withCredentials: true,
+                }
+              );
+
+              // Cache the result
+              if (acceptedOffersRes.data && acceptedOffersRes.data.success) {
+                setAcceptedOffersCache((prev) => ({
+                  ...prev,
+                  [cacheKey]: acceptedOffersRes.data.acceptedJobOffers || [],
+                }));
+                setCacheTimestamp(now);
+              }
+            }
           } else {
-            acceptedOffersRes = { data: { success: true, acceptedJobOffers: [] } };
+            acceptedOffersRes = {
+              data: { success: true, acceptedJobOffers: [] },
+            };
           }
         } catch (error) {
           console.error("Error fetching accepted job offers:", error);
-          // Return empty array on error instead of fallback data
-          acceptedOffersRes = { 
-            data: { 
-              success: true, 
-              acceptedJobOffers: [] 
-            } 
-          };
+          // Try to use cache on error
+          const cacheKey = `accepted_offers_${freelancerId}`;
+          if (acceptedOffersCache[cacheKey]) {
+            console.log("Using cached data due to error");
+            acceptedOffersRes = {
+              data: {
+                success: true,
+                acceptedJobOffers: acceptedOffersCache[cacheKey],
+              },
+            };
+          } else {
+            acceptedOffersRes = {
+              data: {
+                success: true,
+                acceptedJobOffers: [],
+              },
+            };
+          }
         }
 
         // Process invitations
@@ -139,19 +188,22 @@ const FreelancersProposals = () => {
         }
 
         // Process accepted offers
-                       if (acceptedOffersRes.data && acceptedOffersRes.data.success) {
-                 const offers = acceptedOffersRes.data.acceptedJobOffers || [];
-                 console.log("Fetched accepted job offers:", offers);
-                 setAcceptedJobOffers(offers);
-                 if (offers.length === 0) {
-                   console.log("No accepted job offers found for freelancer:", freelancerId);
-                 }
-               } else {
-                 setAcceptedJobOffers([]);
-                 if (acceptedOffersRes.data && !acceptedOffersRes.data.success) {
-                   setAcceptedOffersError("Failed to load accepted job offers");
-                 }
-               }
+        if (acceptedOffersRes.data && acceptedOffersRes.data.success) {
+          const offers = acceptedOffersRes.data.acceptedJobOffers || [];
+          console.log("Fetched accepted job offers:", offers);
+          setAcceptedJobOffers(offers);
+          if (offers.length === 0) {
+            console.log(
+              "No accepted job offers found for freelancer:",
+              freelancerId
+            );
+          }
+        } else {
+          setAcceptedJobOffers([]);
+          if (acceptedOffersRes.data && !acceptedOffersRes.data.success) {
+            setAcceptedOffersError("Failed to load accepted job offers");
+          }
+        }
       } catch (err) {
         console.error("Error fetching data:", err);
 
@@ -404,8 +456,8 @@ const FreelancersProposals = () => {
           </SectionCard>
 
           {/* Active proposals */}
-          <SectionCard 
-            title="Active proposals" 
+          <SectionCard
+            title="Active proposals"
             count={acceptedJobOffers.length}
           >
             {loadingAcceptedOffers ? (
@@ -413,7 +465,9 @@ const FreelancersProposals = () => {
                 Loading active proposals...
               </div>
             ) : acceptedOffersError ? (
-              <div style={{ padding: 32, color: "#dc3545" }}>{acceptedOffersError}</div>
+              <div style={{ padding: 32, color: "#dc3545" }}>
+                {acceptedOffersError}
+              </div>
             ) : acceptedJobOffers.length > 0 ? (
               <div
                 style={{
@@ -466,7 +520,7 @@ const FreelancersProposals = () => {
                         {offer.acceptedAt ? timeAgo(offer.acceptedAt) : ""}
                       </div>
                       <Link
-                        to={`/ws/offers/${offer.id}`}
+                        to={`/ws/myjobs`}
                         style={{
                           color: "#007674",
                           fontWeight: 600,
@@ -490,15 +544,15 @@ const FreelancersProposals = () => {
                   </div>
                 ))}
               </div>
-                           ) : (
-                 <div style={{ padding: 32, color: "#888", textAlign: "center" }}>
-                   {acceptedOffersError ? (
-                     <div style={{ color: "#dc3545" }}>{acceptedOffersError}</div>
-                   ) : (
-                     "No active proposals yet. Accepted job offers will appear here."
-                   )}
-                 </div>
-               )}
+            ) : (
+              <div style={{ padding: 32, color: "#888", textAlign: "center" }}>
+                {acceptedOffersError ? (
+                  <div style={{ color: "#dc3545" }}>{acceptedOffersError}</div>
+                ) : (
+                  <></>
+                )}
+              </div>
+            )}
           </SectionCard>
 
           {/* Submitted proposals */}

@@ -5,7 +5,7 @@ import { RiChatSmileAiLine } from "react-icons/ri";
 import { BsGlobe, BsBell, BsCircleFill, BsPeople } from "react-icons/bs";
 import { TfiHelp } from "react-icons/tfi";
 import { LuCircleUser, LuSettings } from "react-icons/lu";
-import { MdOutlineLightMode } from "react-icons/md";
+import { MdOutlineLightMode, MdOutlineWorkHistory } from "react-icons/md";
 import { FiLogOut } from "react-icons/fi";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -659,6 +659,11 @@ const Header2 = () => {
                   className="me-2"
                 />{" "}
                 Your Profile
+              </Link>
+              <Link to="/ws/myjobs" className="dropdown-item align-items-center" onClick={closeDropdown}>
+                <MdOutlineWorkHistory style={{ width: "20px", height: "18px" }}
+                  className="me-2"/>{" "}
+                My Jobs
               </Link>
               <Link to="/ws/proposals" className="dropdown-item align-items-center" onClick={closeDropdown}>
                 <BsPeople

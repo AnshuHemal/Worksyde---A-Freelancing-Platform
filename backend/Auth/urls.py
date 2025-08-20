@@ -117,7 +117,13 @@ urlpatterns = [
     path('paypal-accounts/<str:account_id>/set-default/', views.set_default_paypal_account, name='set_default_paypal_account'),
     path('paypal/payment/initiate/', views.initiate_paypal_payment, name='initiate_paypal_payment'),
     path('paypal/payment/complete/', views.complete_paypal_payment, name='complete_paypal_payment'),
+    path('wallet/payment/initiate/', views.initiate_wallet_payment, name='initiate_wallet_payment'),
+    path('wallet/balance/', views.get_wallet_balance, name='get_wallet_balance'),
     path('payment/transactions/', views.get_payment_transactions, name='get_payment_transactions'),
+    # Wallet transfers
+    path('wallet/transfer/client-to-worksyde/', views.transfer_client_to_worksyde, name='transfer_client_to_worksyde'),
+    path('wallet/transfer/worksyde-to-freelancer/', views.transfer_worksyde_to_freelancer, name='transfer_worksyde_to_freelancer'),
+    path('wallet/transactions/', views.get_wallet_transactions, name='get_wallet_transactions'),
     
     path('jobpost/publish/<str:job_id>/', views.publish_job_post, name='publish_job_post'),
     path('job-invite/', views.create_job_invitation, name='create_job_invitation'),
@@ -137,6 +143,8 @@ urlpatterns = [
     path('job-offers/<str:offer_id>/decline/', views.decline_job_offer, name='decline_job_offer'),
     path('job-offers/<str:offer_id>/accept/', views.accept_job_offer, name='accept_job_offer'),
     path('job-offers/accepted/freelancer/<str:freelancer_id>/', views.get_freelancer_accepted_job_offers, name='get_freelancer_accepted_job_offers'),
+    path('hired-freelancers/<str:job_id>/', views.get_hired_freelancers_for_job, name='get_hired_freelancers_for_job'),
+    path('accepted-job-offer/<str:accepted_job_offer_id>/', views.get_accepted_job_offer_details, name='get_accepted_job_offer_details'),
     
     # Notifications
     path('notifications/create/', views.create_notification, name='create_notification'),
@@ -149,7 +157,8 @@ urlpatterns = [
     # Proposal Withdrawal with Notification
     path('proposals/withdraw/', views.withdraw_proposal_with_notification, name='withdraw_proposal_with_notification'),
     
-    # Budget Prediction
-    path('predict-budget/', views.predict_job_budget, name='predict_job_budget'),
-    
+    # Project submissions workflow
+    path('submissions/submit/', views.submit_project_submission),
+    path('submissions/<str:submission_id>/request-changes/', views.request_changes_submission),
+    path('submissions/<str:submission_id>/release-payment/', views.release_payment_submission),
 ]

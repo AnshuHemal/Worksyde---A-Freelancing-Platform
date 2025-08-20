@@ -68,7 +68,10 @@ import FreelancersNotificationPage from "./pages/Freelancers/FreelancersNotifica
 import NotificationPage from "./pages/Freelancers/NotificationPage";
 import { UserProvider } from "./contexts/UserContext";
 import ClientJobDetailedPage from "./pages/Clients/ClientJobDetailedPage";
+import ClientWorkroom from "./pages/Clients/ClientWorkroom";
 import FreelancersProposals from "./pages/Freelancers/FreelancersProposals";
+import FreelancerMyJobs from "./pages/Freelancers/FreelancerMyJobs";
+import FreelancerWorkroom from "./pages/Freelancers/FreelancerWorkroom";
 import FreelancersProposalDetails from "./pages/Freelancers/FreelancersProposalDetails";
 import OfferSendingPage from "./pages/Clients/OfferSendingPage";
 import ClientJobOfferCheckout from "./pages/Clients/ClientJobOfferCheckout";
@@ -344,6 +347,8 @@ const App = () => {
             <Route path="find-work" element={<FreelancersDashboard />} />
             <Route path="messages" element={<FreelancerMessagesPage />} />
             <Route path="proposals" element={<FreelancersProposals />} />
+            <Route path="myjobs" element={<FreelancerMyJobs />} />
+            <Route path="workroom/:acceptedjobofferId" element={<FreelancerWorkroom />} />
             <Route path="notifications" element={<NotificationPage />} />
             <Route path="offers/:jobofferid" element={<FreelancersJobOfferDetails />} />
             <Route
@@ -426,6 +431,14 @@ const App = () => {
             <Route
               path="payments/checkout/:jobofferid"
               element={<ClientJobOfferCheckout />}
+            />
+            <Route
+              path="payments/checkout"
+              element={<ClientJobOfferCheckout />}
+            />
+            <Route
+              path="workroom/:acceptedJobOfferId"
+              element={<ClientWorkroom />}
             />
           </Route>          
         </Routes>
