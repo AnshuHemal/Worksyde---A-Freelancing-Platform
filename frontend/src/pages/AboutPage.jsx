@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import Header from "../components/Header";
 import Footer from "../components/Footer";
 
-const ContactPage = () => {
+const AboutPage = () => {
   const iframeRef = useRef(null);
 
   useEffect(() => {
@@ -69,13 +69,13 @@ const ContactPage = () => {
 
   return (
     <>
-      <Header activeTab="contact" />
-      <main style={{ paddingTop: 80 }}>
+      <Header activeTab="about" />
+      <main style={{ paddingTop: 80}}>
         <div className="container-fluid p-0" style={{ minHeight: "50vh" }}>
           <iframe
             ref={iframeRef}
-            src="/contact.html"
-            title="Contact Page"
+            src="/about.html"
+            title="About Page"
             style={{ 
               width: "100%", 
               border: "0", 
@@ -92,4 +92,4 @@ const ContactPage = () => {
   );
 };
 
-export default ContactPage;
+export default AboutPage;

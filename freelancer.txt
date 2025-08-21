@@ -1,0 +1,24 @@
+1) ws/find-work
+	filters work nahi kar rahe
+	also intermediate/entry level k baaju mein jo values hai wo sahi nahi hai
+	
+	your profile kaam nahi kar rahi lekin account settings sahi se redirect kar rahi hai
+	
+	remove ai tools ka opton and question mark
+2) ws/proposals/job/~68a5c3a61b7d470cfaacbecf/apply
+	open karte hai to direclty bottom of the page aa raha hai
+3) ws/proposals/job/~68a5c3a61b7d470cfaacbecf/edit
+	edit pe form prefilled aana chahiye jo nahi aa raha
+	withdraw mein bhi error hai 
+4) ws/settings/contact-info
+	unable to load data
+	almost kuch nahi aa raha need fix 
+5) ws/apps/tarz
+	do chats ka name same aa raha hai not a problem but should knw 
+
+6) http://localhost:5173
+	about and contact disable 
+
+also ek hiring  k baad wala wo payment gateway wala check kar le
+also wo email verify wale page pe redirect daal de to ho jayega cuz job to post hui 
+

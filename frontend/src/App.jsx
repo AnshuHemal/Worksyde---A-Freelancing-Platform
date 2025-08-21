@@ -76,6 +76,7 @@ import FreelancersProposalDetails from "./pages/Freelancers/FreelancersProposalD
 import OfferSendingPage from "./pages/Clients/OfferSendingPage";
 import ClientJobOfferCheckout from "./pages/Clients/ClientJobOfferCheckout";
 import ContactPage from "./pages/ContactPage";
+import AboutPage from "./pages/AboutPage";
 import FreelancersJobOfferDetails from "./pages/Freelancers/FreelancersJobOfferDetails";
 import BanStatusChecker from "./components/BanStatusChecker";
 import RoleBasedRoute from "./components/RoleBasedRoute";
@@ -116,6 +117,7 @@ const App = () => {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/home" element={<HomePage />} />
           <Route path="/contact" element={<ContactPage />} />
+          <Route path="/about" element={<AboutPage />} />
 
           <Route
             path="/"

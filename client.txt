@@ -1,0 +1,29 @@
+1)  ws/client/dashboard 
+	post job ka button kaam nahi kar raha
+	also overview k neeche jo bada sa post job ka button hai wo kaam nahi kar raha 
+	
+	post job ka correct url hai 'job-post/instant/welcome' aage ws ya client ya kuch nahi 	aana chahiye but baaki k do jo faulty buttons bole wo kisi aur page pe le ja rahe hai
+
+	chatbot ka button dashboard pe hi redirect kar raha hai uska routing dekh le 
+
+	light dark theme ka toggle button nahi chal raha 
+
+	your profile and account settings dono ek hi jagah redirect kar raha to ek nikal sakte 	hai
+2) job-post/instant/welcome
+	navbar nahi hai 
+3)  job-post/instant/title 
+	remove improve with ai button or disable it 
+4)  job-post/instant/budget
+	hourly wage nikalna hai
+	AI predict bandh ho gaya hai cuz janvi ka commit tere commit karne pe nikal gaya hai 		so uska view aur url dono banana padega
+5)  ws/client/applicants/68a5c3a61b7d470cfaacbecf/job-details
+	cannot edit,view or delte draft post also draft post unable to modfy 
+6) ws/client/notification-alerts
+	settings button nahi chal raha 
+7) ws/client/security
+	log in with google / apple try nahi kiya but if bandh ho to disable kar de 
+
+extra-> my jobs wala nikal dena and payment gateway ek check kar lena also profile settings karte waqt if it refreshes to wo seemless nahi hai but can work to chalega but just letting uk
+
+
+
