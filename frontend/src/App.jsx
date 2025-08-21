@@ -34,7 +34,6 @@ import ClientJobScopePage from "./pages/Clients/ClientJobScopePage";
 import ClientJobBudgetPage from "./pages/Clients/ClientJobBudgetPage";
 import ClientJobDescPage from "./pages/Clients/ClientJobDescPage";
 import ClientJobReviewPage from "./pages/Clients/ClientJobReviewPage";
-import ClientJobVerifyEmail from "./pages/Clients/ClientJobVerifyEmail";
 import ClientDashboard from "./pages/Clients/ClientDashboard";
 import JobDetailsNewWindow from "./pages/Freelancers/JobDetailsNewWindow";
 import JobProposalApply from "./pages/Freelancers/JobProposalApply";
@@ -310,14 +309,7 @@ const App = () => {
               </RoleBasedRoute>
             }
           />
-          <Route
-            path="/job-post/instant/verify-email"
-            element={
-              <RoleBasedRoute>
-                <ClientJobVerifyEmail />
-              </RoleBasedRoute>
-            }
-          />
+          
 
           {/* Job Proposals */}
           <Route

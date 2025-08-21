@@ -14,17 +14,20 @@ import {
 } from "react-icons/bs";
 import { RiAiGenerate } from "react-icons/ri";
 import { FaRegFilePdf, FaRegFileWord, FaStar } from "react-icons/fa";
+import toast from "react-hot-toast";
 
 const AiToolsOverview = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const handleResumeClick = () => {
-    navigate("/ws/ai-tools/ai-resume");
+    // navigate("/ws/ai-tools/ai-resume");
+    toast.success("Feature Coming soon..")
   };
 
   const handlePortfolioClick = () => {
-    navigate("/ws/ai-tools/ai-portfolio-web");
+    // navigate("/ws/ai-tools/ai-portfolio-web");
+    toast.success("Feature Coming soon..")
   };
 
   if (

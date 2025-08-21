@@ -340,6 +340,7 @@ const ClientPasswordAndSecurityPage = () => {
                   e.target.style.background = "#fff";
                   e.target.style.color = "#007476";
                 }}
+                disabled
               >
                 Connect
               </button>
@@ -403,6 +404,7 @@ const ClientPasswordAndSecurityPage = () => {
                   e.target.style.background = "#fff";
                   e.target.style.color = "#007476";
                 }}
+                disabled
               >
                 Connect
               </button>

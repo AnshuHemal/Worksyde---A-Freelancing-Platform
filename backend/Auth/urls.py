@@ -65,14 +65,14 @@ urlpatterns = [
     path('add-job-scope-details/', views.add_job_scope, name='add_job_scope'),
     path('add-job-budget/', views.add_job_budget, name='add_job_budget'),
     path("upload-attachments/", views.upload_job_post_attachment, name="upload_job_post_attachment"),
-    path("jobpost/send-verification-email/", views.send_verification_email, name="send_verification_email"),
+    # removed client email verification for job post
     path("jobposts/attachments/<str:id>/", views.get_job_attachment, name="get_job_attachment"),
     path("jobposts/attachments/<str:id>/details/", views.get_job_attachment_details, name="get_job_attachment_details"),
     path('jobpost/<str:job_id>/', views.get_job_post_details, name='get_job_post_details'),
     path('jobposts/draft/', views.get_draft_job_post_id, name='get_draft_job_post_id'),
     path('add-jobpost-skills/', views.add_job_post_skills, name='add_job_post_skills'),
     path('add-jobpost-category/', views.add_job_post_category, name='add_job_post_category'),
-    path('verify-email/jobpost/<str:job_id>/', views.verify_job_post_email, name='verify_job_post_email'),
+    # removed verify email jobpost endpoint
     path('jobposts/fetch/', views.fetch_job_posts, name='fetch_job_posts'),
     path('jobposts/client/<str:user_id>/', views.fetch_job_posts_for_client, name='fetch_job_posts_for_client'),
     path('jobposts/fetchJobById/', views.fetch_job_post_by_id, name='fetch_job_post_by_id'),

@@ -102,16 +102,12 @@ const ClientJobReviewPage = () => {
     }
     setIsLoading(true);
     try {
-      await axios.post(`${API_URL}/jobpost/send-verification-email/`, {
-        userId,
-        jobId,
-      });
-      toast.success("Verification email sent. Please check your inbox.");
-      navigate("/job-post/instant/verify-email");
+      // Ensure draft exists/updated
+      await axios.post(`${API_URL}/jobposts/draft/`, { userId }, { withCredentials: true });
+      toast.success("Your job has been saved as draft.");
+      navigate("/ws/client/dashboard");
     } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Failed to send verification email."
-      );
+      toast.error("Failed to save draft. Please try again.");
     } finally {
       setIsLoading(false);
     }
