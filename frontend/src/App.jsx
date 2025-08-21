@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useNavigate } from "react-router-dom";
+import { useUser } from "./contexts/UserContext";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import HomePage from "./pages/HomePage";
@@ -83,6 +84,75 @@ import RoleBasedRoute from "./components/RoleBasedRoute";
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
+  // Redirect component for root path
+  const LandingRedirect = () => {
+    const navigate = useNavigate();
+    const { userData, loading } = useUser();
+    const didRedirect = React.useRef(false);
+
+    const goByRole = (role) => {
+      if (didRedirect.current) return;
+      didRedirect.current = true;
+      if (role === "client") {
+        navigate("/ws/client/dashboard", { replace: true });
+      } else if (role === "freelancer") {
+        navigate("/ws/find-work", { replace: true });
+      } else if (role === "admin") {
+        navigate("/ws/admin/freelancers", { replace: true });
+      } else if (role === "superadmin") {
+        navigate("/ws/admin/admins", { replace: true });
+      } else {
+        navigate("/home", { replace: true });
+      }
+    };
+
+    // 1) Instant redirect using cached localStorage (no network)
+    useEffect(() => {
+      if (didRedirect.current) return;
+      const cached = localStorage.getItem("currentUserData");
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed && parsed.role) {
+            goByRole(parsed.role);
+            return;
+          }
+        } catch (_) {}
+      }
+    }, [navigate]);
+
+    // 2) If context already has userData, use it immediately
+    useEffect(() => {
+      if (didRedirect.current) return;
+      if (!loading && userData) {
+        goByRole(userData.role);
+      } else if (!loading && !userData) {
+        navigate("/home", { replace: true });
+      }
+    }, [loading, userData, navigate]);
+
+    // 3) Fallback network fetch (only if nothing above triggered)
+    useEffect(() => {
+      if (didRedirect.current) return;
+      const checkAndRedirect = async () => {
+        try {
+          const res = await axios.get("http://localhost:5000/api/auth/current-user/", { withCredentials: true });
+          if (res.data?.success && res.data?.user) {
+            goByRole(res.data.user.role);
+          } else {
+            navigate("/home", { replace: true });
+          }
+        } catch (e) {
+          navigate("/home", { replace: true });
+        }
+      };
+      // small delay allows localStorage/context paths to run first if possible
+      const t = setTimeout(checkAndRedirect, 50);
+      return () => clearTimeout(t);
+    }, [navigate]);
+    return null;
+  };
+
   useEffect(() => {
     const checkAuthentication = async () => {
       try {
@@ -118,18 +188,7 @@ const App = () => {
           <Route path="/contact" element={<ContactPage />} />
           <Route path="/about" element={<AboutPage />} />
 
-          <Route
-            path="/"
-            element={
-              isAuthenticated ? (
-                <ProtectedRoute isAuthenticated={isAuthenticated}>
-                  <HomePage />
-                </ProtectedRoute>
-              ) : (
-                <HomePage />
-              )
-            }
-          ></Route>
+          <Route path="/" element={<LandingRedirect />} />
 
           {/* Freelancers Routing */}
           <Route

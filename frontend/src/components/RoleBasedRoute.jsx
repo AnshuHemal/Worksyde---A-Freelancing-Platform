@@ -127,7 +127,7 @@ const RoleBasedRoute = ({ children }) => {
               if (role === "client") {
                 navigate("/ws/client/dashboard", { replace: true });
               } else if (role === "freelancer") {
-                navigate("/ws/", { replace: true });
+                navigate("/ws/find-work", { replace: true });
               } else if (role === "admin") {
                 navigate("/ws/admin/freelancers", { replace: true });
               } else if (role === "superadmin") {
