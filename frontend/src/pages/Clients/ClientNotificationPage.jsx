@@ -191,6 +191,31 @@ const ClientNotificationPage = () => {
           }) : 'Not specified'}`,
           message: `Project Amount: ${notification.additionalData?.projectAmount || 'Not specified'}`
         };
+      case "job_invitation_declined":
+        const freelancerNameDeclined =
+          notification.additionalData?.freelancerName ||
+          notification.senderName ||
+          "The freelancer";
+        return {
+          text: `${freelancerNameDeclined} has declined your job invitation for "${
+            notification.additionalData?.jobTitle || "the project"
+          }"`,
+          details: notification.additionalData?.declineReason
+            ? `Reason: ${notification.additionalData.declineReason}`
+            : null,
+          message: notification.additionalData?.declineMessage || null,
+        };
+      case "job_invitation_accepted":
+        const freelancerNameInvitationAccepted =
+          notification.additionalData?.freelancerName ||
+          notification.senderName ||
+          "The freelancer";
+        return {
+          text: `${freelancerNameInvitationAccepted} has accepted your job invitation for "${
+            notification.additionalData?.jobTitle || "the project"
+          }"`,
+          message: notification.additionalData?.acceptanceMessage || null,
+        };
       default:
         return {
           text: notification.message || "You have a new notification",

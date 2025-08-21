@@ -132,6 +132,7 @@ urlpatterns = [
     path('job-invite/delete/', views.delete_job_invitation, name='delete_job_invitation'),
     path('job-invite/freelancer/', views.list_freelancer_invitations, name='list_freelancer_invitations'),
     path('job-invite/decline/', views.decline_job_invitation, name='decline_job_invitation'),
+    path('job-invite/accept/', views.accept_job_invitation, name='accept_job_invitation'),
     path('client/declined-job-invitations/<str:job_id>/', views.get_declined_job_invitations, name='get_declined_job_invitations'),
     
     # Job Offers

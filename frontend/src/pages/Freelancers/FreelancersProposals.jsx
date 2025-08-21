@@ -399,7 +399,7 @@ const FreelancersProposals = () => {
                           : "#"
                       }
                       style={{
-                        color: "#198754",
+                        color: "#007674",
                         fontWeight: 600,
                         fontSize: 18,
                         textDecoration: "underline",

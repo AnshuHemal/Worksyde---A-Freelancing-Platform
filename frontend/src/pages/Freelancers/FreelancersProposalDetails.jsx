@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import Loader from "../../components/Loader";
 
 const API_URL = "http://localhost:5000/api/auth";
 
@@ -23,6 +24,32 @@ const FreelancersProposalDetails = () => {
   const [declineSectionDeclineHover, setDeclineSectionDeclineHover] = useState(false);
   const [declineSectionCancelHover, setDeclineSectionCancelHover] = useState(false);
   const [declineError, setDeclineError] = useState("");
+  const [acceptLoading, setAcceptLoading] = useState(false);
+
+  const handleAccept = async () => {
+    setAcceptLoading(true);
+    try {
+      const res = await axios.post(
+        `${API_URL}/job-invite/accept/`,
+        {
+          jobId: invite.jobId,
+          clientId: invite.clientId,
+          acceptanceMessage: "I'm interested in discussing this job opportunity.",
+        },
+        { withCredentials: true }
+      );
+      if (res.data && res.data.success) {
+        navigate(-1);
+      } else {
+        // Handle error if needed
+        console.error("Failed to accept invitation:", res.data.message);
+      }
+    } catch (err) {
+      console.error("Error accepting invitation:", err);
+    } finally {
+      setAcceptLoading(false);
+    }
+  };
 
   const handleDecline = async () => {
     setDeclineError("");
@@ -101,20 +128,37 @@ const FreelancersProposalDetails = () => {
     }
   }, [showDeclineSection]);
 
-  if (loading)
-    return <div style={{ padding: 48, textAlign: "center" }}>Loading...</div>;
-  if (error)
+  if (loading) {
+    return <Loader fullscreen message="Loading invitation details..." />;
+  }
+  if (error) {
     return (
-      <div style={{ padding: 48, color: "red", textAlign: "center" }}>
-        {error}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        <div style={{ color: "#dc3545" }}>{error}</div>
       </div>
     );
-  if (!invite)
+  }
+  if (!invite) {
     return (
-      <div style={{ padding: 48, color: "#888", textAlign: "center" }}>
-        Invitation not found.
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        <div style={{ color: "#888" }}>Invitation not found.</div>
       </div>
     );
+  }
 
   // Format date
   const postedDate = invite.createdAt
@@ -124,13 +168,10 @@ const FreelancersProposalDetails = () => {
         year: "numeric",
       })
     : "-";
-  // Format hourly
-  const hourly =
-    invite.jobHourlyFrom && invite.jobHourlyTo
-      ? `₹${parseFloat(invite.jobHourlyFrom).toFixed(2)} - ₹${parseFloat(
-          invite.jobHourlyTo
-        ).toFixed(2)}`
-      : "-";
+  // Format fixed price
+  const fixedPrice = invite.jobFixedRate
+    ? `₹${parseFloat(invite.jobFixedRate).toFixed(2)}`
+    : "-";
 
   return (
     <div style={{ maxWidth: 1400, margin: "60px auto", padding: 24 }}>
@@ -210,9 +251,9 @@ const FreelancersProposalDetails = () => {
                 </div>
               </div>
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontWeight: 600, fontSize: 18 }}>{hourly}</div>
+                <div style={{ fontWeight: 600, fontSize: 18 }}>{fixedPrice}</div>
                 <div style={{ color: "#121212", fontSize: 16 }}>
-                  Hourly range
+                  Fixed price
                 </div>
               </div>
               <div>
@@ -424,14 +465,17 @@ const FreelancersProposalDetails = () => {
                 borderRadius: 6,
                 padding: "12px 0",
                 marginBottom: 10,
-                cursor: "pointer",
+                cursor: acceptLoading ? "not-allowed" : "pointer",
                 boxShadow: acceptHover ? "0 2px 8px #00747633" : undefined,
                 transition: "background 0.2s, box-shadow 0.2s",
+                opacity: acceptLoading ? 0.7 : 1,
               }}
-              onMouseEnter={() => setAcceptHover(true)}
+              onMouseEnter={() => !acceptLoading && setAcceptHover(true)}
               onMouseLeave={() => setAcceptHover(false)}
+              onClick={handleAccept}
+              disabled={acceptLoading}
             >
-              Accept interview
+              {acceptLoading ? "Accepting..." : "Accept interview"}
             </button>
             <button
               style={{
@@ -456,7 +500,7 @@ const FreelancersProposalDetails = () => {
               Decline interview
             </button>
             <div style={{ color: "#121212", fontSize: 18, marginTop: 16 }}>
-              No Connects are required
+              No WS-Tokens are required
             </div>
           </div>
           {/* About the client */}
@@ -473,7 +517,7 @@ const FreelancersProposalDetails = () => {
               About the client
             </div>
             {clientLoading ? (
-              <div style={{ color: "#888", fontSize: 16 }}>Loading...</div>
+              <Loader message="Loading client information..." />
             ) : clientError ? (
               <div style={{ color: "red", fontSize: 16 }}>{clientError}</div>
             ) : clientInfo ? (
@@ -486,7 +530,7 @@ const FreelancersProposalDetails = () => {
                   <span
                     style={{
                       color: clientInfo.paymentMethodVerified
-                        ? "#198754"
+                        ? "#007674"
                         : "#dc3545",
                       marginLeft: 6,
                       fontWeight: 700,
@@ -497,7 +541,7 @@ const FreelancersProposalDetails = () => {
                 </div>
                 <div
                   style={{
-                    color: clientInfo.phoneVerified ? "#198754" : "#dc3545",
+                    color: clientInfo.phoneVerified ? "#007674" : "#dc3545",
                     fontWeight: 600,
                     fontSize: 18,
                     marginBottom: 10,
@@ -520,7 +564,7 @@ const FreelancersProposalDetails = () => {
                 <div
                   style={{
                     color:
-                      clientInfo.onlineStatus === "online" ? "#198754" : "#888",
+                      clientInfo.onlineStatus === "online" ? "#007674" : "#888",
                     fontWeight: 600,
                     fontSize: 18,
                     marginBottom: 8,

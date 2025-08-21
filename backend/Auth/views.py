@@ -5692,7 +5692,82 @@ def decline_job_invitation(request):
         job.invites += 1
         job.save()
 
+    # Create notification for the client
+    try:
+        from Auth.models import Notification
+        notification = Notification(
+            recipientId=User.objects.get(id=client_id),
+            senderId=user,
+            jobId=JobPosts.objects.get(id=job_id),
+            notificationType='job_invitation_declined',
+            title='Job Invitation Declined',
+            message=f'The freelancer has declined your job invitation for "{job.title if job else "the project"}"',
+            additionalData={
+                'declineReason': reason,
+                'declineMessage': message,
+                'freelancerId': str(user.id),
+                'freelancerName': user.name,
+                'jobTitle': job.title if job else "Unknown Project",
+                'blockFuture': block_future
+            }
+        )
+        notification.save()
+    except Exception as notif_err:
+        print('Warning: decline notification creation failed:', notif_err)
+
     return Response({"success": True, "message": "Invitation declined."})
+
+@api_view(["POST"])
+@verify_token
+def accept_job_invitation(request):
+    """
+    Accept a job invitation: delete JobInvitation and create notification
+    Expects: jobId, clientId, acceptanceMessage (optional)
+    """
+    user = request.user  # freelancer
+    job_id = request.data.get("jobId")
+    client_id = request.data.get("clientId")
+    acceptance_message = request.data.get("acceptanceMessage", "")
+
+    if not job_id or not client_id:
+        return Response({"success": False, "message": "Missing required fields."}, status=400)
+
+    # Delete the JobInvitation
+    from Auth.models import JobInvitation, JobPosts, User
+    invitation = JobInvitation.objects(jobId=job_id, freelancerId=str(user.id)).first()
+    if not invitation:
+        return Response({"success": False, "message": "Invitation not found."}, status=404)
+    
+    # Get job details before deleting invitation
+    job = JobPosts.objects(id=job_id).first()
+    if not job:
+        return Response({"success": False, "message": "Job not found."}, status=404)
+    
+    invitation.delete()
+
+    # Create notification for the client
+    try:
+        from Auth.models import Notification
+        notification = Notification(
+            recipientId=User.objects.get(id=client_id),
+            senderId=user,
+            jobId=job,
+            notificationType='job_invitation_accepted',
+            title='Job Invitation Accepted',
+            message=f'The freelancer has accepted your job invitation for "{job.title}"',
+            additionalData={
+                'acceptanceMessage': acceptance_message,
+                'freelancerId': str(user.id),
+                'freelancerName': user.name,
+                'jobTitle': job.title,
+                'jobId': str(job.id)
+            }
+        )
+        notification.save()
+    except Exception as notif_err:
+        print('Warning: accept notification creation failed:', notif_err)
+
+    return Response({"success": True, "message": "Invitation accepted."})
 
 @api_view(["GET"])
 @verify_token

@@ -183,6 +183,21 @@ const NotificationPage = () => {
           }) : 'Not specified'}`,
           message: `Project Amount: ${notification.additionalData?.projectAmount || 'Not specified'}`
         };
+      case "job_invitation_declined":
+        return {
+          text: "You declined a job invitation for",
+          linkText: notification.additionalData?.jobTitle || "a project",
+          linkUrl: `/ws/find-work`,
+          details: notification.additionalData?.declineReason ? `Reason: ${notification.additionalData.declineReason}` : null,
+          message: notification.additionalData?.declineMessage || null,
+        };
+      case "job_invitation_accepted":
+        return {
+          text: "You accepted a job invitation for",
+          linkText: notification.additionalData?.jobTitle || "a project",
+          linkUrl: `/ws/find-work`,
+          message: notification.additionalData?.acceptanceMessage || null,
+        };
       case "payment_received":
         return {
           text: "You received payment for",

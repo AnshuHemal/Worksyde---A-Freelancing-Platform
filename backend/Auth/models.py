@@ -743,6 +743,8 @@ class Notification(Document):
         ('job_offer_declined', 'Job Offer Declined'),
         ('job_offer_retaken', 'Job Offer Retaken'),
         ('job_offer_accepted', 'Job Offer Accepted'),
+        ('job_invitation_declined', 'Job Invitation Declined'),
+        ('job_invitation_accepted', 'Job Invitation Accepted'),
         ('payment_received', 'Payment Received'),
         ('milestone_completed', 'Milestone Completed'),
         ('system', 'System Notification'),

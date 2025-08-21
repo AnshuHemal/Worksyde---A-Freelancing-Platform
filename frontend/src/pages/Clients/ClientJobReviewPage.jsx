@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { motion, AnimatePresence } from "framer-motion";
+import Loader from "../../components/Loader";
 import {
   BsBriefcase,
   BsClock,
@@ -63,35 +64,49 @@ const ClientJobReviewPage = () => {
   const [jobId, setJobId] = useState(null);
   const [jobDetails, setJobDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [userLoading, setUserLoading] = useState(true);
+  const [jobDetailsLoading, setJobDetailsLoading] = useState(true);
   const navigate = useNavigate();
   const API_URL = "http://localhost:5000/api/auth";
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
+        setUserLoading(true);
         const res = await axios.get(`${API_URL}/current-user/`, {
           withCredentials: true,
         });
         const fetchedUserId = res.data.user._id;
         setUserId(fetchedUserId);
+
         const jobIdRes = await axios.post(`${API_URL}/jobposts/draft/`, {
           userId: fetchedUserId,
         });
         const fetchedJobId = jobIdRes.data.jobPostId;
         setJobId(fetchedJobId);
-        fetchJobDetails(fetchedJobId);
+
+        await fetchJobDetails(fetchedJobId);
       } catch (error) {
         toast.error("Failed to fetch user or job data.");
+      } finally {
+        setUserLoading(false);
+        setInitialLoading(false);
       }
     };
+
     const fetchJobDetails = async (jobId) => {
       try {
+        setJobDetailsLoading(true);
         const response = await axios.get(`${API_URL}/jobpost/${jobId}/`);
         setJobDetails(response.data);
       } catch (error) {
         toast.error("Failed to fetch job details.");
+      } finally {
+        setJobDetailsLoading(false);
       }
     };
+
     fetchCurrentUser();
   }, []);
 
@@ -103,7 +118,11 @@ const ClientJobReviewPage = () => {
     setIsLoading(true);
     try {
       // Ensure draft exists/updated
-      await axios.post(`${API_URL}/jobposts/draft/`, { userId }, { withCredentials: true });
+      await axios.post(
+        `${API_URL}/jobposts/draft/`,
+        { userId },
+        { withCredentials: true }
+      );
       toast.success("Your job has been saved as draft.");
       navigate("/ws/client/dashboard");
     } catch (error) {
@@ -113,7 +132,7 @@ const ClientJobReviewPage = () => {
     }
   };
 
-  // Skeleton loader for preview
+  // Enhanced skeleton loader for preview
   const PreviewSkeleton = () => (
     <div className="row g-0">
       <div className="col-lg-8 p-4">
@@ -136,6 +155,23 @@ const ClientJobReviewPage = () => {
         {skeletonBox(80, "100%", 12)}
         {skeletonBox(40, 200, 12)}
       </div>
+    </div>
+  );
+
+  // Loading state for specific sections
+  const SectionLoader = ({ message = "Loading..." }) => (
+    <div
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+        padding: "40px 20px",
+        background: "#f8f9fa",
+        borderRadius: "12px",
+        border: "1px solid #e3e3e3",
+      }}
+    >
+      <Loader message={message} />
     </div>
   );
 
@@ -162,6 +198,24 @@ const ClientJobReviewPage = () => {
   return (
     <>
       <Header1 />
+      {isLoading && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(255, 255, 255, 0.9)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 9999,
+          }}
+        >
+          <Loader fullscreen={false} message="Posting your job..." />
+        </div>
+      )}
       <div
         className="min-vh-100 section-container"
         style={{
@@ -177,8 +231,30 @@ const ClientJobReviewPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
-            {!jobDetails ? (
-              <PreviewSkeleton />
+            {initialLoading || userLoading || jobDetailsLoading ? (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  minHeight: "400px",
+                }}
+              >
+                <Loader fullscreen={false} message="Loading job details..." />
+              </div>
+            ) : !jobDetails ? (
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  minHeight: "400px",
+                }}
+              >
+                <div style={{ color: "#dc3545", fontSize: "18px" }}>
+                  Failed to load job details
+                </div>
+              </div>
             ) : (
               <div className="row g-0">
                 {/* Left Column - Job Details */}
@@ -342,8 +418,23 @@ const ClientJobReviewPage = () => {
                       Skills & Expertise
                     </h5>
                     <div className="d-flex flex-wrap gap-2">
-                      {Array.isArray(jobDetails.skills) &&
-                      jobDetails.skills.length > 0 ? (
+                      {jobDetailsLoading ? (
+                        <div className="d-flex flex-wrap gap-2">
+                          {[1, 2, 3, 4].map((i) => (
+                            <div
+                              key={i}
+                              className="skeleton"
+                              style={{
+                                height: "32px",
+                                width: `${80 + Math.random() * 60}px`,
+                                borderRadius: "16px",
+                                background: "#e3e3e3",
+                              }}
+                            />
+                          ))}
+                        </div>
+                      ) : Array.isArray(jobDetails.skills) &&
+                        jobDetails.skills.length > 0 ? (
                         jobDetails.skills.map((tag, i) => (
                           <motion.span
                             key={i}
@@ -444,36 +535,48 @@ const ClientJobReviewPage = () => {
                       onClick={handleNext}
                       className="btn w-100 py-3 fw-semibold"
                       style={{
-                        background:
-                          "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                        background: isLoading
+                          ? "#cbd5e1"
+                          : "linear-gradient(135deg, #007674 0%, #005a58 100%)",
                         color: "#fff",
                         borderRadius: "15px",
                         fontSize: "1.1rem",
                         border: "none",
                         transition: "all 0.3s ease",
-                        boxShadow: "0 6px 20px rgba(0, 118, 116, 0.3)",
+                        boxShadow: isLoading
+                          ? "none"
+                          : "0 6px 20px rgba(0, 118, 116, 0.3)",
+                        cursor: isLoading ? "not-allowed" : "pointer",
                       }}
                       disabled={isLoading}
                       onMouseEnter={(e) => {
-                        e.target.style.background =
-                          "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
-                        e.target.style.transform = "translateY(-2px)";
-                        e.target.style.boxShadow =
-                          "0 8px 25px rgba(18, 18, 18, 0.4)";
+                        if (!isLoading) {
+                          e.target.style.background =
+                            "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
+                          e.target.style.transform = "translateY(-2px)";
+                          e.target.style.boxShadow =
+                            "0 8px 25px rgba(18, 18, 18, 0.4)";
+                        }
                       }}
                       onMouseLeave={(e) => {
-                        e.target.style.background =
-                          "linear-gradient(135deg, #007674 0%, #005a58 100%)";
-                        e.target.style.transform = "translateY(0)";
-                        e.target.style.boxShadow =
-                          "0 6px 20px rgba(0, 118, 116, 0.3)";
+                        if (!isLoading) {
+                          e.target.style.background =
+                            "linear-gradient(135deg, #007674 0%, #005a58 100%)";
+                          e.target.style.transform = "translateY(0)";
+                          e.target.style.boxShadow =
+                            "0 6px 20px rgba(0, 118, 116, 0.3)";
+                        }
                       }}
                     >
                       {isLoading ? (
-                        <span
-                          className="spinner-border spinner-border-sm me-2"
-                          role="status"
-                        />
+                        <>
+                          <span
+                            className="spinner-border spinner-border-sm me-2"
+                            role="status"
+                            aria-label="Posting"
+                          />
+                          Posting...
+                        </>
                       ) : (
                         <>
                           Post My Job <BsArrowRight className="ms-2" />
@@ -494,79 +597,151 @@ const ClientJobReviewPage = () => {
                     >
                       Job Summary
                     </h5>
-                    <div
-                      className="p-4 rounded-4"
-                      style={{
-                        background: "#fff",
-                        border: "1px solid #e3e3e3",
-                        boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
-                      }}
-                    >
-                      <div className="d-flex align-items-center gap-2 mb-2">
-                        <BsCheckCircle size={20} style={{ color: "#007674" }} />
-                        <span
-                          className="fw-semibold"
-                          style={{ color: "#007674" }}
-                        >
-                          Ready to Post
-                        </span>
+                    {jobDetailsLoading ? (
+                      <div
+                        className="p-4 rounded-4"
+                        style={{
+                          background: "#fff",
+                          border: "1px solid #e3e3e3",
+                          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+                        }}
+                      >
+                        <div className="d-flex align-items-center gap-2 mb-3">
+                          <div
+                            className="skeleton"
+                            style={{
+                              width: "20px",
+                              height: "20px",
+                              borderRadius: "50%",
+                              background: "#e3e3e3",
+                            }}
+                          />
+                          <div
+                            className="skeleton"
+                            style={{
+                              width: "120px",
+                              height: "16px",
+                              borderRadius: "4px",
+                              background: "#e3e3e3",
+                            }}
+                          />
+                        </div>
+                        <div className="space-y-3">
+                          {[1, 2, 3, 4].map((i) => (
+                            <div
+                              key={i}
+                              className="d-flex justify-content-between align-items-center"
+                            >
+                              <div
+                                className="skeleton"
+                                style={{
+                                  width: "80px",
+                                  height: "16px",
+                                  borderRadius: "4px",
+                                  background: "#e3e3e3",
+                                }}
+                              />
+                              <div
+                                className="skeleton"
+                                style={{
+                                  width: "100px",
+                                  height: "16px",
+                                  borderRadius: "4px",
+                                  background: "#e3e3e3",
+                                }}
+                              />
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-3">
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span style={{ color: "#121212", fontSize: "1.1rem" }}>
-                            Category:
-                          </span>
+                    ) : (
+                      <div
+                        className="p-4 rounded-4"
+                        style={{
+                          background: "#fff",
+                          border: "1px solid #e3e3e3",
+                          boxShadow: "0 2px 8px rgba(0, 0, 0, 0.05)",
+                        }}
+                      >
+                        <div className="d-flex align-items-center gap-2 mb-2">
+                          <BsCheckCircle
+                            size={20}
+                            style={{ color: "#007674" }}
+                          />
                           <span
                             className="fw-semibold"
-                            style={{ color: "#121212" }}
+                            style={{ color: "#007674" }}
                           >
-                            {jobDetails.category ? jobDetails.category.name : 'Not specified'}
+                            Ready to Post
                           </span>
                         </div>
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span style={{ color: "#121212", fontSize: "1.1rem" }}>
-                            Experience:
-                          </span>
-                          <span
-                            className="fw-semibold"
-                            style={{ color: "#121212" }}
-                          >
-                            {jobDetails.experienceLevel}
-                          </span>
-                        </div>
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span style={{ color: "#121212", fontSize: "1.1rem" }}>
-                            Duration:
-                          </span>
-                          <span
-                            className="fw-semibold"
-                            style={{ color: "#121212" }}
-                          >
-                            {jobDetails.duration}
-                          </span>
-                        </div>
+                        <div className="space-y-3">
+                          <div className="d-flex justify-content-between align-items-center">
+                            <span
+                              style={{ color: "#121212", fontSize: "1.1rem" }}
+                            >
+                              Category:
+                            </span>
+                            <span
+                              className="fw-semibold"
+                              style={{ color: "#121212" }}
+                            >
+                              {jobDetails.category
+                                ? jobDetails.category.name
+                                : "Not specified"}
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between align-items-center">
+                            <span
+                              style={{ color: "#121212", fontSize: "1.1rem" }}
+                            >
+                              Experience:
+                            </span>
+                            <span
+                              className="fw-semibold"
+                              style={{ color: "#121212" }}
+                            >
+                              {jobDetails.experienceLevel}
+                            </span>
+                          </div>
+                          <div className="d-flex justify-content-between align-items-center">
+                            <span
+                              style={{ color: "#121212", fontSize: "1.1rem" }}
+                            >
+                              Duration:
+                            </span>
+                            <span
+                              className="fw-semibold"
+                              style={{ color: "#121212" }}
+                            >
+                              {jobDetails.duration}
+                            </span>
+                          </div>
 
-                        <div className="d-flex justify-content-between align-items-center">
-                          <span style={{ color: "#121212", fontSize: "1.1rem" }}>
-                            Budget:
-                          </span>
-                          <span
-                            className="fw-semibold"
-                            style={{ color: "#121212" }}
-                          >
-                            {jobDetails.budgetType === "fixed"
-                              ? `₹${
-                                  jobDetails.fixedRate ||
-                                  jobDetails.hourlyRateFrom ||
-                                  0
-                                } (Fixed)`
-                              : `₹${jobDetails.hourlyRateFrom || 0} - ₹${
-                                  jobDetails.hourlyRateTo || 0
-                                } (Hourly)`}
-                          </span>
+                          <div className="d-flex justify-content-between align-items-center">
+                            <span
+                              style={{ color: "#121212", fontSize: "1.1rem" }}
+                            >
+                              Budget:
+                            </span>
+                            <span
+                              className="fw-semibold"
+                              style={{ color: "#121212" }}
+                            >
+                              {jobDetails.budgetType === "fixed"
+                                ? `₹${
+                                    jobDetails.fixedRate ||
+                                    jobDetails.hourlyRateFrom ||
+                                    0
+                                  } (Fixed)`
+                                : `₹${jobDetails.hourlyRateFrom || 0} - ₹${
+                                    jobDetails.hourlyRateTo || 0
+                                  } (Hourly)`}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </motion.div>
                   {/* Pro Tips */}
                   <motion.div
