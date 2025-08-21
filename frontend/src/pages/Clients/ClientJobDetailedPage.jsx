@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import Loader from "../../components/Loader";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import {
@@ -942,7 +943,6 @@ const ClientJobDetailedPage = () => {
 
   // Fetch hired freelancers for this job
   useEffect(() => {
-    console.log("useEffect for hired freelancers called with jobid:", jobid);
     if (!jobid) return;
     setHiredFreelancersLoading(true);
 
@@ -953,29 +953,13 @@ const ClientJobDetailedPage = () => {
       withCredentials: true,
     })
       .then((res) => {
-        console.log("Raw API response:", res.data);
         if (res.data && res.data.success) {
-          console.log("Fetched hired freelancers:", res.data.hiredFreelancers);
-          console.log(
-            "Sample freelancer data structure:",
-            res.data.hiredFreelancers[0]
-          );
-          console.log(
-            "Number of hired freelancers:",
-            res.data.hiredFreelancers.length
-          );
+          
           
           // Process the data to match frontend expectations
           const processedFreelancers = res.data.hiredFreelancers.map(
             (freelancer) => {
-              console.log(
-                "Processing freelancer:",
-                freelancer.name,
-                "Raw hourlyRate:",
-                freelancer.hourlyRate,
-                "Type:",
-                typeof freelancer.hourlyRate
-              );
+              
               // Extract hourly rate - backend sends it as a string number
             let hourlyRate = 0;
               if (freelancer.hourlyRate) {
@@ -1108,21 +1092,15 @@ const ClientJobDetailedPage = () => {
               status: freelancer.status,
             };
 
-              console.log(
-                "Processed freelancer hourly rate:",
-                processedFreelancer.name,
-                "Final hourlyRate:",
-                processedFreelancer.hourlyRate
-              );
+              
               return processedFreelancer;
             }
           );
           
-          console.log("Processed hired freelancers:", processedFreelancers);
+
           setHiredFreelancers(processedFreelancers);
         } else {
-          console.log("No hired freelancers found or API returned error");
-          console.log("API response:", res.data);
+          
           setHiredFreelancers([]);
         }
       })
@@ -1441,51 +1419,26 @@ const ClientJobDetailedPage = () => {
           jobOffers.map(async (offer) => {
             try {
               // Fetch freelancer profile details
-              console.log(
-                "Fetching freelancer profile for ID:",
-                offer.freelancerId
-              );
+
               const freelancerResponse = await axios.get(
                 `${API_URL}/freelancer/complete-profile/${offer.freelancerId}/`
               );
               const freelancerData =
                 freelancerResponse.data.freelancer || freelancerResponse.data;
-              console.log(
-                "Freelancer API response status:",
-                freelancerResponse.status
-              );
 
-              console.log("=== FREELANCER DATA DEBUG ===");
-              console.log("Offer ID:", offer.id);
-              console.log("Freelancer ID:", offer.freelancerId);
-              console.log("Complete freelancer data:", freelancerData);
-              console.log("Skills data:", freelancerData.skills);
-              console.log("Skills type:", typeof freelancerData.skills);
-              console.log(
-                "Skills length:",
-                freelancerData.skills
-                  ? freelancerData.skills.length
-                  : "null/undefined"
-              );
+
+
               if (freelancerData.skills && freelancerData.skills.length > 0) {
-                console.log("First skill:", freelancerData.skills[0]);
               }
-              console.log("=== END FREELANCER DATA DEBUG ===");
 
               // Test if the profile image URL is accessible
               try {
                 const imageTestResponse = await axios.head(
                   `${API_URL}/profile-image/${offer.freelancerId}/`
                 );
-                console.log(
-                  "Profile image accessible:",
-                  imageTestResponse.status === 200
-                );
+
               } catch (error) {
-                console.log(
-                  "Profile image not accessible:",
-                  error.response?.status || error.message
-                );
+
               }
 
               // Calculate performance metrics
@@ -1546,7 +1499,7 @@ const ClientJobDetailedPage = () => {
 
         // Filter out null values and set offers
         const finalOffers = processedOffers.filter((offer) => offer !== null);
-        console.log("Final offers data:", finalOffers);
+
         setOffers(finalOffers);
       } else {
         setOffersError(response.data.message || "Failed to fetch offers");
@@ -1690,7 +1643,7 @@ const ClientJobDetailedPage = () => {
     );
   };
 
-  if (loading) return <div style={{ padding: 32 }}>Loading job details...</div>;
+  if (loading) return <Loader fullscreen message="Loading job details..." />;
   if (error) return <div style={{ padding: 32, color: "red" }}>{error}</div>;
   if (!job) return null;
 
@@ -5020,21 +4973,12 @@ const ClientJobDetailedPage = () => {
                                 boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                               }}
                               onError={(e) => {
-                                console.log(
-                                  "Image failed to load for offer:",
-                                  offer.id,
-                                  "URL:",
-                                  e.target.src
-                                );
                                 e.target.src = `https://via.placeholder.com/80x80/4CAF50/FFFFFF?text=${
                                   offer.name?.charAt(0) || "F"
                                 }`;
                               }}
                               onLoad={() => {
-                                console.log(
-                                  "Image loaded successfully for offer:",
-                                  offer.id
-                                );
+                                
                               }}
                             />
                             {/* Online Status Indicator */}
@@ -5402,18 +5346,6 @@ const ClientJobDetailedPage = () => {
                                   
                                   // Delete the job offer
                                   const deleteUrl = `${API_URL}/job-offers/${offer.id}/delete/`;
-                                  console.log("=== DELETE OFFER DEBUG ===");
-                                  console.log(
-                                    "Attempting to delete offer at URL:",
-                                    deleteUrl
-                                  );
-                                  console.log("Offer ID:", offer.id);
-                                  console.log("Offer object:", offer);
-                                  console.log("API_URL:", API_URL);
-                                  console.log(
-                                    "Full offer data:",
-                                    JSON.stringify(offer, null, 2)
-                                  );
                                   
                                   // Try to get CSRF token from cookies if available
                                   const getCookie = (name) => {
@@ -5427,9 +5359,6 @@ const ClientJobDetailedPage = () => {
                                   const csrfToken =
                                     getCookie("csrftoken") ||
                                     getCookie("XSRF-TOKEN");
-                                  console.log("CSRF Token:", csrfToken);
-                                  console.log("All cookies:", document.cookie);
-                                  console.log("withCredentials:", true);
                                   
                                   const deleteResponse = await axios.delete(
                                     deleteUrl,
@@ -6028,21 +5957,12 @@ const ClientJobDetailedPage = () => {
                                 boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
                               }}
                               onError={(e) => {
-                                console.log(
-                                  "Image failed to load for hired freelancer:",
-                                  freelancer.id,
-                                  "URL:",
-                                  e.target.src
-                                );
                                 e.target.src = `https://via.placeholder.com/80x80/4CAF50/FFFFFF?text=${
                                   freelancer.name?.charAt(0) || "F"
                                 }`;
                               }}
                               onLoad={() => {
-                                console.log(
-                                  "Image loaded successfully for hired freelancer:",
-                                  freelancer.id
-                                );
+                                
                               }}
                             />
                             {/* Online Status Indicator */}
@@ -6376,11 +6296,7 @@ const ClientJobDetailedPage = () => {
                           {/* Message Button */}
                           <button
                             onClick={() => {
-                              // Handle message functionality
-                              console.log(
-                                "Message clicked for freelancer:",
-                                freelancer.id
-                              );
+                              
                             }}
                             style={{
                               background: "transparent",
@@ -6416,12 +6332,7 @@ const ClientJobDetailedPage = () => {
                           <button
                             onClick={() => {
                               // Navigate to contract details
-                              console.log(
-                                "View contract clicked for freelancer:",
-                                freelancer.id,
-                                "Accepted job offer ID:",
-                                freelancer.acceptedJobOfferId
-                              );
+                              
                               navigate(`/ws/client/workroom/${freelancer.acceptedJobOfferId}`);
                             }}
                             style={{

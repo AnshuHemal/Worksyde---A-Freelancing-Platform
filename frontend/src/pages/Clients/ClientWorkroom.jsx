@@ -42,7 +42,6 @@ const ClientWorkroom = () => {
         );
 
         if (response.data && response.data.success) {
-          console.log("Contract data received:", response.data.contract);
           setContractData(response.data.contract);
         } else {
           setError("Failed to load contract data");
@@ -182,10 +181,7 @@ const ClientWorkroom = () => {
     ? contract.recentFiles.some((f) => (f?.status || "Pending") !== "Completed")
     : false;
 
-  // Debug logging
-  console.log("Current contract data:", contract);
-  console.log("Freelancer data:", contract.freelancer);
-  console.log("Profile image URL:", contract.freelancer?.profileImage);
+
 
   if (loading) {
     return <Loader fullscreen message="Loading contract details..." />;
@@ -371,13 +367,11 @@ const ClientWorkroom = () => {
                 border: "2px solid #fff",
               }}
               onError={(e) => {
-                console.log("Profile image failed to load, using fallback");
+                
                 e.target.style.display = "none";
                 e.target.nextSibling.style.display = "flex";
               }}
-              onLoad={() => {
-                console.log("Profile image loaded successfully");
-              }}
+              
             />
             {/* Fallback div */}
             <div

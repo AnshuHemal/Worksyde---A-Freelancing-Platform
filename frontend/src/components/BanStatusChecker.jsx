@@ -10,7 +10,6 @@ const BanStatusChecker = () => {
   useEffect(() => {
     // Check if user is banned based on UserContext error
     if (error && error.includes('Account Banned:')) {
-      console.log('User has been banned, logging out...');
       
       // Show ban notification
       toast.error(error);

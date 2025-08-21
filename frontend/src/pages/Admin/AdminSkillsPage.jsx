@@ -19,7 +19,6 @@ const AdminSkillsPage = () => {
   // Fetch skills
   useEffect(() => {
     fetchSkills();
-    // Reset editing state when component mounts
     setEditingSkillId(null);
     setEditedSkillName("");
   }, []);
@@ -30,7 +29,6 @@ const AdminSkillsPage = () => {
         withCredentials: true
       });
       if (response.data.success) {
-        console.log('Fetched skills:', response.data.skills);
         setSkills(response.data.skills);
       }
     } catch (error) {
@@ -40,12 +38,10 @@ const AdminSkillsPage = () => {
 
   // Handle Delete
   const handleDelete = async (id) => {
-    console.log('Attempting to delete skill with ID:', id);
     try {
       const response = await axios.delete(`${API_URL}/delete-skill/${id}/`, {
         withCredentials: true
       });
-      console.log('Delete response:', response);
       if (response.data.success) {
         toast.success("Skill deleted successfully");
         setSkills(skills.filter((skill) => {
@@ -106,7 +102,6 @@ const AdminSkillsPage = () => {
             return skillId === id ? response.data.skill : skill;
           })
         );
-        console.log('Update successful, clearing editing state');
         setEditingSkillId(null);
         setEditedSkillName("");
       }
@@ -117,13 +112,11 @@ const AdminSkillsPage = () => {
 
   const handleEditSkill = (skill) => {
     const skillId = skill._id || skill.id;
-    console.log('Setting editing skill ID to:', skillId, 'for skill:', skill.name);
     setEditingSkillId(skillId);
     setEditedSkillName(skill.name);
   };
 
   const handleCancelEdit = () => {
-    console.log('Canceling edit, clearing editingSkillId');
     setEditingSkillId(null);
     setEditedSkillName("");
   };
@@ -196,7 +189,6 @@ const AdminSkillsPage = () => {
         // Ensure we're comparing the correct IDs
         const skillId = skill._id || skill.id;
         const isEditing = editingSkillId && skillId && String(editingSkillId) === String(skillId);
-        console.log(`Skill "${skill.name}": editingSkillId="${editingSkillId}", skillId="${skillId}", isEditing=${isEditing}`);
         
         return (
         <div key={skillId}>
@@ -242,7 +234,6 @@ const AdminSkillsPage = () => {
                   <button
                     className="post-button me-2"
                     onClick={() => {
-                      console.log('Confirming delete for skill:', skill.name, 'with ID:', skillId);
                       handleDelete(skillId);
                     }}
                   >
@@ -267,7 +258,6 @@ const AdminSkillsPage = () => {
                   <button
                     className="close-button border-0"
                     onClick={() => {
-                      console.log('Delete button clicked for skill:', skill.name, 'with ID:', skillId);
                       setConfirmDeleteId(skillId);
                     }}
                   >

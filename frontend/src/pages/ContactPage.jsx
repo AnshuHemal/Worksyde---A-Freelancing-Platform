@@ -64,8 +64,6 @@ const ContactPage = () => {
           window.removeEventListener('resize', handleResize);
         };
       } catch (e) {
-        console.log('Cross-origin iframe, using alternative method');
-        // Still hide loading even if there's an error
         setLoading(false);
       }
     };

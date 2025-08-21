@@ -53,16 +53,14 @@ const FreelancersDashboard = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     
-    console.log(`Input change - ${name}: ${value}`);
     
     // Allow typing any value, but store it as string initially
     if (name === "minPrice") {
       const newValue = value === "" ? 0 : parseInt(value) || 0;
-      console.log(`Setting minPrice to: ${newValue}`);
       setMinPrice(newValue);
     } else if (name === "maxPrice") {
       const newValue = value === "" ? 0 : parseInt(value) || 0;
-      console.log(`Setting maxPrice to: ${newValue}`);
+      
       setMaxPrice(newValue);
     }
   };
@@ -71,29 +69,29 @@ const FreelancersDashboard = () => {
     const { name, value } = e.target;
     const numValue = parseInt(value) || 0;
     
-    console.log(`Input blur - ${name}: ${value}, parsed: ${numValue}`);
+    
     
     if (name === "minPrice") {
       // Validate and adjust min price on blur
       if (numValue < 0) {
-        console.log(`Min price ${numValue} is negative, setting to 0`);
+        
         setMinPrice(0);
       } else if (numValue > parseInt(maxPrice)) {
-        console.log(`Min price ${numValue} exceeds max price ${maxPrice}, adjusting`);
+        
         setMinPrice(parseInt(maxPrice) - priceGap);
       } else if (parseInt(maxPrice) - numValue < priceGap) {
         // Adjust max price to maintain gap
-        console.log(`Gap too small, adjusting max price to ${numValue + priceGap}`);
+        
         setMaxPrice(numValue + priceGap);
       }
     } else if (name === "maxPrice") {
       // Validate and adjust max price on blur
       if (numValue < parseInt(minPrice)) {
-        console.log(`Max price ${numValue} is less than min price ${minPrice}, adjusting`);
+        
         setMaxPrice(parseInt(minPrice) + priceGap);
       } else if (numValue - parseInt(minPrice) < priceGap) {
         // Adjust min price to maintain gap
-        console.log(`Gap too small, adjusting min price to ${Math.max(0, numValue - priceGap)}`);
+        
         setMinPrice(Math.max(0, numValue - priceGap));
       }
     }
@@ -132,7 +130,7 @@ const FreelancersDashboard = () => {
           ? prev[category].filter((item) => item !== value)
           : [...prev[category], value],
       };
-      console.log("Filter changed:", { category, value, newFilters });
+      
       return newFilters;
     });
   };
@@ -146,7 +144,7 @@ const FreelancersDashboard = () => {
     setMinPrice(2500);
     setMaxPrice(7500);
     setSearchTerm("");
-    console.log("Filters reset - Price range reset to:", { minPrice: 2500, maxPrice: 7500 });
+    
   };
 
   useEffect(() => {
@@ -155,7 +153,7 @@ const FreelancersDashboard = () => {
       try {
         const response = await axios.get(`${API_URL}/jobposts/fetch/`);
         if (response.data.data && response.data.data.length > 0) {
-          console.log("First job structure:", response.data.data[0]);
+          
         }
         
         // Fetch client details for each job
@@ -166,9 +164,7 @@ const FreelancersDashboard = () => {
               const clientProfileResponse = await axios.get(`${API_URL}/client/profile/${job.userId}/`);
               const clientProfile = clientProfileResponse.data;
               
-              console.log(`Client ${job.userId} profile:`, clientProfile);
-              console.log(`Client ${job.userId} profile response status:`, clientProfileResponse.status);
-              console.log(`Client ${job.userId} profile data keys:`, Object.keys(clientProfile));
+              
               
               // Check payment verification status for the client
               // Since we can't directly access client's payment methods, we'll use a proxy indicator
@@ -178,32 +174,31 @@ const FreelancersDashboard = () => {
               // Check if client has any completed jobs or spending history
               if (clientProfile.spent && clientProfile.spent > 0) {
                 hasPaymentMethod = true;
-                console.log(`Client ${job.userId} has spending history: ₹${clientProfile.spent}`);
+                
               } else if (clientProfile.hires && clientProfile.hires > 0) {
                 hasPaymentMethod = true;
-                console.log(`Client ${job.userId} has hires: ${clientProfile.hires}`);
+                
               } else {
                 // For new clients, we'll assume they have payment methods if they can post jobs
                 // This is a reasonable assumption since the platform likely requires payment setup
                 hasPaymentMethod = true;
-                console.log(`Client ${job.userId} is new client, assuming payment methods available`);
+                
               }
               
-              console.log(`Client ${job.userId} payment verified: ${hasPaymentMethod}`);
-              console.log(`Client ${job.userId} last seen:`, clientProfile.lastSeen);
+              
               
               // Additional check: if the client has any job posts, they likely have payment setup
               // This is because most platforms require payment verification before posting jobs
               if (!hasPaymentMethod && job.status === "verified") {
                 hasPaymentMethod = true;
-                console.log(`Client ${job.userId} has verified job posts, assuming payment methods available`);
+                
               }
               
               // Final fallback: if the client can post jobs on the platform, they must have payment setup
               // This is the most reliable indicator since job posting typically requires payment verification
               if (!hasPaymentMethod) {
                 hasPaymentMethod = true;
-                console.log(`Client ${job.userId} can post jobs, assuming payment methods available`);
+                
               }
 
               return {
@@ -402,12 +397,7 @@ const FreelancersDashboard = () => {
       
       counts.duration[durationCategory] = (counts.duration[durationCategory] || 0) + 1;
       
-      // Debug duration categorization
-      console.log(`Job "${job.title}" duration categorization:`, {
-        originalDuration: duration,
-        normalizedDuration: normalizedDuration,
-        categorizedAs: durationCategory
-      });
+
     });
 
     return counts;
@@ -539,25 +529,6 @@ const FreelancersDashboard = () => {
       priceMatch = jobWithinFilter || filterWithinJob || jobMinInFilter || jobMaxInFilter;
     }
     
-    // Debug price filtering
-    if (finalMinPrice > 0 || finalMaxPrice > 0) {
-      console.log(`Job "${job.title}" price filtering:`, {
-        budgetType: job.budgetType,
-        jobMinPrice: finalMinPrice,
-        jobMaxPrice: finalMaxPrice,
-        filterMinPrice: minPrice,
-        filterMaxPrice: maxPrice,
-        priceMatch,
-        jobPriceFields: {
-          budgetType: job.budgetType,
-          fixedRate: job.fixedRate,
-          hourlyRateFrom: job.hourlyRateFrom,
-          hourlyRateTo: job.hourlyRateTo,
-          budgetFrom: job.budgetFrom,
-          budgetTo: job.budgetTo
-        }
-      });
-    }
 
     // Applicants filter
     const applicantsMatch =
@@ -628,69 +599,30 @@ const FreelancersDashboard = () => {
       applicantsMatch &&
       durationMatch;
 
-    // Debug logging when filters are applied
-    if (
-      selectedFilters.experienceLevel.length > 0 ||
-      selectedFilters.applicants.length > 0 ||
-      selectedFilters.duration.length > 0
-    ) {
-      console.log(`Job "${job.title}" filtering:`, {
-        jobLevel: job.experienceLevel || job.experience_level,
-        jobDuration: job.duration || job.project_duration,
-        jobApplicants: job.applicants || job.applicant_count,
-        jobMinPrice: finalMinPrice,
-        jobMaxPrice: finalMaxPrice,
-        selectedFilters,
-        finalMatch,
-        durationMatch: durationMatch,
-        durationDetails: {
-          jobDuration: job.duration || job.project_duration || job.timeline,
-          selectedDurations: selectedFilters.duration
-        }
-      });
-    }
-
     return finalMatch;
   });
 
-  // Monitor filtered jobs for debugging
+  
   useEffect(() => {
-    console.log("Current filter state:", selectedFilters);
-    console.log("Price range:", { minPrice, maxPrice });
-    console.log("Total jobs:", jobs.length);
-    console.log("Jobs filtered by price:", jobsFilteredByPrice.length);
-    console.log("Final filtered jobs:", filteredJobs.length);
     
     // Show price filtering breakdown
     if (minPrice > 2500 || maxPrice < 7500) {
-      console.log(`Price filtering active: ₹${minPrice.toLocaleString()} - ₹${maxPrice.toLocaleString()}`);
-      console.log(`Jobs excluded by price: ${jobs.length - jobsFilteredByPrice.length}`);
+      
       
       // Show breakdown by budget type
       const fixedJobs = jobs.filter(job => job.budgetType === "fixed");
       const hourlyJobs = jobs.filter(job => job.budgetType === "hourly");
       const otherJobs = jobs.filter(job => !job.budgetType || (job.budgetType !== "fixed" && job.budgetType !== "hourly"));
       
-      console.log(`Job breakdown by budget type:`, {
-        fixed: fixedJobs.length,
-        hourly: hourlyJobs.length,
-        other: otherJobs.length,
-        total: jobs.length
-      });
+      
       
       // Show duration breakdown
-      console.log(`Duration filter counts:`, filterCounts.duration);
+      
     }
     
-    if (filteredJobs.length === 0 && jobs.length > 0) {
-      console.log("No jobs match the current filters!");
-    }
   }, [selectedFilters, minPrice, maxPrice, jobs, filteredJobs, jobsFilteredByPrice]);
 
-  // Monitor price changes for debugging
-  useEffect(() => {
-    console.log("Price state changed - minPrice:", minPrice, "maxPrice:", maxPrice);
-  }, [minPrice, maxPrice]);
+  
 
   return (
     <>

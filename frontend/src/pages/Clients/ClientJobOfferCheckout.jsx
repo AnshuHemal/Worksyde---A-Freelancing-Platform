@@ -335,7 +335,6 @@ const ClientJobOfferCheckout = () => {
 
   // PayPal wallet functions
   const handlePayPalClick = () => {
-    console.log("handlePayPalClick called");
     setShowPayPalWalletFlow(true);
     setPaypalAmount("");
     setShowPayPalButton(false);
@@ -350,12 +349,10 @@ const ClientJobOfferCheckout = () => {
   };
 
   const handlePayPalAmountSubmit = () => {
-    console.log("handlePayPalAmountSubmit called with amount:", paypalAmount);
     if (!paypalAmount || parseFloat(paypalAmount) <= 0) {
       toast.error("Please enter a valid amount greater than 0.");
       return;
     }
-    console.log("Setting showPayPalButton to true");
     setShowPayPalButton(true);
   };
 
@@ -440,10 +437,7 @@ const ClientJobOfferCheckout = () => {
       // Remove ₹ symbol and any commas, then parse
       const cleanAmount = jobOffer.projectAmount.replace(/[₹,]/g, "");
       subtotal = parseInt(cleanAmount) || 0;
-    } else {
-      console.log("No project amount found in job offer");
     }
-
     const marketplaceFee = 50; // Fixed fee
     const contractFee = 100; // Fixed fee
     const total = subtotal + marketplaceFee + contractFee;

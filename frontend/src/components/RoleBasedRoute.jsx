@@ -20,8 +20,7 @@ const RoleBasedRoute = ({ children }) => {
         if (response.data.success && response.data.user) {
           const role = response.data.user.role;
           setUserRole(role);
-          console.log("RoleBasedRoute: User role detected:", role);
-          console.log("RoleBasedRoute: Full user data:", response.data.user);
+        
           
           // Validate that role exists
           if (!role) {
@@ -39,7 +38,6 @@ const RoleBasedRoute = ({ children }) => {
           
           // Check if user is trying to access unauthorized routes
           const currentPath = location.pathname;
-          console.log("RoleBasedRoute: Current path:", currentPath);
           
           // Define allowed routes for each role
           const allowedRoutes = {
@@ -100,13 +98,11 @@ const RoleBasedRoute = ({ children }) => {
           // First check if the path matches any allowed routes
           isAllowed = allowedRoutes[role]?.some(route => {
             const matches = currentPath.startsWith(route);
-            console.log(`RoleBasedRoute: Checking ${currentPath} against ${route}: ${matches}`);
             return matches;
           });
           
           // Additional checks to prevent cross-role access
           if (role === "freelancer" && currentPath.startsWith("/ws/client/")) {
-            console.log("RoleBasedRoute: Freelancer trying to access client routes - BLOCKED");
             isAllowed = false;
           }
           
@@ -115,20 +111,16 @@ const RoleBasedRoute = ({ children }) => {
           const isSharedRoute = sharedRoutes.some(route => currentPath.startsWith(route));
           
           if (role === "client" && currentPath.startsWith("/ws/") && !currentPath.startsWith("/ws/client/") && !isSharedRoute) {
-            console.log("RoleBasedRoute: Client trying to access freelancer routes - BLOCKED");
             isAllowed = false;
           }
           
           if ((role === "freelancer" || role === "client") && currentPath.startsWith("/ws/admin/")) {
-            console.log(`RoleBasedRoute: ${role} trying to access admin routes - BLOCKED`);
             isAllowed = false;
           }
 
-          console.log("RoleBasedRoute: Is path allowed for role", role, ":", isAllowed);
-          console.log("RoleBasedRoute: Allowed routes for", role, ":", allowedRoutes[role]);
+         
 
           if (!isAllowed) {
-            console.log("RoleBasedRoute: Unauthorized access detected, redirecting...");
 
             // Redirect to appropriate dashboard based on role
             setTimeout(() => {
@@ -146,7 +138,6 @@ const RoleBasedRoute = ({ children }) => {
             return;
           }
         } else {
-          console.log("RoleBasedRoute: User not authenticated, redirecting to home");
           navigate("/", { replace: true });
         }
       } catch (error) {

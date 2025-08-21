@@ -123,10 +123,8 @@ const ClientBillingPage = () => {
         withCredentials: true,
       });
 
-      console.log("Wallet balance response:", response.data);
       if (response.data.success) {
         setWalletBalance(response.data.walletBalance);
-        console.log("Updated wallet balance state:", response.data.walletBalance);
       }
     } catch (error) {
       console.error("Error fetching wallet balance:", error);
@@ -457,7 +455,6 @@ const ClientBillingPage = () => {
       );
 
       if (response.data.success) {
-        console.log("Payment response:", response.data);
         toast.success("Payment completed successfully! Your wallet has been topped up.");
         fetchWalletBalance(); // Refresh wallet balance
         handleClosePayNowModal();

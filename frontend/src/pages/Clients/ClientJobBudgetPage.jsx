@@ -51,13 +51,7 @@ const ClientJobBudgetPage = () => {
         hourlyRateTo: 0,
       };
 
-      console.log('Sending budget data:', budgetData);
-      console.log('Data types:', {
-        jobId: typeof budgetData.jobId,
-        budgetType: typeof budgetData.budgetType,
-        hourlyRateFrom: typeof budgetData.hourlyRateFrom,
-        hourlyRateTo: typeof budgetData.hourlyRateTo
-      });
+
 
       const res = await axios.post(`${API_URL}/add-job-budget/`, budgetData);
 
@@ -79,8 +73,7 @@ const ClientJobBudgetPage = () => {
 
   const fetchPredictedBudget = async (jobData) => {
     try {
-      console.log("Fetching budget prediction with data:", jobData);
-      console.log("API URL:", `${API_URL}/predict-budget/`);
+      
       
       const res = await axios.post(`${API_URL}/predict-budget/`, jobData, {
         withCredentials: true,
@@ -89,7 +82,6 @@ const ClientJobBudgetPage = () => {
         },
       });
       
-      console.log("Prediction response:", res.data);
       
       if (res.data.success) {
         setPredictedBudget(res.data.predicted_budget);

@@ -136,7 +136,6 @@ const QuickQuestions = () => {
           withCredentials: true,
         });
         setUserId(res.data.user._id);
-        console.log(res.data.user._id);
       } catch (error) {
         console.error("Failed to fetch current user", error);
       }

@@ -25,8 +25,6 @@ const JobProposalSubmit = () => {
   const pathParts = location.pathname.split("/");
   const jobProposalId = pathParts[3];
   
-  console.log("JobProposalSubmit - URL parts:", pathParts);
-  console.log("JobProposalSubmit - Extracted proposal ID:", jobProposalId);
 
   const [jobData, setJobData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -154,9 +152,6 @@ const JobProposalSubmit = () => {
 
   const handleEditProposal = () => {
     if (jobData?.jobId?.id) {
-      console.log("Navigating to edit with jobData:", jobData);
-      console.log("Proposal ID being passed:", jobData._id);
-      console.log("Job ID being passed:", jobData.jobId.id);
       
       // Try to get proposal ID from various sources
       const proposalId = jobData._id || jobData.id || jobProposalId;
@@ -874,9 +869,7 @@ const JobProposalSubmit = () => {
                           e.target.style.backgroundColor = "transparent";
                         }}
                         onClick={() => {
-                          // For demo purposes, you can add a sample file URL here
-                          // window.open("sample-file-url", '_blank');
-                          console.log("Sample attachment clicked");
+                          
                         }}
                       >
                         <IoDocumentAttach

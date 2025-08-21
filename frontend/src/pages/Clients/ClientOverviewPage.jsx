@@ -396,13 +396,7 @@ const ClientOverviewPage = () => {
 
     setLoadingOtpVerification(true);
     try {
-      console.log("Sending OTP verification request:", {
-        url: `${API_URL}/verify-phone/`,
-        data: {
-          phone_number: `${countryCode}${phoneNumber}`,
-          otp_code: otpCode,
-        },
-      });
+      
 
       const response = await axios.post(
         `${API_URL}/verify-phone/`,

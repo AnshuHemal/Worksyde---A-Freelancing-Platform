@@ -336,8 +336,6 @@ const FreelancersProfilePage = () => {
         // Close modal
         setShowTitleModal(false);
 
-        // Show success message (optional)
-        console.log("Title updated successfully");
       } else {
         setTitleSaveError("Failed to save title. Please try again.");
       }
@@ -382,8 +380,7 @@ const FreelancersProfilePage = () => {
         // Close modal
         setShowBioModal(false);
 
-        // Show success message (optional)
-        console.log("Bio updated successfully");
+    
       } else {
         setBioSaveError("Failed to save bio. Please try again.");
       }
@@ -427,8 +424,6 @@ const FreelancersProfilePage = () => {
         // Close modal
         setShowHourlyRateModal(false);
 
-        // Show success message (optional)
-        console.log("Hourly rate updated successfully");
       } else {
         setHourlyRateSaveError("Failed to save hourly rate. Please try again.");
       }
@@ -482,9 +477,7 @@ const FreelancersProfilePage = () => {
         setSelectedImage(null);
         setImagePreview(null);
 
-        // Show success message (optional)
-        console.log("Profile image updated successfully");
-
+        
         // Refresh the page to update profile image in other components
         window.location.reload();
       } else {
@@ -997,7 +990,6 @@ const FreelancersProfilePage = () => {
         // Close modal
         handleCloseEmploymentModal();
 
-        console.log("Work experience added successfully");
       } else {
         setEmploymentSaveError(
           "Failed to save work experience. Please try again."
@@ -1070,7 +1062,6 @@ const FreelancersProfilePage = () => {
         // Close modal
         handleCloseEmploymentModal();
 
-        console.log("Work experience updated successfully");
       } else {
         setEmploymentSaveError(
           "Failed to update work experience. Please try again."
@@ -1109,7 +1100,6 @@ const FreelancersProfilePage = () => {
         );
         setEmploymentHistory(employmentRes.data.workExperience || []);
 
-        console.log("Work experience deleted successfully");
       } else {
         console.error("Failed to delete work experience");
       }
@@ -1160,7 +1150,6 @@ const FreelancersProfilePage = () => {
           // Close modal
           handleCloseEducationModal();
 
-          console.log("Education added successfully");
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
           // Fallback: Update local state directly
@@ -1180,7 +1169,6 @@ const FreelancersProfilePage = () => {
 
           // Close modal
           handleCloseEducationModal();
-          console.log("Education added successfully (using fallback)");
         }
       } else {
         setEducationSaveError("Failed to save education. Please try again.");
@@ -1244,7 +1232,6 @@ const FreelancersProfilePage = () => {
           // Close modal
           handleCloseEducationModal();
 
-          console.log("Education updated successfully");
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
           // Fallback: Update local state directly
@@ -1266,7 +1253,6 @@ const FreelancersProfilePage = () => {
 
           // Close modal
           handleCloseEducationModal();
-          console.log("Education updated successfully (using fallback)");
         }
       } else {
         setEducationSaveError("Failed to update education. Please try again.");
@@ -1305,7 +1291,6 @@ const FreelancersProfilePage = () => {
           );
           setProfile(profileRes.data);
 
-          console.log("Education deleted successfully");
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
           // Fallback: Update local state directly
@@ -1315,7 +1300,7 @@ const FreelancersProfilePage = () => {
               (edu) => edu._id !== educationId
             ),
           }));
-          console.log("Education deleted successfully (using fallback)");
+          
         }
       } else {
         console.error("Failed to delete education");
@@ -1372,7 +1357,7 @@ const FreelancersProfilePage = () => {
           setShowLanguageModal(false);
           setShowEditLanguageModal(false);
 
-          console.log("Languages saved successfully");
+          
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
           // Fallback: Update local state directly
@@ -1384,7 +1369,7 @@ const FreelancersProfilePage = () => {
           // Close modal
           setShowLanguageModal(false);
           setShowEditLanguageModal(false);
-          console.log("Languages saved successfully (using fallback)");
+          
         }
       } else {
         setLanguageSaveError("Failed to save languages. Please try again.");
@@ -1443,7 +1428,7 @@ const FreelancersProfilePage = () => {
           // Close modal
           setShowEditLanguageModal(false);
 
-          console.log("Languages saved successfully");
+          
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
           // Fallback: Update local state directly
@@ -1454,7 +1439,7 @@ const FreelancersProfilePage = () => {
 
           // Close modal
           setShowEditLanguageModal(false);
-          console.log("Languages saved successfully (using fallback)");
+          
         }
       } else {
         setLanguageSaveError("Failed to save languages. Please try again.");
@@ -1491,7 +1476,7 @@ const FreelancersProfilePage = () => {
       if (updatedLanguages.length === 0) {
         setShowLanguageModal(false);
         setShowEditLanguageModal(false);
-        console.log("All languages removed from list");
+        
       }
       // Note: Don't save immediately - let user click Save button
     } catch (error) {
@@ -1554,7 +1539,7 @@ const FreelancersProfilePage = () => {
           setSelectedLanguage("");
           setSelectedProficiency("");
 
-          console.log("Language added successfully");
+          
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
           // Fallback: Update local state directly
@@ -1567,7 +1552,7 @@ const FreelancersProfilePage = () => {
           setShowLanguageModal(false);
           setSelectedLanguage("");
           setSelectedProficiency("");
-          console.log("Language added successfully (using fallback)");
+          
         }
       } else {
         setLanguageSaveError("Failed to save language. Please try again.");
@@ -1613,7 +1598,7 @@ const FreelancersProfilePage = () => {
         setShowVideoModal(false);
         setVideoUrl("");
 
-        console.log("Video introduction saved successfully");
+        
       } else {
         setVideoSaveError(
           "Failed to save video introduction. Please try again."
@@ -1660,7 +1645,6 @@ const FreelancersProfilePage = () => {
           setOtherExperienceSubject("");
           setOtherExperienceDescription("");
 
-          console.log("Other experience added successfully");
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
           // Fallback: Update local state directly
@@ -1676,7 +1660,7 @@ const FreelancersProfilePage = () => {
           setShowOtherExperiencesModal(false);
           setOtherExperienceSubject("");
           setOtherExperienceDescription("");
-          console.log("Other experience added successfully (using fallback)");
+          
         }
       } else {
         setOtherExperienceSaveError(
@@ -1730,7 +1714,7 @@ const FreelancersProfilePage = () => {
           setIsEditingOtherExperience(false);
           setEditingOtherExperienceIndex(null);
 
-          console.log("Other experience updated successfully");
+          
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
           // Fallback: Update local state directly
@@ -1749,7 +1733,7 @@ const FreelancersProfilePage = () => {
           setOtherExperienceDescription("");
           setIsEditingOtherExperience(false);
           setEditingOtherExperienceIndex(null);
-          console.log("Other experience updated successfully (using fallback)");
+          
         }
       } else {
         setOtherExperienceSaveError(
@@ -1785,7 +1769,7 @@ const FreelancersProfilePage = () => {
           );
           setProfile(profileRes.data);
 
-          console.log("Other experience deleted successfully");
+          
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
           // Fallback: Update local state directly
@@ -1796,7 +1780,7 @@ const FreelancersProfilePage = () => {
             ),
           }));
 
-          console.log("Other experience deleted successfully (using fallback)");
+          
         }
       } else {
         console.error("Failed to delete other experience:", response.data);
@@ -1956,7 +1940,7 @@ const FreelancersProfilePage = () => {
           setSkillSuggestions([]);
           setHighlightedSkillIndex(-1);
 
-          console.log("Skills saved successfully");
+          
         } catch (refreshError) {
           console.error("Error refreshing profile data:", refreshError);
           // Fallback: Update both local states directly
@@ -1974,7 +1958,7 @@ const FreelancersProfilePage = () => {
           setSkillSearchValue("");
           setSkillSuggestions([]);
           setHighlightedSkillIndex(-1);
-          console.log("Skills saved successfully (using fallback)");
+          
         }
       } else {
         setSkillsSaveError("Failed to save skills. Please try again.");
@@ -2534,7 +2518,6 @@ const FreelancersProfilePage = () => {
                     }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
-                      console.log("Removing video for user:", freelancerId);
                       // Clear video from database by setting empty string
                       axios
                         .post(`${API_URL}/add-video-introduction/`, {
@@ -2550,7 +2533,7 @@ const FreelancersProfilePage = () => {
                             setVideoThumbnail("");
                             setVideoTitle("");
                             setVideoId("");
-                            console.log("Video removed successfully");
+                            
                           } else {
                             console.error(
                               "Unexpected response when removing video:",

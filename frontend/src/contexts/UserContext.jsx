@@ -30,7 +30,6 @@ export const UserProvider = ({ children }) => {
       
       // Check if user is banned
       if (response.data.banned) {
-        console.log("User is banned, logging out");
         clearUserData();
         setError(`Account Banned: ${response.data.banReason || 'No reason provided'}`);
         return;
@@ -38,7 +37,6 @@ export const UserProvider = ({ children }) => {
       
       // Check if user is banned from the user data
       if (response.data.user && response.data.user.isBanned) {
-        console.log("User is banned, logging out");
         clearUserData();
         setError(`Account Banned: ${response.data.user.banReason || 'No reason provided'}`);
         return;
@@ -51,7 +49,6 @@ export const UserProvider = ({ children }) => {
         // Check if this is a different user than what we have stored
         const storedUserId = localStorage.getItem('currentUserId');
         if (storedUserId && storedUserId !== currentUser._id) {
-          console.log("Different user detected, clearing old data");
           clearUserData();
         }
         
@@ -71,7 +68,6 @@ export const UserProvider = ({ children }) => {
       
       // If it's an authentication error (401, 403), clear user data
       if (err.response && (err.response.status === 401 || err.response.status === 403)) {
-        console.log("Authentication failed, clearing user data");
         
         // Check if it's a ban response
         if (err.response.data && err.response.data.banned) {
@@ -117,7 +113,6 @@ export const UserProvider = ({ children }) => {
   };
 
   const clearUserData = () => {
-    console.log("Clearing user data from context and localStorage");
     setUserId(null);
     setUserData(null);
     setError(null);

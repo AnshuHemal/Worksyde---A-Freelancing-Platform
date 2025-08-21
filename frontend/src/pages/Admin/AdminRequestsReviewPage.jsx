@@ -49,18 +49,12 @@ const AdminRequestsReviewPage = () => {
         const authCheck = await axios.get("http://localhost:5000/api/auth/current-user/", {
           withCredentials: true
         });
-        console.log("Auth check response:", authCheck.data);
       } catch (authError) {
         console.error("Auth check failed:", authError);
         toast.error("Authentication failed. Please log in again.");
         navigate("/login");
         return;
       }
-      
-      console.log("Sending reject request to:", `${API_URL}/requests/review/${requestDetails._id}/`);
-      console.log("Request data:", { status: "rejected", reviewFeedback: reason });
-      console.log("With credentials:", true);
-      console.log("Cookies:", document.cookie);
       
       const response = await axios.post(
         `${API_URL}/requests/review/${requestDetails._id}/`,
@@ -121,18 +115,12 @@ const AdminRequestsReviewPage = () => {
         const authCheck = await axios.get("http://localhost:5000/api/auth/current-user/", {
           withCredentials: true
         });
-        console.log("Auth check response:", authCheck.data);
       } catch (authError) {
         console.error("Auth check failed:", authError);
         toast.error("Authentication failed. Please log in again.");
         navigate("/login");
         return;
       }
-      
-      console.log("Sending approve request to:", `${API_URL}/requests/review/${requestDetails._id}/`);
-      console.log("Request data:", { status: "approved" });
-      console.log("With credentials:", true);
-      console.log("Cookies:", document.cookie);
       
       const response = await axios.post(
         `${API_URL}/requests/review/${requestDetails._id}/`,
@@ -202,10 +190,6 @@ const AdminRequestsReviewPage = () => {
 
   useEffect(() => {
     const fetchRequestDetails = async () => {
-      console.log("useEffect triggered with freelancerid:", freelancerid);
-      console.log("freelancerid type:", typeof freelancerid);
-      console.log("freelancerid value:", freelancerid);
-      
       if (!freelancerid) {
         console.error("No freelancerid provided");
         setError("No freelancer ID provided");
@@ -214,21 +198,13 @@ const AdminRequestsReviewPage = () => {
       }
 
       try {
-        console.log("Fetching request details for freelancerid:", freelancerid);
-        
         const response = await axios.post(
           `${API_URL}/under-review-requests-by-userid/`,
           { userId: freelancerid },
           { withCredentials: true }
         );
 
-        console.log("API Response:", response.data);
-
         if (response.data.success) {
-          console.log("Request details received:", response.data.request);
-          console.log("Request _id:", response.data.request._id);
-          console.log("Request id:", response.data.request.id);
-          console.log("Resume field:", response.data.request.resume);
           setRequestDetails(response.data.request);
           setError(null);
         } else {
@@ -294,7 +270,6 @@ const AdminRequestsReviewPage = () => {
   }
 
   if (!requestDetails) {
-    console.log("requestDetails is null/undefined, showing no request found message");
     return (
       <div className="text-center p-5">
         <div className="alert alert-warning" role="alert">
@@ -311,10 +286,6 @@ const AdminRequestsReviewPage = () => {
     );
   }
   
-  // Debug: Log requestDetails when rendering
-  console.log("Rendering with requestDetails:", requestDetails);
-  console.log("requestDetails._id:", requestDetails._id);
-
   return (
     <div className="profile-card p-4">
       <div className="row">

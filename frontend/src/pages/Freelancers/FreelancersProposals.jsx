@@ -114,7 +114,6 @@ const FreelancersProposals = () => {
             const cacheValid = now - cacheTimestamp < 120000; // 2 minutes
 
             if (cacheValid && acceptedOffersCache[cacheKey]) {
-              console.log("Using cached accepted job offers");
               acceptedOffersRes = {
                 data: {
                   success: true,
@@ -122,7 +121,6 @@ const FreelancersProposals = () => {
                 },
               };
             } else {
-              console.log("Fetching fresh accepted job offers");
               acceptedOffersRes = await axios.get(
                 `${API_URL}/job-offers/accepted/freelancer/${freelancerId}/?page=1&page_size=10`,
                 {
@@ -149,7 +147,7 @@ const FreelancersProposals = () => {
           // Try to use cache on error
           const cacheKey = `accepted_offers_${freelancerId}`;
           if (acceptedOffersCache[cacheKey]) {
-            console.log("Using cached data due to error");
+            
             acceptedOffersRes = {
               data: {
                 success: true,
@@ -190,14 +188,7 @@ const FreelancersProposals = () => {
         // Process accepted offers
         if (acceptedOffersRes.data && acceptedOffersRes.data.success) {
           const offers = acceptedOffersRes.data.acceptedJobOffers || [];
-          console.log("Fetched accepted job offers:", offers);
           setAcceptedJobOffers(offers);
-          if (offers.length === 0) {
-            console.log(
-              "No accepted job offers found for freelancer:",
-              freelancerId
-            );
-          }
         } else {
           setAcceptedJobOffers([]);
           if (acceptedOffersRes.data && !acceptedOffersRes.data.success) {

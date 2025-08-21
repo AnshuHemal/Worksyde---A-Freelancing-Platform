@@ -27,7 +27,6 @@ const NotificationPage = () => {
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!userId) {
-        console.log("No userId available, skipping notification fetch");
         return;
       }
 

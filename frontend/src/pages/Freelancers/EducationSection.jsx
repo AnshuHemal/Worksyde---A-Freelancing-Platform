@@ -59,7 +59,6 @@ const EducationSection = () => {
             withCredentials: true,
           });
           const educations = res.data.education || [];
-          console.log(educations);
           setEducationExperiences(educations);
         } catch (error) {
           toast.error("Failed to fetch education experiences.");

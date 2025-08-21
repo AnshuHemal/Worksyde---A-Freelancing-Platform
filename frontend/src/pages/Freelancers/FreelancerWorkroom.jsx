@@ -92,10 +92,8 @@ const FreelancerWorkroom = () => {
 
           // Ensure we have client details
           if (contractData) {
-            console.log("Contract data:", contractData);
 
             // Process financial data
-            console.log("Raw financial data:", contractData.financials);
 
             // Get the original project amount from the contract
             const originalProjectAmount = parseFloat(
@@ -111,10 +109,7 @@ const FreelancerWorkroom = () => {
               contractData.financials?.milestonesPaid || 0
             );
 
-            console.log("Original project amount:", originalProjectAmount);
-            console.log("In escrow:", inEscrow);
-            console.log("Milestones paid:", milestonesPaid);
-
+            
             // Calculate progress percentage
             const progressPercentage =
               originalProjectAmount > 0

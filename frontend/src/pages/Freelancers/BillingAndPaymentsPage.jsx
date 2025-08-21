@@ -107,10 +107,9 @@ const BillingAndPaymentsPage = () => {
         withCredentials: true,
       });
 
-      console.log("Wallet balance response:", response.data);
       if (response.data.success) {
         setWalletBalance(response.data.walletBalance);
-        console.log("Updated wallet balance state:", response.data.walletBalance);
+        
       }
     } catch (error) {
       console.error("Error fetching wallet balance:", error);

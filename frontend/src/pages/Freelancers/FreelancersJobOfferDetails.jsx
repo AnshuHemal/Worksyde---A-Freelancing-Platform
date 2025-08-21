@@ -212,9 +212,6 @@ const FreelancersJobOfferDetails = () => {
     ? [attachments]
     : [];
 
-  // Debug: Log attachment data for troubleshooting
-  console.log("Attachment URL:", attachments);
-  console.log("Attachment List:", attachmentList);
 
   // Enhanced date handling based on backend structure
   const offerDateRaw =
@@ -423,7 +420,6 @@ const FreelancersJobOfferDetails = () => {
         });
       }
 
-      console.log("Sending attachment details:", attachmentDetailsToSend);
 
       const response = await axios.post(
         `${API_URL}/job-offers/${jobofferid}/accept/`,

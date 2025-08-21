@@ -40,7 +40,6 @@ const LoginPage = () => {
       if (response.data.success) {
         // Get user role and navigate directly to appropriate dashboard
         const userRole = response.data.user?.role;
-        console.log("User logged in with role:", userRole);
         
         if (userRole === "client") {
           navigate("/ws/client/dashboard");

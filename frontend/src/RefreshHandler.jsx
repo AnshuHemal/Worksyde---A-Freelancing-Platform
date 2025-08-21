@@ -9,7 +9,6 @@ export const RefreshHandler = ({ setIsAuthenticated }) => {
   useEffect(() => {
     // Don't run authentication check on login/signup pages
     if (location.pathname === "/login" || location.pathname === "/signup") {
-      console.log("RefreshHandler: Skipping auth check on login/signup page");
       return;
     }
 
@@ -23,14 +22,12 @@ export const RefreshHandler = ({ setIsAuthenticated }) => {
         );
 
         if (response.data.success) {
-          console.log("RefreshHandler: User is authenticated, current path:", location.pathname);
           setIsAuthenticated(true);
           
           // Only redirect if user is on home page and not on protected routes
           if (location.pathname === "/home" || location.pathname === "/") {
             // Get user role and navigate to appropriate dashboard
             const userRole = response.data.user?.role;
-            console.log("RefreshHandler: User authenticated with role:", userRole);
             
             if (userRole === "client") {
               navigate("/ws/client/dashboard", { replace: true });
@@ -51,7 +48,6 @@ export const RefreshHandler = ({ setIsAuthenticated }) => {
           setIsAuthenticated(false);
         }
       } catch (error) {
-        console.log("RefreshHandler: Authentication check failed:", error);
         setIsAuthenticated(false);
       }
     };

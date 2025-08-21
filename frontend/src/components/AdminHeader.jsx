@@ -37,7 +37,6 @@ const AdminHeader = () => {
       navigate("/");
       toast.success("Successfully Logged out..");
     } catch (error) {
-      console.log(error);
       toast.error(error.message);
     }
   };

@@ -236,7 +236,6 @@ const ClientMessagesPage = () => {
         toast.error(data.error);
         return;
       }
-      console.log("WebSocket message received:", data); // Debug
       // Handle new message event
       const newMsg = {
         _id: data._id, // must be provided by backend!
@@ -744,7 +743,6 @@ const ClientMessagesPage = () => {
     setUploading(true);
     setUploadProgress(0);
     try {
-      console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type);
       
       const formData = new FormData();
       formData.append("file", file);
@@ -760,7 +758,7 @@ const ClientMessagesPage = () => {
         },
       });
       
-      console.log("Upload response:", res.data);
+      
       
       // Assume response: { url, type: 'image'|'file', name }
       const { url, type, name } = res.data;
@@ -772,7 +770,7 @@ const ClientMessagesPage = () => {
           if (!testResponse.ok) {
             console.warn("Uploaded file may not be accessible:", url);
           } else {
-            console.log("Uploaded file is accessible:", url);
+            
           }
         } catch (testErr) {
           console.warn("Could not verify uploaded file accessibility:", testErr);
@@ -1545,16 +1543,6 @@ const ClientMessagesPage = () => {
                         const attachmentName =
                           msg.attachment?.name || msg.attachment_name;
                         
-                        // Debug logging for image detection
-                        if (isImage) {
-                          console.log("Image detected:", {
-                            attachmentUrl,
-                            attachmentName,
-                            attachment: msg.attachment,
-                            attachment_url: msg.attachment_url,
-                            attachment_type: msg.attachment_type
-                          });
-                        }
                         return (
                           <div
                             key={msg._id || item.idx}
@@ -1655,9 +1643,7 @@ const ClientMessagesPage = () => {
                                           `;
                                           e.target.parentNode.appendChild(fallbackDiv.firstElementChild);
                                         }}
-                                        onLoad={() => {
-                                          console.log("Image loaded successfully:", attachmentUrl);
-                                        }}
+                                        
                                       />
                                     </div>
                                     {msg.content && (

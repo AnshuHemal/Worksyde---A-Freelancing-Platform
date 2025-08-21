@@ -130,7 +130,6 @@ const ClientInfoPage = () => {
             }
           }
         } catch (settingsError) {
-          console.log("No profile settings found, using default AI preference");
           setAiPreference("yes");
           // Save default preference to backend
           await saveSettingsToDatabase({

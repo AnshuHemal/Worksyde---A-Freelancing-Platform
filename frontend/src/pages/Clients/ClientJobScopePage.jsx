@@ -42,7 +42,6 @@ const ClientJobScopePage = () => {
     const selectedScope = scopeOptions.find(option => option.value === scopeValue);
     if (selectedScope) {
       setWsToken(selectedScope.ws_token);
-      console.log(`Selected scope: ${scopeValue}, ws_token: ${selectedScope.ws_token}`);
     }
   };
 
@@ -63,7 +62,6 @@ const ClientJobScopePage = () => {
         contractToHire,
       };
       
-      console.log('Sending scope data:', scopeData);
       
       const res = await axios.post(`${API_URL}/add-job-scope-details/`, scopeData);
 

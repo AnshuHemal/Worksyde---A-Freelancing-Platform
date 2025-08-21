@@ -132,10 +132,6 @@ const FreelancersProposalDetails = () => {
         ).toFixed(2)}`
       : "-";
 
-  if (clientInfo) {
-    console.log("clientInfo", clientInfo);
-  }
-
   return (
     <div style={{ maxWidth: 1400, margin: "60px auto", padding: 24 }}>
       <h1

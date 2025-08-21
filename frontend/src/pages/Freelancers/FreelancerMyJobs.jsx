@@ -120,11 +120,6 @@ const FreelancerMyJobs = () => {
         );
         const offers = res.data?.acceptedJobOffers || [];
         
-        // Debug: Log the first offer to see the structure
-        if (offers.length > 0) {
-          console.log("First offer structure:", offers[0]);
-          console.log("Client name from API:", offers[0].clientName);
-        }
 
         // Separate pending and active contracts
         const pending = [];
@@ -161,14 +156,7 @@ const FreelancerMyJobs = () => {
               clientName = "Client"; // Simple fallback
             }
           }
-          
-          // Debug: Log client name extraction
-          console.log(`Client name for offer ${offer.id}:`, {
-            clientName: offer.clientName,
-            clientNameExtracted: clientName,
-            offer: offer
-          });
-          
+        
           return {
             id: offer.id,
             title: offer.contractTitle || offer.jobTitle || "Project",

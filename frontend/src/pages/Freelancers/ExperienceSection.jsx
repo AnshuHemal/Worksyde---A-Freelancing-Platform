@@ -67,7 +67,6 @@ const ExperienceSection = () => {
             { withCredentials: true }
           );
           const experiences = res.data.workExperience || [];
-          console.log(experiences);
           setWorkExperiences(experiences);
         } catch (error) {
           toast.error("Failed to fetch work experiences.");

@@ -9,7 +9,6 @@ const FreelancersOverview = () => {
   useEffect(() => {
     // If we're at the root /ws/ path, redirect to find-work
     if (location.pathname === "/ws/") {
-      console.log("Redirecting from /ws/ to /ws/find-work");
       navigate("/ws/find-work", { replace: true });
     }
   }, [location.pathname, navigate]);

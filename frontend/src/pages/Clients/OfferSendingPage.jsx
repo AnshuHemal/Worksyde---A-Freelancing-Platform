@@ -41,7 +41,6 @@ const DatePicker = ({
   // Function to handle past date clicks
   const handlePastDateClick = () => {
     // You could add a toast notification here if you want
-    console.log("Past dates cannot be selected");
   };
   if (!isOpen) return null;
 
@@ -431,7 +430,7 @@ const OfferSendingPage = () => {
 
         // Set job data if found
         if (jobData) {
-          console.log("Job data received:", jobData); // Debug log
+          
 
           // Handle different response structures
           const jobInfo = jobData.data || jobData; // Some APIs wrap data in .data

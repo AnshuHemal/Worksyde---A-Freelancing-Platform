@@ -21,19 +21,16 @@ const ClientNotificationPage = () => {
   useEffect(() => {
     const fetchNotifications = async () => {
       if (!userId) {
-        console.log("No userId available, skipping notification fetch");
         return;
       }
 
-      console.log("Fetching notifications for userId:", userId);
-      console.log("API URL:", `${API_URL}/notifications/`);
-
+      
       // First, test if the backend is reachable
       try {
         const testResponse = await axios.get(`${API_URL}/current-user/`, {
           withCredentials: true,
         });
-        console.log("Backend connection test successful:", testResponse.data);
+        
       } catch (testError) {
         console.error("Backend connection test failed:", testError);
         setError(
@@ -49,8 +46,7 @@ const ClientNotificationPage = () => {
           withCredentials: true,
         });
 
-        console.log("Notifications response:", response.data);
-
+        
         if (response.data.success) {
           setNotifications(response.data.notifications);
 

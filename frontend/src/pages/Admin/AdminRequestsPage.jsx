@@ -49,14 +49,7 @@ const AdminRequestsPage = () => {
       });
 
       if (response.data.success) {
-        console.log("API Response:", response.data);
         const allRequests = response.data.users || [];
-        console.log("All requests:", allRequests);
-
-        // Debug photo URLs
-        allRequests.forEach((req, index) => {
-          console.log(`Request ${index} photo:`, req.photograph);
-        });
 
         setRequests(allRequests);
       } else {
@@ -76,9 +69,6 @@ const AdminRequestsPage = () => {
   };
 
   const handleRequestClick = async (request) => {
-    console.log("handleRequestClick called with request:", request);
-    console.log("request.userId:", request.userId);
-    console.log("request.userId type:", typeof request.userId);
     
     // Check if someone else is already reviewing
     if (request.currentlyReviewingBy && String(request.currentlyReviewingBy.id) !== String(currentUser?._id)) {
@@ -270,10 +260,6 @@ const AdminRequestsPage = () => {
                                     objectFit: "cover",
                                   }}
                                   onError={(e) => {
-                                    console.log(
-                                      "Image failed to load:",
-                                      request.photograph
-                                    );
                                     e.target.src =
                                       "https://via.placeholder.com/40";
                                   }}
