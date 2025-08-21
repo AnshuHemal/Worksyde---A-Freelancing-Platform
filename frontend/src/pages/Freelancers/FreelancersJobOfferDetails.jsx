@@ -161,6 +161,60 @@ const FreelancersJobOfferDetails = () => {
     }
   };
 
+  // Helpers to resolve milestone due dates from various possible fields
+  const normalizeDateInput = (value) => {
+    if (!value) return null;
+    try {
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") {
+        // Treat 10-digit numbers as seconds
+        return value < 1000000000000 ? value * 1000 : value;
+      }
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (/^\d{10}$/.test(trimmed)) return parseInt(trimmed, 10) * 1000;
+        if (/^\d{13}$/.test(trimmed)) return parseInt(trimmed, 10);
+        return value; // Assume parseable date string
+      }
+      return value;
+    } catch (_) {
+      return value;
+    }
+  };
+
+  const getMilestoneOwnDueDate = (milestone) => {
+    if (!milestone) return null;
+    const raw = (
+      milestone?.dueDate ||
+      milestone?.due_date ||
+      milestone?.deadline ||
+      milestone?.endDate ||
+      milestone?.end_date ||
+      milestone?.due ||
+      milestone?.timeline?.dueDate ||
+      milestone?.timeline?.due_date ||
+      null
+    );
+    return normalizeDateInput(raw);
+  };
+
+  const getMilestoneDisplayDueDate = (milestone) => {
+    // Prefer milestone's own due date; fallback to overall job offer due date
+    return getMilestoneOwnDueDate(milestone) || getJobOfferDueDate();
+  };
+
+  const getJobOfferDueDate = () => {
+    const raw = (
+      jobOffer?.dueDate ||
+      jobOffer?.due_date ||
+      jobOffer?.deadline ||
+      jobOffer?.endDate ||
+      jobOffer?.end_date ||
+      null
+    );
+    return normalizeDateInput(raw);
+  };
+
   // Parse arbitrary amount strings like "$1,234.56" or "1,234" -> number
   const parseAmountToNumber = (value) => {
     if (value === null || value === undefined) return 0;
@@ -488,7 +542,7 @@ const FreelancersJobOfferDetails = () => {
         milestone?.total ??
         0
     );
-    const hasDueDate = Boolean(milestone?.dueDate);
+    const hasDueDate = Boolean(getMilestoneOwnDueDate(milestone));
     return title.length > 0 || amountNum > 0 || hasDueDate;
   });
 
@@ -2039,9 +2093,12 @@ const FreelancersJobOfferDetails = () => {
                             textAlign: "center",
                           }}
                         >
-                          {milestone.dueDate
-                            ? formatDate(new Date(milestone.dueDate))
-                            : "-"}
+                          {(() => {
+                            const due = getMilestoneDisplayDueDate(milestone);
+                            if (!due) return "-";
+                            const dt = typeof due === 'number' ? new Date(due) : new Date(due);
+                            return formatDate(dt);
+                          })()}
                         </div>
                         <div style={{ fontWeight: 600, textAlign: "right" }}>
                           {formatCurrency(
@@ -2078,9 +2135,12 @@ const FreelancersJobOfferDetails = () => {
                           textAlign: "center",
                         }}
                       >
-                        {jobOffer?.dueDate
-                          ? formatDate(new Date(jobOffer.dueDate))
-                          : "-"}
+                        {(() => {
+                          const due = getJobOfferDueDate();
+                          if (!due) return "-";
+                          const dt = typeof due === 'number' ? new Date(due) : new Date(due);
+                          return formatDate(dt);
+                        })()}
                       </div>
                       <div style={{ fontWeight: 600, textAlign: "right" }}>
                         {formatCurrency(projectAmountNumber)}

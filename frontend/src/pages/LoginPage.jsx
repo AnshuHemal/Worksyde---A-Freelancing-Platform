@@ -44,7 +44,7 @@ const LoginPage = () => {
         if (userRole === "client") {
           navigate("/ws/client/dashboard");
         } else if (userRole === "freelancer") {
-          navigate("/ws/");
+          navigate("/ws/find-work");
         } else if (userRole === "admin") {
           navigate("/ws/admin/freelancers");
         } else if (userRole === "superadmin") {

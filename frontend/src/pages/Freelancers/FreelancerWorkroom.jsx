@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   BsThreeDots,
@@ -54,10 +54,19 @@ const FreelancerWorkroom = () => {
         const totalEarnings = parseFloat(
           contractData.financials?.totalEarnings || 0
         );
-        const progressPercentage =
-          originalProjectAmount > 0
-            ? (milestonesPaid / originalProjectAmount) * 100
+        const paymentTypeRaw = contractData.financials?.paymentType || contractData.paymentType || '';
+        const isFixedPrice = String(paymentTypeRaw).toLowerCase().includes('fixed');
+        const freelancerFeePercent = contractData.financials?.freelancerFeePercent ?? 10;
+        const freelancerFee = contractData.financials?.freelancerFee ?? (originalProjectAmount * (freelancerFeePercent / 100));
+        const freelancerPayoutAmount = Math.max(0, originalProjectAmount - freelancerFee);
+        const releasedByClient = Math.max(0, originalProjectAmount - inEscrow);
+        let progressPercentage =
+          freelancerPayoutAmount > 0
+            ? (milestonesPaid / freelancerPayoutAmount) * 100
             : 0;
+        if (isFixedPrice && releasedByClient > 0) {
+          progressPercentage = 100;
+        }
         const processedContractData = {
           ...contractData,
           financials: {
@@ -92,7 +101,6 @@ const FreelancerWorkroom = () => {
 
           // Ensure we have client details
           if (contractData) {
-
             // Process financial data
 
             // Get the original project amount from the contract
@@ -109,12 +117,20 @@ const FreelancerWorkroom = () => {
               contractData.financials?.milestonesPaid || 0
             );
 
-            
             // Calculate progress percentage
-            const progressPercentage =
-              originalProjectAmount > 0
-                ? (milestonesPaid / originalProjectAmount) * 100
+            const paymentTypeRaw = contractData.financials?.paymentType || contractData.paymentType || '';
+            const isFixedPrice = String(paymentTypeRaw).toLowerCase().includes('fixed');
+            const freelancerFeePercent = contractData.financials?.freelancerFeePercent ?? 10;
+            const freelancerFee = contractData.financials?.freelancerFee ?? (originalProjectAmount * (freelancerFeePercent / 100));
+            const freelancerPayoutAmount = Math.max(0, originalProjectAmount - freelancerFee);
+            const releasedByClient = Math.max(0, originalProjectAmount - inEscrow);
+            let progressPercentage =
+              freelancerPayoutAmount > 0
+                ? (milestonesPaid / freelancerPayoutAmount) * 100
                 : 0;
+            if (isFixedPrice && releasedByClient > 0) {
+              progressPercentage = 100;
+            }
 
             // Update contract data with processed financials
             const processedContractData = {
@@ -165,8 +181,8 @@ const FreelancerWorkroom = () => {
   };
   const handleSubmitProject = async () => {
     if (!message.trim() && !selectedFile) {
-      toast.error("Add a message or attach a file");
-      return;
+      // Message and PDF are both optional, but encourage a message
+      // Remove hard requirement; proceed without blocking
     }
     try {
       setSubmitting(true);
@@ -175,10 +191,15 @@ const FreelancerWorkroom = () => {
       form.append("title", "Work submission");
       form.append("description", message || "");
       if (selectedFile) form.append("pdfFile", selectedFile);
-      await axios.post(`${API_URL}/submissions/submit/`, form, { withCredentials: true });
+      await axios.post(`${API_URL}/submissions/submit/`, form, {
+        withCredentials: true,
+      });
       toast.success("Submission sent to client");
       handleCloseModal();
-      const res = await axios.get(`${API_URL}/accepted-job-offer/${acceptedjobofferId}/`, { withCredentials: true });
+      const res = await axios.get(
+        `${API_URL}/accepted-job-offer/${acceptedjobofferId}/`,
+        { withCredentials: true }
+      );
       if (res.data?.success) setContract(res.data.contract);
     } catch (e) {
       toast.error("Failed to submit work");
@@ -194,7 +215,9 @@ const FreelancerWorkroom = () => {
   const handleFileChange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
-    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+    const isPdf =
+      file.type === "application/pdf" ||
+      file.name.toLowerCase().endsWith(".pdf");
     if (!isPdf) {
       toast.error("Please upload a PDF file");
       return;
@@ -227,7 +250,9 @@ const FreelancerWorkroom = () => {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      const isPdf =
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf");
       if (!isPdf) {
         toast.error("Please upload a PDF file");
         return;
@@ -253,6 +278,88 @@ const FreelancerWorkroom = () => {
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  // Determine submission status to control submit button behavior (must be before early returns)
+  const latestSubmission = useMemo(() => {
+    const files = Array.isArray(contract?.recentFiles)
+      ? contract.recentFiles
+      : [];
+    if (!files.length) return null;
+    return files
+      .slice()
+      .sort(
+        (a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0)
+      )[0];
+  }, [contract?.recentFiles]);
+
+  const latestStatus = (latestSubmission?.status || "").toLowerCase();
+  const isChangesRequested = latestStatus === "changes requested";
+  const isCompleted = latestStatus === "completed";
+  const isAwaitingClient =
+    latestSubmission && !isChangesRequested && !isCompleted;
+  const submitDisabled = isAwaitingClient || isCompleted;
+  const submitLabel = isChangesRequested
+    ? "Submit Revision"
+    : isCompleted
+    ? "Completed"
+    : "Submit Work";
+  const autoEndAt = contract?.autoEndAt || contract?.financials?.autoEndAt;
+
+  // Countdown timer for auto end (12 hours after completion)
+  const [nowTs, setNowTs] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const countdown = useMemo(() => {
+    // Determine target end time
+    let endTs = null;
+    if (autoEndAt) {
+      endTs = new Date(autoEndAt).getTime();
+    } else if (Array.isArray(contract?.recentFiles)) {
+      const latestCompleted = contract.recentFiles
+        .filter((f) => (f?.status || "").toLowerCase() === "completed")
+        .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0))[0];
+      if (latestCompleted?.createdAt) {
+        endTs = new Date(latestCompleted.createdAt).getTime() + 12 * 60 * 60 * 1000;
+      }
+    }
+    if (!endTs) return { show: false, text: "", days: 0, hours: 0, minutes: 0, seconds: 0, percents: {} };
+    const diff = Math.max(0, endTs - nowTs);
+    const totalSec = Math.floor(diff / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hrs = Math.floor((totalSec % 86400) / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    const pad = (n) => String(n).padStart(2, "0");
+    const percents = {
+      days: (hrs / 24) * 100,
+      hours: (mins / 60) * 100,
+      minutes: (secs / 60) * 100,
+      seconds: ((diff % 1000) / 1000) * 100,
+    };
+    return { show: diff > 0, text: `${pad(hrs)}:${pad(mins)}:${pad(secs)}`, days, hours: hrs, minutes: mins, seconds: secs, percents };
+  }, [autoEndAt, contract?.recentFiles, nowTs]);
+
+  const Circle = ({ color, percent, value, label }) => {
+    const track = "#e5e7eb";
+    const size = 96;
+    const inner = 72;
+    const bg = `conic-gradient(${color} ${Math.max(0, Math.min(100, percent))}%, ${track} 0)`;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+        <div style={{ width: size, height: size, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: inner, height: inner, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 0 0 1px #f3f4f6" }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", lineHeight: 1 }}>{value}</div>
+              <div style={{ fontSize: 12, color: "#6b7280" }}>{label}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -417,6 +524,21 @@ const FreelancerWorkroom = () => {
               boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
             }}
           >
+            {isCompleted && (
+              <div
+                style={{
+                  background: "#f0fdf4",
+                  border: "1px solid #bbf7d0",
+                  color: "#14532d",
+                  borderRadius: 8,
+                  padding: 12,
+                  marginBottom: 16,
+                  fontSize: 16,
+                }}
+              >
+                The contract will automatically end in 12 hours.
+              </div>
+            )}
             <h2
               style={{
                 fontSize: 24,
@@ -529,7 +651,10 @@ const FreelancerWorkroom = () => {
                       Math.max(
                         0,
                         (contract.financials?.projectAmount ?? 0) -
-                          ((contract.financials?.freelancerFee ?? ((contract.financials?.freelancerFeePercent ?? 10) / 100 * (contract.financials?.projectAmount ?? 0))))
+                          (contract.financials?.freelancerFee ??
+                            ((contract.financials?.freelancerFeePercent ?? 10) /
+                              100) *
+                              (contract.financials?.projectAmount ?? 0))
                       )
                     ).toFixed(2)}
                   </span>
@@ -550,22 +675,27 @@ const FreelancerWorkroom = () => {
                 </div>
 
                 <button
-                  onClick={handleSubmitWork}
+                  onClick={submitDisabled ? undefined : handleSubmitWork}
+                  disabled={submitDisabled}
                   style={{
-                    background:
-                      "linear-gradient(135deg, #007674 0%, #005a58 100%)",
-                    color: "#fff",
+                    background: submitDisabled
+                      ? "#cbd5e1"
+                      : "linear-gradient(135deg, #007674 0%, #005a58 100%)",
+                    color: submitDisabled ? "#6b7280" : "#fff",
                     borderRadius: "8px",
                     fontSize: "16px",
                     fontWeight: 600,
                     border: "none",
                     padding: "12px 20px",
                     transition: "all 0.3s ease",
-                    boxShadow: "0 4px 12px rgba(0, 118, 116, 0.3)",
-                    cursor: "pointer",
-                    marginBottom: 16,
+                    boxShadow: submitDisabled
+                      ? "none"
+                      : "0 4px 12px rgba(0, 118, 116, 0.3)",
+                    cursor: submitDisabled ? "not-allowed" : "pointer",
+                    marginBottom: 8,
                   }}
                   onMouseEnter={(e) => {
+                    if (submitDisabled) return;
                     e.target.style.background =
                       "linear-gradient(135deg, #121212 0%, #0a0a0a 100%)";
                     e.target.style.transform = "translateY(-1px)";
@@ -573,15 +703,29 @@ const FreelancerWorkroom = () => {
                       "0 6px 16px rgba(18, 18, 18, 0.4)";
                   }}
                   onMouseLeave={(e) => {
+                    if (submitDisabled) return;
                     e.target.style.background =
                       "linear-gradient(135deg, #007674 0%, #005a58 100%)";
                     e.target.style.transform = "translateY(0)";
                     e.target.style.boxShadow =
                       "0 4px 12px rgba(0, 118, 116, 0.3)";
                   }}
+                  title={
+                    isAwaitingClient
+                      ? "Waiting for client to review your submission"
+                      : undefined
+                  }
                 >
-                  Submit Work
+                  {submitLabel}
                 </button>
+                {isAwaitingClient && (
+                  <div
+                    style={{ color: "#6b7280", fontSize: 16, marginBottom: 16 }}
+                  >
+                    Waiting for client to review. You can submit a revision once
+                    they request changes.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -609,6 +753,26 @@ const FreelancerWorkroom = () => {
             >
               Earnings
             </h2>
+
+            {isCompleted && countdown.show && (
+              <div
+                style={{
+                  background: "#fef9c3",
+                  border: "1px solid #fde68a",
+                  color: "#92400e",
+                  borderRadius: 8,
+                  padding: 10,
+                  marginBottom: 16,
+                  fontSize: 16,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span>Contract auto-ends in</span>
+                <span style={{ fontWeight: 700 }}>{countdown.text}</span>
+              </div>
+            )}
 
             {/* Progress Bar */}
             <div
@@ -796,12 +960,25 @@ const FreelancerWorkroom = () => {
                     Math.max(
                       0,
                       (contract.financials?.projectAmount ?? 0) -
-                        ((contract.financials?.freelancerFee ?? ((contract.financials?.freelancerFeePercent ?? 10) / 100 * (contract.financials?.projectAmount ?? 0))))
+                        (contract.financials?.freelancerFee ??
+                          ((contract.financials?.freelancerFeePercent ?? 10) /
+                            100) *
+                            (contract.financials?.projectAmount ?? 0))
                     )
                   ).toFixed(2)}
                 </span>
               </div>
             </div>
+
+            {isCompleted && countdown.show && (
+              <div style={{ marginTop: 16 }}>
+                <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+                  <Circle color="#db2777" percent={countdown.percents.hours} value={countdown.hours} label="hours" />
+                  <Circle color="#ef4444" percent={countdown.percents.minutes} value={countdown.minutes} label="minutes" />
+                  <Circle color="#0ea5e9" percent={((countdown.seconds % 60) / 60) * 100} value={countdown.seconds} label="seconds" />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Recent files card (below Earnings) */}
@@ -818,7 +995,14 @@ const FreelancerWorkroom = () => {
             }}
           >
             {/* Header row with title and refresh */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 16,
+              }}
+            >
               <h2
                 style={{
                   fontSize: 24,
@@ -849,7 +1033,11 @@ const FreelancerWorkroom = () => {
                 disabled={refreshing}
               >
                 {refreshing ? (
-                  <div className="spinner-border spinner-border-sm" role="status" aria-label="Refreshing" />
+                  <div
+                    className="spinner-border spinner-border-sm"
+                    role="status"
+                    aria-label="Refreshing"
+                  />
                 ) : (
                   <span style={{ transform: "translateY(-1px)" }}>↻</span>
                 )}
@@ -869,15 +1057,25 @@ const FreelancerWorkroom = () => {
                   borderRadius: 12,
                 }}
               >
-                <div className="spinner-border" role="status" aria-label="Refreshing" style={{ color: "#007674" }} />
-                <div style={{ marginTop: 8, color: "#121212", fontSize: 16 }}>Refreshing…</div>
+                <div
+                  className="spinner-border"
+                  role="status"
+                  aria-label="Refreshing"
+                  style={{ color: "#007674" }}
+                />
+                <div style={{ marginTop: 8, color: "#121212", fontSize: 16 }}>
+                  Refreshing…
+                </div>
               </div>
             )}
 
             {contract?.recentFiles?.length ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div
+                style={{ display: "flex", flexDirection: "column", gap: 12 }}
+              >
                 {contract.recentFiles.map((file) => (
-                  <div key={file.id}
+                  <div
+                    key={file.id}
                     style={{
                       border: "1px solid #e5e7eb",
                       borderRadius: 10,
@@ -885,29 +1083,121 @@ const FreelancerWorkroom = () => {
                       background: "#fafafa",
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontWeight: 700, color: "#111827", fontSize: 16 }}>{file.title || "Submission"}</span>
-                      <span style={{ marginLeft: "auto", fontSize: 16, padding: "2px 8px", borderRadius: 999, background: file.status === 'Completed' ? '#d1fae5' : file.status === 'Changes Requested' ? '#fee2e2' : '#e5e7eb', color: '#111827' }}>{file.status || 'Pending'}</span>
+                    <div
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
+                      <span
+                        style={{
+                          fontWeight: 700,
+                          color: "#111827",
+                          fontSize: 16,
+                        }}
+                      >
+                        {file.title || "Submission"}
+                      </span>
+                      <span
+                        style={{
+                          marginLeft: "auto",
+                          fontSize: 16,
+                          padding: "2px 8px",
+                          borderRadius: 999,
+                          background:
+                            file.status === "Completed"
+                              ? "#d1fae5"
+                              : file.status === "Changes Requested"
+                              ? "#fee2e2"
+                              : "#e5e7eb",
+                          color: "#111827",
+                        }}
+                      >
+                        {file.status || "Pending"}
+                      </span>
                     </div>
                     {file.description ? (
-                      <div style={{ color: "#374151", fontSize: 16, marginTop: 6 }}>{file.description}</div>
+                      <div
+                        style={{ color: "#374151", fontSize: 16, marginTop: 6 }}
+                      >
+                        {file.description}
+                      </div>
                     ) : null}
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8, color: "#6b7280", fontSize: 16 }}>
-                      <span>{file.createdAt ? new Date(file.createdAt).toLocaleString() : ''}</span>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        marginTop: 8,
+                        color: "#6b7280",
+                        fontSize: 16,
+                      }}
+                    >
+                      <span>
+                        {file.createdAt
+                          ? new Date(file.createdAt).toLocaleString()
+                          : ""}
+                      </span>
                       {file.pdfLink ? (
-                        <a href={file.pdfLink} target="_blank" rel="noreferrer" style={{ color: "#007674", textDecoration: "none" }}>View PDF</a>
+                        <a
+                          href={file.pdfLink}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: "#007674", textDecoration: "none" }}
+                        >
+                          View PDF
+                        </a>
                       ) : file.hasPdfFile ? (
-                        <a href={`${API_URL}/submissions/${file.id}/pdf/`} target="_blank" rel="noreferrer" style={{ color: "#007674", textDecoration: "none" }}>View PDF</a>
+                        <a
+                          href={`${API_URL}/submissions/${file.id}/pdf/`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: "#007674", textDecoration: "none" }}
+                        >
+                          View PDF
+                        </a>
                       ) : null}
                     </div>
                     {Array.isArray(file.comments) && file.comments.length ? (
                       <div style={{ marginTop: 8 }}>
-                        <div style={{ fontSize: 16, color: "#111827", fontWeight: 600, marginBottom: 4 }}>Feedback</div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div
+                          style={{
+                            fontSize: 16,
+                            color: "#111827",
+                            fontWeight: 600,
+                            marginBottom: 4,
+                          }}
+                        >
+                          Feedback
+                        </div>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 6,
+                          }}
+                        >
                           {file.comments.map((c, idx) => (
-                            <div key={idx} style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, padding: 8, color: "#374151", fontSize: 16 }}>
+                            <div
+                              key={idx}
+                              style={{
+                                background: "#fff",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: 8,
+                                padding: 8,
+                                color: "#374151",
+                                fontSize: 16,
+                              }}
+                            >
                               {c.text}
-                              <div style={{ color: "#9ca3af", fontSize: 16, marginTop: 4 }}>{c.createdAt ? new Date(c.createdAt).toLocaleString() : ''}</div>
+                              <div
+                                style={{
+                                  color: "#9ca3af",
+                                  fontSize: 16,
+                                  marginTop: 4,
+                                }}
+                              >
+                                {c.createdAt
+                                  ? new Date(c.createdAt).toLocaleString()
+                                  : ""}
+                              </div>
                             </div>
                           ))}
                         </div>
@@ -918,13 +1208,48 @@ const FreelancerWorkroom = () => {
               </div>
             ) : (
               <>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 0" }}>
-                  <div style={{ width: 120, height: 80, background: "linear-gradient(0deg,#007674,#005a58)", borderRadius: 8, position: "relative", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}>
-                    <div style={{ position: "absolute", left: 10, top: -14, width: 86, height: 28, background: " #007674", borderRadius: "6px 6px 0 0", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" }} />
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    padding: "24px 0",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 120,
+                      height: 80,
+                      background: "linear-gradient(0deg,#007674,#005a58)",
+                      borderRadius: 8,
+                      position: "relative",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: "absolute",
+                        left: 10,
+                        top: -14,
+                        width: 86,
+                        height: 28,
+                        background: " #007674",
+                        borderRadius: "6px 6px 0 0",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+                      }}
+                    />
                   </div>
                 </div>
-                <div style={{ color: "#6b7280", fontSize: 16, textAlign: "center", lineHeight: 1.6 }}>
-                  Files shared in messages, work submissions, or as part of the requirements, will be shown here
+                <div
+                  style={{
+                    color: "#6b7280",
+                    fontSize: 16,
+                    textAlign: "center",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Files shared in messages, work submissions, or as part of the
+                  requirements, will be shown here
                 </div>
               </>
             )}
@@ -1043,7 +1368,10 @@ const FreelancerWorkroom = () => {
                     Math.max(
                       0,
                       (contract.financials?.projectAmount ?? 0) -
-                        ((contract.financials?.freelancerFee ?? ((contract.financials?.freelancerFeePercent ?? 10) / 100 * (contract.financials?.projectAmount ?? 0))))
+                        (contract.financials?.freelancerFee ??
+                          ((contract.financials?.freelancerFeePercent ?? 10) /
+                            100) *
+                            (contract.financials?.projectAmount ?? 0))
                     )
                   ).toFixed(2)}
                 </span>
@@ -1116,7 +1444,10 @@ const FreelancerWorkroom = () => {
                       Math.max(
                         0,
                         (contract.financials?.projectAmount ?? 0) -
-                          ((contract.financials?.freelancerFee ?? ((contract.financials?.freelancerFeePercent ?? 10) / 100 * (contract.financials?.projectAmount ?? 0))))
+                          (contract.financials?.freelancerFee ??
+                            ((contract.financials?.freelancerFeePercent ?? 10) /
+                              100) *
+                              (contract.financials?.projectAmount ?? 0))
                       )
                     ).toFixed(2)}
                   </span>
@@ -1399,9 +1730,15 @@ const FreelancerWorkroom = () => {
                 disabled={submitting}
               >
                 {submitting ? (
-                  <span className="spinner-border spinner-border-sm" role="status" aria-label="Submitting" />
+                  <span
+                    className="spinner-border spinner-border-sm"
+                    role="status"
+                    aria-label="Submitting"
+                  />
                 ) : null}
-                <span style={{ marginLeft: submitting ? 8 : 0 }}>{submitting ? "Submitting..." : "Submit"}</span>
+                <span style={{ marginLeft: submitting ? 8 : 0 }}>
+                  {submitting ? "Submitting..." : "Submit"}
+                </span>
               </motion.button>
             </div>
           </motion.div>
@@ -1412,4 +1749,3 @@ const FreelancerWorkroom = () => {
 };
 
 export default FreelancerWorkroom;
-

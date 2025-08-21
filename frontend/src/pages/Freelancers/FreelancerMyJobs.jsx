@@ -76,6 +76,9 @@ const FreelancerMyJobs = () => {
   const [error, setError] = useState("");
   const [freelancerId, setFreelancerId] = useState(null);
   const [earnings, setEarnings] = useState(0);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [expandedDescriptions, setExpandedDescriptions] = useState({});
 
   // Mock pending contracts data
   const mockPendingContracts = [
@@ -106,6 +109,28 @@ const FreelancerMyJobs = () => {
       }
     };
     fetchCurrentUser();
+  }, []);
+
+  useEffect(() => {
+    const fetchWalletBalance = async () => {
+      try {
+        setWalletLoading(true);
+        const response = await axios.get(`${API_URL}/wallet/balance/`, {
+          withCredentials: true,
+        });
+        if (response.data && response.data.success) {
+          setWalletBalance(response.data.walletBalance || 0);
+        } else if (typeof response.data === 'number') {
+          setWalletBalance(response.data);
+        }
+      } catch (e) {
+        setWalletBalance(0);
+      } finally {
+        setWalletLoading(false);
+      }
+    };
+
+    fetchWalletBalance();
   }, []);
 
   useEffect(() => {
@@ -274,7 +299,7 @@ const FreelancerMyJobs = () => {
                 className="m-0 p-0"
                 style={{ marginTop: "-2px" }}
               />
-              {earnings.toFixed(2)}
+              {walletLoading ? "Loading..." : walletBalance.toFixed(2)}
             </span>
           </div>
         </div>
@@ -459,26 +484,40 @@ const FreelancerMyJobs = () => {
 
                       {/* Milestone Description */}
                       <div style={{ marginBottom: 16 }}>
-                        <span style={{ fontSize: 16, color: "#121212" }}>
-                          {contract.milestoneDescription.length > 50
-                            ? `${contract.milestoneDescription.substring(
-                                0,
-                                50
-                              )}... `
-                            : contract.milestoneDescription}
-                        </span>
-                        {contract.milestoneDescription.length > 50 && (
-                          <span
-                            style={{
-                              fontSize: 16,
-                              color: "#007674",
-                              cursor: "pointer",
-                              textDecoration: "underline",
-                            }}
-                          >
-                            more
-                          </span>
-                        )}
+                        {(() => {
+                          const isExpanded = !!expandedDescriptions[contract.id];
+                          const text = contract.milestoneDescription || "";
+                          const shouldTruncate = text.length > 50;
+                          const displayText = shouldTruncate && !isExpanded
+                            ? `${text.substring(0, 50)}...`
+                            : text;
+                          return (
+                            <>
+                              <span style={{ fontSize: 16, color: "#121212" }}>
+                                {displayText}
+                              </span>
+                              {shouldTruncate && (
+                                <span
+                                  onClick={() =>
+                                    setExpandedDescriptions((prev) => ({
+                                      ...prev,
+                                      [contract.id]: !isExpanded,
+                                    }))
+                                  }
+                                  style={{
+                                    fontSize: 16,
+                                    color: "#007674",
+                                    cursor: "pointer",
+                                    textDecoration: "underline",
+                                    marginLeft: 6,
+                                  }}
+                                >
+                                  {isExpanded ? "less" : "more"}
+                                </span>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
 
                       {/* Due Date */}

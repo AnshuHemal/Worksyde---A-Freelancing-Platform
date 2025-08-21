@@ -56,7 +56,7 @@ from datetime import datetime, timedelta
 @verify_token
 def submit_project_submission(request):
     """Freelancer submits project for an accepted offer.
-    Expects: acceptedOfferId, title, description, pdfFile (PDF only)
+    Expects: acceptedOfferId, title, description, optional pdfFile (PDF only when provided)
     """
     try:
         user = request.user
@@ -98,9 +98,7 @@ def submit_project_submission(request):
                     return Response({"success": False, "message": "Only PDF files are allowed"}, status=400)
                 submission.pdfFile = pdf_file.read()
                 submission.pdfFileContentType = 'application/pdf'
-            else:
-                # No file provided -> reject as we require PDF only
-                return Response({"success": False, "message": "Please attach a PDF file"}, status=400)
+            # If no file provided, proceed without a file (optional)
         except Exception:
             return Response({"success": False, "message": "Invalid file upload"}, status=400)
 
@@ -246,6 +244,17 @@ def release_payment_submission(request, submission_id):
             setattr(offer, 'milestonesPaid', current_paid + payout_amount)
             current_escrow = float(getattr(offer, 'inEscrow', 0.0) or 0.0)
             setattr(offer, 'inEscrow', max(0.0, current_escrow - payout_amount))
+            # If nothing remains in escrow, set auto end timestamp (12 hours) and mark status
+            try:
+                if float(getattr(offer, 'inEscrow', 0.0) or 0.0) <= 0.0:
+                    if hasattr(offer, 'status'):
+                        offer.status = 'completed'
+                    try:
+                        offer.autoEndAt = timezone.now() + timedelta(hours=12)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             offer.save()
         except Exception as upd_err:
             print('Warning: could not update offer aggregates:', upd_err)
@@ -258,8 +267,8 @@ def release_payment_submission(request, submission_id):
                 jobId=submission.jobId,
                 notificationType='system',
                 title='Payment released',
-                message=f'Client released payment: ₹{payout_amount:.2f}',
-                additionalData={'submissionId': str(submission.id), 'amount': payout_amount}
+                message=f'Client released payment: ₹{payout_amount:.2f}. The contract will auto-end in 12 hours unless ended earlier.',
+                additionalData={'submissionId': str(submission.id), 'amount': payout_amount, 'autoEndInHours': 12}
             )
             n.save()
         except Exception as notif_err:
@@ -5929,14 +5938,37 @@ def create_job_offer(request):
         except JobPosts.DoesNotExist:
             return Response({"success": False, "message": "Job not found"}, status=404)
         
-        # Parse due date if provided
+        # Parse due date if provided (support ISO, "Jan, 15 2024", and timestamps)
         due_date = None
         if data.get('dueDate'):
+            raw_due = data.get('dueDate')
             try:
-                due_date = datetime.fromisoformat(data['dueDate'].replace('Z', '+00:00'))
-                print("Debug - Due date parsed:", due_date)
-            except ValueError:
-                return Response({"success": False, "message": "Invalid due date format"}, status=400)
+                # Try ISO format first (e.g., 2024-01-15T00:00:00Z)
+                from datetime import datetime
+                due_date = datetime.fromisoformat(str(raw_due).replace('Z', '+00:00'))
+                print("Debug - Due date parsed (ISO):", due_date)
+            except Exception:
+                parsed = None
+                # Try display string format from frontend date picker (e.g., "Jan, 15 2024")
+                try:
+                    from datetime import datetime
+                    parsed = datetime.strptime(str(raw_due), "%b, %d %Y")
+                    print("Debug - Due date parsed (display string):", parsed)
+                except Exception:
+                    # Try numeric timestamps (seconds or milliseconds)
+                    try:
+                        raw_num = float(raw_due)
+                        # Heuristic: seconds if < 1e12
+                        if raw_num < 1000000000000:
+                            raw_num = raw_num * 1000
+                        from datetime import datetime
+                        parsed = datetime.fromtimestamp(raw_num / 1000.0)
+                        print("Debug - Due date parsed (timestamp):", parsed)
+                    except Exception:
+                        parsed = None
+                if not parsed:
+                    return Response({"success": False, "message": "Invalid due date format"}, status=400)
+                due_date = parsed
         
         # Process milestones if provided
         milestones_data = data.get('milestones', [])
@@ -7250,15 +7282,30 @@ def get_user_notifications(request):
                 "additionalData": notification.additionalData
             }
             
-            # Add related data if available
-            if notification.senderId:
-                notification_data["senderId"] = str(notification.senderId.id)
-                notification_data["senderName"] = notification.senderId.name
-            if notification.jobId:
-                notification_data["jobId"] = str(notification.jobId.id)
-                notification_data["jobTitle"] = notification.jobId.title
-            if notification.proposalId:
-                notification_data["proposalId"] = str(notification.proposalId.id)
+            # Add related data if available (guard dereferencing missing refs)
+            try:
+                if notification.senderId:
+                    notification_data["senderId"] = str(notification.senderId.id)
+                    notification_data["senderName"] = getattr(notification.senderId, 'name', None)
+            except Exception:
+                # Sender might have been deleted; skip
+                pass
+
+            try:
+                if notification.jobId:
+                    job = notification.jobId  # may raise if dangling DBRef
+                    notification_data["jobId"] = str(job.id)
+                    notification_data["jobTitle"] = getattr(job, 'title', None)
+            except Exception:
+                # Job post might have been deleted; skip fields to avoid deref error
+                notification_data["jobId"] = None
+
+            try:
+                if notification.proposalId:
+                    proposal = notification.proposalId  # may raise if dangling
+                    notification_data["proposalId"] = str(proposal.id)
+            except Exception:
+                notification_data["proposalId"] = None
             
             notifications_data.append(notification_data)
         

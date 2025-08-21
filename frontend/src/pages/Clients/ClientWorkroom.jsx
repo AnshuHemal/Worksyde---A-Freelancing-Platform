@@ -167,8 +167,11 @@ const ClientWorkroom = () => {
   const inEscrow = parseFloat(contract?.financials?.inEscrow || 0);
   const milestonesPaid = parseFloat(contract?.financials?.milestonesPaid || 0);
   const releasedByClient = Math.max(0, projectAmount - inEscrow);
-  const progressPercentage =
-    projectAmount > 0 ? (releasedByClient / projectAmount) * 100 : 0;
+  const isFixedPrice = (contract?.financials?.paymentType || "").toLowerCase() === "fixed-price";
+  const progressPercentageRaw = projectAmount > 0 ? (releasedByClient / projectAmount) * 100 : 0;
+  // For fixed-price: once any amount is released, show full amount paid and 100% progress
+  const progressPercentage = isFixedPrice && releasedByClient > 0 ? 100 : progressPercentageRaw;
+  const releasedByClientDisplay = isFixedPrice && releasedByClient > 0 ? projectAmount : releasedByClient;
   const freelancerFeePercent = contract?.financials?.freelancerFeePercent ?? 10;
   const freelancerFee =
     contract?.financials?.freelancerFee ??
@@ -176,6 +179,38 @@ const ClientWorkroom = () => {
   const estimatedFreelancerPayout =
     contract?.financials?.estimatedFreelancerPayout ??
     Math.max(0, projectAmount - freelancerFee);
+
+  const autoEndAt = contract?.autoEndAt || contract?.financials?.autoEndAt;
+  const isCompleted =
+    (contract?.status || contract?.financials?.status || '').toLowerCase() ===
+    'completed';
+
+  // Countdown timer for auto-end
+  const [nowTs, setNowTs] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNowTs(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const countdown = React.useMemo(() => {
+    let endTs = null;
+    if (autoEndAt) {
+      endTs = new Date(autoEndAt).getTime();
+    } else if (Array.isArray(contract?.recentFiles)) {
+      const latestCompleted = contract.recentFiles
+        .filter((f) => (f?.status || '').toLowerCase() === 'completed')
+        .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0))[0];
+      if (latestCompleted?.createdAt) {
+        endTs = new Date(latestCompleted.createdAt).getTime() + 12 * 60 * 60 * 1000;
+      }
+    }
+    if (!endTs) return { show: false, text: '' };
+    const diff = Math.max(0, endTs - nowTs);
+    const hrs = Math.floor(diff / 3600000);
+    const mins = Math.floor((diff % 3600000) / 60000);
+    const secs = Math.floor((diff % 60000) / 1000);
+    const pad = (n) => String(n).padStart(2, '0');
+    return { show: diff > 0, text: `${pad(hrs)}:${pad(mins)}:${pad(secs)}` };
+  }, [autoEndAt, contract?.recentFiles, nowTs]);
 
   const hasActiveSubmission = Array.isArray(contract?.recentFiles)
     ? contract.recentFiles.some((f) => (f?.status || "Pending") !== "Completed")
@@ -449,6 +484,21 @@ const ClientWorkroom = () => {
                 boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
               }}
             >
+              {isCompleted && (
+                <div
+                  style={{
+                    background: "#f0fdf4",
+                    border: "1px solid #bbf7d0",
+                    color: "#14532d",
+                    borderRadius: 8,
+                    padding: 12,
+                    marginBottom: 16,
+                    fontSize: 16,
+                  }}
+                >
+                  Project completed. You can end the contract from the menu (⋮) in the top-right, or it will end automatically in 12 hours.
+                </div>
+              )}
               <h2
                 style={{
                   fontSize: 24,
@@ -543,7 +593,7 @@ const ClientWorkroom = () => {
                         gap: 4,
                       }}
                     >
-                      ₹{inEscrow.toFixed(2)}
+                      ₹{projectAmount.toFixed(2)}
                     </span>
                     <span
                       style={{
@@ -656,6 +706,26 @@ const ClientWorkroom = () => {
                 Earnings
               </h2>
 
+              {isCompleted && countdown.show && (
+                <div
+                  style={{
+                    background: "#fef9c3",
+                    border: "1px solid #fde68a",
+                    color: "#92400e",
+                    borderRadius: 8,
+                    padding: 10,
+                    marginBottom: 12,
+                    fontSize: 16,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  <span>Contract auto-ends in</span>
+                  <span style={{ fontWeight: 700 }}>{countdown.text}</span>
+                </div>
+              )}
+
               {/* Progress bar */}
               <div
                 style={{
@@ -690,7 +760,7 @@ const ClientWorkroom = () => {
                     }}
                   />
                   <span style={{ fontSize: 16, color: "#374151" }}>
-                    Released by you
+                    {isFixedPrice && releasedByClient > 0 ? "Total paid" : "Released by you"}
                   </span>
                   <span
                     style={{
@@ -700,7 +770,7 @@ const ClientWorkroom = () => {
                       marginLeft: "auto",
                     }}
                   >
-                    ₹{releasedByClient.toFixed(2)}
+                    ₹{releasedByClientDisplay.toFixed(2)}
                   </span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -753,6 +823,41 @@ const ClientWorkroom = () => {
                   </span>
                 </div>
               </div>
+
+              {isCompleted && countdown.show && (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ display: "flex", gap: 18, flexWrap: "wrap" }}>
+                    {/* Inline circle renderer */}
+                    {(() => {
+                      const Circle = ({ color, percent, value, label }) => {
+                        const track = "#e5e7eb";
+                        const size = 96;
+                        const inner = 72;
+                        const bg = `conic-gradient(${color} ${Math.max(0, Math.min(100, percent))}%, ${track} 0)`;
+                        return (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                            <div style={{ width: size, height: size, borderRadius: "50%", background: bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <div style={{ width: inner, height: inner, borderRadius: "50%", background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "inset 0 0 0 1px #f3f4f6" }}>
+                                <div style={{ textAlign: "center" }}>
+                                  <div style={{ fontSize: 20, fontWeight: 700, color: "#111827", lineHeight: 1 }}>{value}</div>
+                                  <div style={{ fontSize: 12, color: "#6b7280" }}>{label}</div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      };
+                      return (
+                        <>
+                          <Circle color="#db2777" percent={(countdown.minutes / 60) * 100} value={countdown.hours} label="hours" />
+                          <Circle color="#ef4444" percent={(countdown.seconds / 60) * 100} value={countdown.minutes} label="minutes" />
+                          <Circle color="#0ea5e9" percent={((countdown.text ? parseInt(countdown.text.split(":")[2] || 0, 10) : 0) / 60) * 100} value={countdown.text ? parseInt(countdown.text.split(":")[2] || 0, 10) : 0} label="seconds" />
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Recent files (match FreelancerWorkroom styling) */}

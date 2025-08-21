@@ -668,11 +668,15 @@ const OfferSendingPage = () => {
 
   const handleDateSelect = (date, fieldId = null) => {
     if (fieldId) {
-      // For milestone due dates
+      // For milestone due dates (display string; backend parses "%b, %d %Y")
       handleMilestoneChange(fieldId, "dueDate", formatDate(date));
     } else {
-      // For main due date
+      // For main due date: keep Date for display, send ISO to backend
       setSelectedDate(date);
+      setOfferData((prev) => ({
+        ...prev,
+        dueDate: date?.toISOString?.() || null,
+      }));
     }
     setOpenDatePicker(null);
   };
