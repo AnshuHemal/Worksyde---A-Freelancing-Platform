@@ -372,7 +372,7 @@ const ClientNotificationPage = () => {
               >
                 Mark all read
               </motion.button>
-              <motion.button
+              {/* <motion.button
                 onClick={() => navigate("/client/settings/notifications")}
                 style={{
                   background: "#007674",
@@ -395,7 +395,7 @@ const ClientNotificationPage = () => {
                 whileTap={{ scale: 0.98 }}
               >
                 Settings
-              </motion.button>
+              </motion.button> */}
             </div>
           </div>
         </div>

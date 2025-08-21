@@ -126,6 +126,7 @@ urlpatterns = [
     path('wallet/transactions/', views.get_wallet_transactions, name='get_wallet_transactions'),
     
     path('jobpost/publish/<str:job_id>/', views.publish_job_post, name='publish_job_post'),
+    path('jobpost/delete/<str:job_id>/', views.delete_job_post, name='delete_job_post'),
     path('job-invite/', views.create_job_invitation, name='create_job_invitation'),
     path('job-invite/list/', views.list_job_invitations, name='list_job_invitations'),
     path('job-invite/delete/', views.delete_job_invitation, name='delete_job_invitation'),

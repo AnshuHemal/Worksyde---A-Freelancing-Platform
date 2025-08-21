@@ -312,23 +312,11 @@ const ClientHeader = () => {
                   Messages
                 </Link>
               </li>
-              <li className="nav-item">
-                <Link
-                  className={`nav-link mx-lg-2${
-                    location.pathname.startsWith("/client/my-jobs")
-                      ? " active"
-                      : ""
-                  }`}
-                  to={"/client/my-jobs"}
-                >
-                  My Jobs
-                </Link>
-              </li>
             </ul>
           </div>
         </div>
         <div className=" d-flex align-items-center gap-4 me-3">
-          <TfiHelp className="icon-hover" size={20} />
+          {/* <TfiHelp className="icon-hover" size={20} /> */}
           <div className="position-relative" style={{ cursor: "pointer" }}>
             <BsBell
               className="icon-hover"
@@ -467,7 +455,7 @@ const ClientHeader = () => {
               </div>
               <div className="dropdown-divider mb-2" />
 
-              <Link
+              {/* <Link
                 to={`/ws/client/info`}
                 className="dropdown-item align-items-center"
                 onClick={closeDropdown}
@@ -477,8 +465,8 @@ const ClientHeader = () => {
                   className="me-2"
                 />{" "}
                 Your Profile
-              </Link>
-              <div className="dropdown-item d-flex justify-content-between align-items-center">
+              </Link> */}
+              {/* <div className="dropdown-item d-flex justify-content-between align-items-center">
                 <div>
                   <MdOutlineLightMode
                     style={{ width: "20px", height: "18px" }}
@@ -493,17 +481,17 @@ const ClientHeader = () => {
                     defaultChecked
                   />
                 </div>
-              </div>
+              </div> */}
               <Link
                 to="/ws/client/info"
                 className="dropdown-item"
                 onClick={closeDropdown}
               >
                 <LuSettings
-                  style={{ width: "20px", height: "18px" }}
+                  style={{ width: "20px", height: "20px" }}
                   className="me-2"
                 />
-                Account settings
+                Profile & Account settings
               </Link>
 
               <div className="dropdown-divider my-2" />

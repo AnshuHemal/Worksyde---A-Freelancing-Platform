@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
+import Loader from "../../components/Loader";
 import {
   FiEdit2,
   FiShare2,
@@ -151,6 +152,7 @@ const FreelancersProfilePage = () => {
   const [highlightedSkillIndex, setHighlightedSkillIndex] = useState(-1);
   const [isSavingSkills, setIsSavingSkills] = useState(false);
   const [skillsSaveError, setSkillsSaveError] = useState(null);
+  const [isLoadingSkills, setIsLoadingSkills] = useState(false);
 
   // Profile image loading states
   const [profileImageLoading, setProfileImageLoading] = useState(false);
@@ -911,10 +913,12 @@ const FreelancersProfilePage = () => {
     }
   }, [showLanguageModal, availableLanguages.length]);
 
-  if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
+  if (loading) return <Loader fullscreen message="Loading freelancer profile..." />;
   if (error) return <div style={{ padding: 40, color: "red" }}>{error}</div>;
   if (!summary || !profile)
-    return <div style={{ padding: 40 }}>No data found.</div>;
+    return <div style={{ padding: "40px", textAlign: "center" }}>
+      <Loader message="No data found." />
+    </div>;
 
   // Fallbacks for missing data
   const avatar = safeSummary.photograph === true || safeProfile.photograph === true
@@ -1839,11 +1843,14 @@ const FreelancersProfilePage = () => {
   // Fetch all available skills
   const fetchAllSkills = async () => {
     try {
+      setIsLoadingSkills(true);
       const response = await axios.get(`${API_URL}/get-skills/`);
       const skillNames = response.data.skills.map((skill) => skill.name);
       setAllSkills(skillNames);
     } catch (error) {
       console.error("Error fetching skills:", error);
+    } finally {
+      setIsLoadingSkills(false);
     }
   };
 
@@ -2086,8 +2093,28 @@ const FreelancersProfilePage = () => {
             justifyContent: "space-between",
             padding: "40px 50px",
             background: "#fff",
+            position: "relative",
           }}
         >
+          {/* Loading Overlay for Header */}
+          {loading && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: "rgba(255, 255, 255, 0.8)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 10,
+              }}
+            >
+              <Loader message="Loading profile..." />
+            </div>
+          )}
           {/* Left: Avatar, Name, Location */}
           <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
             <div style={{ position: "relative" }}>
@@ -2119,13 +2146,11 @@ const FreelancersProfilePage = () => {
                     }}
                   >
                     <div
+                      className="spinner-border"
                       style={{
-                        width: "20px",
-                        height: "20px",
-                        border: "2px solid #f3f3f3",
-                        borderTop: "2px solid #007476",
-                        borderRadius: "50%",
-                        animation: "spin 1s linear infinite",
+                        width: "24px",
+                        height: "24px",
+                        color: "#007476",
                       }}
                     />
                   </div>
@@ -2273,7 +2298,7 @@ const FreelancersProfilePage = () => {
           >
             {/* Primary Buttons */}
             <div style={{ display: "flex", gap: "12px" }}>
-              <motion.button
+              {/* <motion.button
                 style={{
                   border: "2px solid #007674",
                   background: "#fff",
@@ -2293,7 +2318,7 @@ const FreelancersProfilePage = () => {
                 whileTap={{ scale: 0.98 }}
               >
                 See public view
-              </motion.button>
+              </motion.button> */}
               <motion.button
                 onClick={handleProfileSettings}
                 style={{
@@ -2321,7 +2346,7 @@ const FreelancersProfilePage = () => {
             </div>
 
             {/* Share Option */}
-            <motion.div
+            {/* <motion.div
               style={{
                 display: "flex",
                 alignItems: "center",
@@ -2342,7 +2367,7 @@ const FreelancersProfilePage = () => {
             >
               <span>Share</span>
               <FiShare2 size={14} />
-            </motion.div>
+            </motion.div> */}
           </div>
         </div>
         {/* Main Content */}
@@ -2354,8 +2379,29 @@ const FreelancersProfilePage = () => {
             margin: "0px 20px 20px 20px",
             marginBottom: "10px",
             minHeight: 400,
+            position: "relative",
           }}
         >
+          {/* Loading Overlay for Data Refresh */}
+          {loading && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: "rgba(255, 255, 255, 0.8)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                zIndex: 10,
+                borderRadius: "10px",
+              }}
+            >
+              <Loader message="Refreshing profile data..." />
+            </div>
+          )}
           {/* Left Sidebar */}
           <div
             style={{
@@ -2365,8 +2411,29 @@ const FreelancersProfilePage = () => {
               borderRadius: "10px",
               minWidth: 290,
               fontSize: 18, // Slightly increased font size for all sidebar text
+              position: "relative",
             }}
           >
+            {/* Loading Overlay for Sidebar */}
+            {loading && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: "rgba(255, 255, 255, 0.8)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 10,
+                  borderRadius: "10px",
+                }}
+              >
+                <Loader message="Loading sidebar..." />
+              </div>
+            )}
             {/* Tokens Box */}
             <div
               style={{
@@ -2794,7 +2861,14 @@ const FreelancersProfilePage = () => {
                           }}
                           title="Delete Education"
                         >
-                          <FiTrash2 size={16} />
+                          {isDeletingEducation && deletingEducationId === edu._id ? (
+                            <div
+                              className="spinner-border spinner-border-sm"
+                              style={{ color: "#ccc", width: "14px", height: "14px" }}
+                            />
+                          ) : (
+                            <FiTrash2 size={16} />
+                          )}
                         </motion.div>
                       </div>
                     </div>
@@ -2872,8 +2946,29 @@ const FreelancersProfilePage = () => {
               background: "#fff",
               border: "1px solid #e6e6e6",
               borderRadius: "10px",
+              position: "relative",
             }}
           >
+            {/* Loading Overlay for Main Content */}
+            {loading && (
+              <div
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: "rgba(255, 255, 255, 0.8)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 10,
+                  borderRadius: "10px",
+                }}
+              >
+                <Loader message="Loading content..." />
+              </div>
+            )}
             {/* Title and Hourly Rate */}
             <div
               style={{
@@ -3112,7 +3207,7 @@ const FreelancersProfilePage = () => {
             </motion.div>
 
             {/* Portfolio Section */}
-            <motion.div
+            {/* <motion.div
               style={{
                 borderTop: "1px solid #e6e6e6",
                 paddingTop: 24,
@@ -3164,7 +3259,6 @@ const FreelancersProfilePage = () => {
                 </motion.div>
               </div>
 
-              {/* Portfolio Content */}
               <div
                 style={{
                   display: "flex",
@@ -3221,7 +3315,7 @@ const FreelancersProfilePage = () => {
                   portfolio.
                 </div>
               </div>
-            </motion.div>
+            </motion.div> */}
 
             {/* Work History Section */}
             <motion.div
@@ -3389,7 +3483,14 @@ const FreelancersProfilePage = () => {
                             transition: "all 0.2s ease",
                           }}
                         >
-                          <FiTrash2 size={16} />
+                          {isDeletingEmployment && deletingEmploymentId === experience._id ? (
+                            <div
+                              className="spinner-border spinner-border-sm"
+                              style={{ color: "#ccc", width: "14px", height: "14px" }}
+                            />
+                          ) : (
+                            <FiTrash2 size={16} />
+                          )}
                         </motion.button>
                       </div>
                     </div>
@@ -3571,7 +3672,14 @@ const FreelancersProfilePage = () => {
                             transition: "all 0.2s ease",
                           }}
                         >
-                          <FiTrash2 size={16} />
+                          {isDeletingOtherExperience && deletingOtherExperienceId === experience._id ? (
+                            <div
+                              className="spinner-border spinner-border-sm"
+                              style={{ color: "#ccc", width: "14px", height: "14px" }}
+                            />
+                          ) : (
+                            <FiTrash2 size={16} />
+                          )}
                         </motion.button>
                       </div>
                     </motion.div>
@@ -3886,7 +3994,17 @@ const FreelancersProfilePage = () => {
                 }}
                 whileTap={{ scale: isSavingTitle ? 1 : 0.95 }}
               >
-                {isSavingTitle ? "Saving..." : "Save"}
+                {isSavingTitle ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#fff", width: "16px", height: "16px" }}
+                    />
+                    Saving...
+                  </div>
+                ) : (
+                  "Save"
+                )}
               </motion.button>
             </div>
           </motion.div>
@@ -4166,7 +4284,17 @@ const FreelancersProfilePage = () => {
                 }}
                 whileTap={{ scale: isSavingBio ? 1 : 0.95 }}
               >
-                {isSavingBio ? "Saving..." : "Save"}
+                {isSavingBio ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#fff", width: "16px", height: "16px" }}
+                    />
+                    Saving...
+                  </div>
+                ) : (
+                  "Save"
+                )}
               </motion.button>
             </div>
           </motion.div>
@@ -4345,6 +4473,25 @@ const FreelancersProfilePage = () => {
                   }}
                   placeholder="Start typing to search for skills..."
                 />
+                {isLoadingSkills && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      right: "15px",
+                      top: "50%",
+                      transform: "translateY(-50%)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}
+                  >
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#007674", width: "16px", height: "16px" }}
+                    />
+                    <span style={{ fontSize: "14px", color: "#007674" }}>Loading...</span>
+                  </div>
+                )}
                 {skillSuggestions.length > 0 && (
                   <ul
                     style={{
@@ -4570,7 +4717,17 @@ const FreelancersProfilePage = () => {
                 whileHover={!isSavingSkills ? { background: "#005a58" } : {}}
                 whileTap={!isSavingSkills ? { scale: 0.95 } : {}}
               >
-                {isSavingSkills ? "Saving..." : "Save Skills"}
+                {isSavingSkills ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#fff", width: "16px", height: "16px" }}
+                    />
+                    Saving...
+                  </div>
+                ) : (
+                  "Save Skills"
+                )}
               </motion.button>
             </div>
           </motion.div>
@@ -4808,11 +4965,17 @@ const FreelancersProfilePage = () => {
                 }
                 whileTap={!isSavingOtherExperience ? { scale: 0.95 } : {}}
               >
-                {isSavingOtherExperience
-                  ? "Saving..."
-                  : isEditingOtherExperience
-                  ? "Update"
-                  : "Save"}
+                {isSavingOtherExperience ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#fff", width: "16px", height: "16px" }}
+                    />
+                    Saving...
+                  </div>
+                ) : (
+                  isEditingOtherExperience ? "Update" : "Save"
+                )}
               </motion.button>
             </div>
           </motion.div>
@@ -5231,11 +5394,17 @@ const FreelancersProfilePage = () => {
                 }}
                 whileTap={{ scale: isSavingEducation ? 1 : 0.95 }}
               >
-                {isSavingEducation
-                  ? "Saving..."
-                  : isEditingEducation
-                  ? "Update"
-                  : "Save"}
+                {isSavingEducation ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#fff", width: "16px", height: "16px" }}
+                    />
+                    Saving...
+                  </div>
+                ) : (
+                  isEditingEducation ? "Update" : "Save"
+                )}
               </motion.button>
             </div>
           </motion.div>
@@ -5752,7 +5921,17 @@ const FreelancersProfilePage = () => {
                 }}
                 whileTap={{ scale: isUploadingImage ? 1 : 0.95 }}
               >
-                {isUploadingImage ? "Uploading..." : "Save photo"}
+                {isUploadingImage ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#fff", width: "16px", height: "16px" }}
+                    />
+                    Uploading...
+                  </div>
+                ) : (
+                  "Save photo"
+                )}
               </motion.button>
             </div>
           </motion.div>
@@ -5978,7 +6157,17 @@ const FreelancersProfilePage = () => {
                   !isSavingVideo && videoUrl.trim() ? { scale: 0.95 } : {}
                 }
               >
-                {isSavingVideo ? "Saving..." : "Save"}
+                {isSavingVideo ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#fff", width: "16px", height: "16px" }}
+                    />
+                    Saving...
+                  </div>
+                ) : (
+                  "Save"
+                )}
               </motion.button>
             </div>
           </motion.div>
@@ -6272,7 +6461,7 @@ const FreelancersProfilePage = () => {
                           color: "#666",
                         }}
                       >
-                        Loading languages...
+                        <Loader size="sm" message="Loading languages..." />
                       </div>
                     ) : (
                       availableLanguages
@@ -6928,16 +7117,23 @@ const FreelancersProfilePage = () => {
                           }}
                           title="Remove from list (click Save to apply changes)"
                         >
-                          <svg
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                          >
-                            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                          </svg>
+                          {isDeletingLanguage && deletingLanguageId === index ? (
+                            <div
+                              className="spinner-border spinner-border-sm"
+                              style={{ color: "#9ca3af", width: "16px", height: "16px" }}
+                            />
+                          ) : (
+                            <svg
+                              width="20"
+                              height="20"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
+                              <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                            </svg>
+                          )}
                         </motion.button>
                       </div>
                     </div>
@@ -7431,7 +7627,17 @@ const FreelancersProfilePage = () => {
                 }}
                 whileTap={{ scale: isSavingHourlyRate ? 1 : 0.95 }}
               >
-                {isSavingHourlyRate ? "Saving..." : "Save"}
+                {isSavingHourlyRate ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#fff", width: "16px", height: "16px" }}
+                    />
+                    Saving...
+                  </div>
+                ) : (
+                  "Save"
+                )}
               </motion.button>
             </div>
           </motion.div>
@@ -8011,11 +8217,17 @@ const FreelancersProfilePage = () => {
                 }}
                 whileTap={{ scale: isSavingEmployment ? 1 : 0.95 }}
               >
-                {isSavingEmployment
-                  ? "Saving..."
-                  : isEditingEmployment
-                  ? "Update"
-                  : "Save"}
+                {isSavingEmployment ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#fff", width: "16px", height: "16px" }}
+                    />
+                    Saving...
+                  </div>
+                ) : (
+                  isEditingEmployment ? "Update" : "Save"
+                )}
               </motion.button>
             </div>
           </motion.div>

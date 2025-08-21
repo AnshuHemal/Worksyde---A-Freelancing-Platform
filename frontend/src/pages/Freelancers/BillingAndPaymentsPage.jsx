@@ -5,6 +5,8 @@ import { useNavigate } from "react-router-dom";
 import paypal_logo from "../../assets/paypal.svg";
 import payment_illustration from "../../assets/payment.svg";
 import { useUser } from "../../contexts/UserContext";
+import Loader from "../../components/Loader";
+
 
 const SIDEBAR_WIDTH = 290;
 const API_URL = "http://localhost:5000/api/auth";
@@ -40,10 +42,11 @@ const BillingAndPaymentsPage = () => {
   const [loadingPaypal, setLoadingPaypal] = useState(false);
   const [submittingPaypal, setSubmittingPaypal] = useState(false);
   const [paypalError, setPaypalError] = useState("");
-  const [paypalSuccess, setPaypalSuccess] = useState("");
+    const [paypalSuccess, setPaypalSuccess] = useState("");
   const [paypalEmail, setPaypalEmail] = useState("");
   
-
+  const [walletBalance, setWalletBalance] = useState(0.0);
+  const [loadingWalletBalance, setLoadingWalletBalance] = useState(false);
 
   useEffect(() => {
     async function fetchCountries() {
@@ -70,6 +73,7 @@ const BillingAndPaymentsPage = () => {
     if (userId) {
       fetchPaymentCards();
       fetchPaypalAccounts();
+      fetchWalletBalance();
     }
   }, [userId]);
 
@@ -90,6 +94,28 @@ const BillingAndPaymentsPage = () => {
       console.error("Error fetching payment cards:", error);
     } finally {
       setLoadingCards(false);
+    }
+  };
+
+  // Fetch wallet balance
+  const fetchWalletBalance = async () => {
+    if (!userId) return;
+
+    setLoadingWalletBalance(true);
+    try {
+      const response = await axios.get(`${API_URL}/wallet/balance/`, {
+        withCredentials: true,
+      });
+
+      console.log("Wallet balance response:", response.data);
+      if (response.data.success) {
+        setWalletBalance(response.data.walletBalance);
+        console.log("Updated wallet balance state:", response.data.walletBalance);
+      }
+    } catch (error) {
+      console.error("Error fetching wallet balance:", error);
+    } finally {
+      setLoadingWalletBalance(false);
     }
   };
 
@@ -245,6 +271,8 @@ const BillingAndPaymentsPage = () => {
     }
   };
 
+
+
   // Handle PayPal payment initiation
   const handlePaypalPayment = async () => {
     try {
@@ -372,219 +400,47 @@ const BillingAndPaymentsPage = () => {
             Billing & Payments
           </div>
 
-          {/* Display existing payment cards */}
-          {paymentCards.length > 0 && (
-            <div
-              style={{
-                background: "#fff",
-                border: "1px solid #e6e6e6",
-                borderRadius: 12,
-                padding: 36,
-                // width: "100%",
-                boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
-                minHeight: 200,
-                marginTop: 8,
-                marginBottom: 16,
-                marginLeft: 20,
-                marginRight: 20,
-                display: "flex",
-                flexDirection: "column",
-                gap: 18,
-              }}
-            >
-              <div
-                style={{
-                  fontWeight: 600,
-                  fontSize: 26,
-                  color: "#111",
-                  marginBottom: 12,
-                }}
-              >
-                Your Payment Cards
-              </div>
-
-              {loadingCards ? (
-                <div style={{ textAlign: "center", padding: "20px" }}>
-                  Loading payment cards...
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  {paymentCards.map((card) => (
-                    <div
-                      key={card.id}
-                      style={{
-                        border: "1px solid #e6e6e6",
-                        borderRadius: "8px",
-                        padding: "20px",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        background: card.isDefault ? "#f8f9fa" : "#fff",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                        <div
-                          style={{
-                            width: "40px",
-                            height: "25px",
-                            borderRadius: "4px",
-                            background: getCardBrandColor(card.cardBrand),
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#fff",
-                            fontSize: "12px",
-                            fontWeight: "600",
-                          }}
-                        >
-                          {card.cardBrand?.toUpperCase() || "CARD"}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: "600", fontSize: "16px" }}>
-                            •••• •••• •••• {card.lastFourDigits}
-                          </div>
-                          <div style={{ color: "#666", fontSize: "14px" }}>
-                            {card.cardholderName} • Expires {card.expiryMonth}/{card.expiryYear}
-                          </div>
-                          {card.isDefault && (
-                            <div style={{ color: "#007476", fontSize: "12px", fontWeight: "600" }}>
-                              Default
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        {!card.isDefault && (
-                          <button
-                            onClick={() => handleSetDefaultCard(card.id)}
-                            style={{
-                              padding: "6px 12px",
-                              border: "1px solid #007476",
-                              background: "transparent",
-                              color: "#007476",
-                              borderRadius: "4px",
-                              fontSize: "12px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Set Default
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteCard(card.id)}
-                          style={{
-                            padding: "6px 12px",
-                            border: "1px solid #dc2626",
-                            background: "transparent",
-                            color: "#dc2626",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+          {/* Outstanding balance card */}
+          <div
+            style={{
+              background: "#fff",
+              border: "1px solid #e6e6e6",
+              borderRadius: 12,
+              padding: 36,
+              boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
+              minHeight: 120,
+              marginBottom: 24,
+              marginLeft: 20,
+              marginRight: 20,
+              display: "flex",
+              flexDirection: "column",
+              gap: 12,
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: 24, color: "#111", marginBottom: 8 }}>
+              Your wallet balance
             </div>
-          )}
-
-          {/* PayPal Accounts Section */}
-          {paypalAccounts.length > 0 && (
-            <div style={{ marginBottom: "32px" }}>
-              <div
-                style={{
-                  fontWeight: 600,
-                  fontSize: 26,
-                  color: "#111",
-                  marginBottom: 12,
-                }}
-              >
-                Your PayPal Accounts
+            {loadingWalletBalance ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                <div
+                  className="spinner-border spinner-border-sm"
+                  style={{ color: "#007476", width: "20px", height: "20px" }}
+                />
+                <div style={{ fontSize: 16, color: "#666" }}>
+                  Loading wallet balance...
+                </div>
               </div>
-
-              {loadingPaypal ? (
-                <div style={{ textAlign: "center", padding: "20px" }}>
-                  Loading PayPal accounts...
-                </div>
-              ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-                  {paypalAccounts.map((account) => (
-                    <div
-                      key={account.id}
-                      style={{
-                        border: "1px solid #e6e6e6",
-                        borderRadius: "8px",
-                        padding: "20px",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        background: account.isDefault ? "#f8f9fa" : "#fff",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-                        <img
-                          src={paypal_logo}
-                          alt="PayPal"
-                          style={{ width: "60px", height: "20px" }}
-                        />
-                        <div>
-                          <div style={{ fontWeight: "600", fontSize: "16px" }}>
-                            {account.paypalEmail}
-                          </div>
-                          <div style={{ color: "#666", fontSize: "14px" }}>
-                            PayPal Account
-                          </div>
-                          {account.isDefault && (
-                            <div style={{ color: "#007476", fontSize: "12px", fontWeight: "600" }}>
-                              Default
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", gap: "8px" }}>
-                        {!account.isDefault && (
-                          <button
-                            onClick={() => handleSetDefaultPaypalAccount(account.id)}
-                            style={{
-                              padding: "6px 12px",
-                              border: "1px solid #007476",
-                              background: "transparent",
-                              color: "#007476",
-                              borderRadius: "4px",
-                              fontSize: "12px",
-                              cursor: "pointer",
-                            }}
-                          >
-                            Set Default
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeletePaypalAccount(account.id)}
-                          style={{
-                            padding: "6px 12px",
-                            border: "1px solid #dc2626",
-                            background: "transparent",
-                            color: "#dc2626",
-                            borderRadius: "4px",
-                            fontSize: "12px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            ) : (
+              <div style={{ fontSize: 28, fontWeight: 700, color: "#111", marginBottom: 16 }}>
+                ₹{" "}{walletBalance.toFixed(2)}
+              </div>
+            )}
+            <div style={{ color: "#6b6b6b", fontSize: 16 }}>
+              This is your current available balance from completed projects and payments.
             </div>
-          )}
+          </div>
+
+
 
           {/* Billing methods card */}
           {!showAddMethod ? (
@@ -594,11 +450,10 @@ const BillingAndPaymentsPage = () => {
                 border: "1px solid #e6e6e6",
                 borderRadius: 12,
                 padding: 36,
-                // width: "100%",
                 boxShadow: "0 1px 8px 0 rgba(60,72,100,0.04)",
                 minHeight: 200,
                 marginTop: 8,
-                marginBottom: 16,
+                marginBottom: 50,
                 marginLeft: 20,
                 marginRight: 20,
                 display: "flex",
@@ -619,7 +474,7 @@ const BillingAndPaymentsPage = () => {
               <div
                 style={{
                   color: "#6b6b6b",
-                  fontSize: 17,
+                  fontSize: 18,
                   marginBottom: 18,
                   maxWidth: 700,
                 }}
@@ -1229,7 +1084,7 @@ const BillingAndPaymentsPage = () => {
                             onChange={(e) => setSelectedCountry(e.target.value)}
                           >
                             {countryLoading ? (
-                              <option>Loading...</option>
+                              <option>Loading countries...</option>
                             ) : (
                               countries.map((country) => (
                                 <option key={country} value={country}>
@@ -1409,7 +1264,17 @@ const BillingAndPaymentsPage = () => {
                           }
                         }}
                       >
-                        {submittingCard ? "Adding..." : "Save"}
+                        {submittingCard ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <div
+                              className="spinner-border spinner-border-sm"
+                              style={{ color: "#fff", width: "16px", height: "16px" }}
+                            />
+                            Adding...
+                          </div>
+                        ) : (
+                          "Save"
+                        )}
                       </button>
                     </div>
                   </div>
@@ -1570,7 +1435,17 @@ const BillingAndPaymentsPage = () => {
                           }
                         }}
                       >
-                        {submittingPaypal ? "Adding..." : "Add PayPal Account"}
+                        {submittingPaypal ? (
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                            <div
+                              className="spinner-border spinner-border-sm"
+                              style={{ color: "#fff", width: "16px", height: "16px" }}
+                            />
+                            Adding...
+                          </div>
+                        ) : (
+                          "Add PayPal Account"
+                        )}
                       </button>
                       <button
                         onClick={() => {
@@ -1700,6 +1575,8 @@ const BillingAndPaymentsPage = () => {
           )}
         </div>
       </main>
+
+
     </div>
   );
 };

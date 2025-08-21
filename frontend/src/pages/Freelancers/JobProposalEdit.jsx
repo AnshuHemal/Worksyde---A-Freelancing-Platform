@@ -3,7 +3,7 @@ import innovate from "../../assets/innovate.svg";
 import { HiOutlineDocumentCurrencyRupee } from "react-icons/hi2";
 import { IoCalendarOutline, IoDocumentAttach } from "react-icons/io5";
 import toast from "react-hot-toast";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
 import { motion } from "framer-motion";
 import { BsArrowLeft, BsUpload, BsX, BsCheckCircle } from "react-icons/bs";
@@ -11,18 +11,43 @@ import Header1 from "../../components/Header1";
 
 const JobProposalEdit = () => {
   const location = useLocation();
+  const { jobId: routeJobId } = useParams();
   const pathParts = location.pathname.split("/");
 
+  // Extract proposal ID from state (passed from JobProposalSubmit)
   let jobProposalId = location.state?.jobProposalId;
-  if (!jobProposalId && /^[a-fA-F0-9]{24}$/.test(pathParts[3])) {
-    jobProposalId = pathParts[3];
+  
+  // Fallback: try to get proposal ID from URL if not in state
+  if (!jobProposalId && pathParts.length >= 4) {
+    const possibleProposalId = pathParts[3];
+    if (/^[a-fA-F0-9]{24}$/.test(possibleProposalId)) {
+      jobProposalId = possibleProposalId;
+    }
   }
-
-  const rawJobId = pathParts[4];
-  const jobId = rawJobId.startsWith("~") ? rawJobId.slice(1) : rawJobId;
+  
+  // Additional fallback: if we're coming from /ws/proposals/:proposalId, extract from current URL
+  if (!jobProposalId && pathParts.length >= 4 && pathParts[2] === "proposals") {
+    const possibleProposalId = pathParts[3];
+    if (/^[a-fA-F0-9]{24}$/.test(possibleProposalId)) {
+      jobProposalId = possibleProposalId;
+    }
+  }
+  
+  // Fallback: try to get proposal ID from URL query parameters
+  if (!jobProposalId) {
+    const urlParams = new URLSearchParams(location.search);
+    const queryProposalId = urlParams.get('proposalId');
+    if (queryProposalId && /^[a-fA-F0-9]{24}$/.test(queryProposalId)) {
+      jobProposalId = queryProposalId;
+    }
+  }
+  
+  // Extract job ID from route parameter (remove ~ prefix if present)
+  const jobId = routeJobId && routeJobId.startsWith("~") ? routeJobId.slice(1) : routeJobId;
 
   const [jobData, setJobData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [proposalLoading, setProposalLoading] = useState(false);
   const [user, setUser] = useState(null);
   const navigate = useNavigate();
 
@@ -37,6 +62,8 @@ const JobProposalEdit = () => {
   const [milestones, setMilestones] = useState([
     { title: "", dueDate: "", amount: "" }, // First milestone (non-removable)
   ]);
+
+  // Debug state changes removed in production
 
   const [showFirstModal, setShowFirstModal] = useState(false);
   const [showSecondModal, setShowSecondModal] = useState(false);
@@ -60,9 +87,14 @@ const JobProposalEdit = () => {
     const fetchJobDetails = async () => {
       try {
         const response = await axios.get(
-          `${API_URL}/jobposts/fetchJobById?jobId=${jobId}/`
+          `${API_URL}/jobposts/fetchJobById?jobId=${jobId}`
         );
+        
+        if (response.data.success) {
         setJobData(response.data.data);
+        } else {
+          console.error("Job fetch failed:", response.data.message);
+        }
       } catch (error) {
         console.error("Error fetching job post:", error);
       } finally {
@@ -75,39 +107,116 @@ const JobProposalEdit = () => {
 
   useEffect(() => {
     const fetchProposalDetails = async () => {
-      if (!jobProposalId || !user || !user._id) return;
+      let proposal = null;
+      
+      if (!jobProposalId) {
+        console.error("No proposal ID found");
+        toast.error("Proposal ID not found. Please check the URL.");
+        return;
+      }
+      
+      if (!user || !user._id) {
+        
+        return;
+      }
+      
       if (!/^[a-fA-F0-9]{24}$/.test(jobProposalId)) {
-        toast.error("Invalid proposal ID in URL.");
+        console.error("Invalid proposal ID format:", jobProposalId);
+        toast.error("Invalid proposal ID format.");
         return;
       }
 
+      setProposalLoading(true);
       try {
-        const res = await axios.post(`${API_URL}/jobproposalsbyid/fetch/`, {
-          userId: user._id,
-          jobProposalId,
-        });
+        
+        // Try the direct API call first
+        try {
+          const res = await axios.post(`${API_URL}/jobproposalsbyid/fetch/`, {
+            userId: user._id,
+            jobProposalId,
+          });
 
-        const proposal = res.data.data;
-
-        // Pre-fill the states
-        setScopeOfWork(proposal.projectScope);
-        setBidAmount(proposal.bidAmount);
-        setServiceFee(proposal.serviceFee);
-        setYouReceive(proposal.youReceive);
-        setProjectDuration(proposal.projectDuration);
-        setCoverLetter(proposal.coverLetter);
-
-        if (proposal.projectScope === "By Milestone" && proposal.milestones) {
-          setMilestones(proposal.milestones);
+          if (res.data && res.data.success) {
+            proposal = res.data.data;
+          }
+        } catch (directError) {
+          // ignore and fallback
         }
 
-        if (proposal.fileUrl) {
+        // Fallback: fetch all proposals and find the specific one
+        if (!proposal) {
+          try {
+            const allProposalsRes = await axios.get(`${API_URL}/jobproposals/freelancer/`, {
+              withCredentials: true,
+            });
+
+            if (allProposalsRes.data && allProposalsRes.data.success && allProposalsRes.data.proposals) {
+              const foundProposal = allProposalsRes.data.proposals.find(
+                p => p.id === jobProposalId
+              );
+
+              if (foundProposal) {
+                proposal = foundProposal;
+              } else {
+                console.error("Proposal not found in all proposals list");
+                toast.error("Proposal not found. Please check the URL.");
+                return;
+              }
+            }
+          } catch (fallbackError) {
+            console.error("Fallback approach also failed:", fallbackError);
+            toast.error("Failed to fetch proposal details. Please try again.");
+            return;
+          }
+        }
+
+        if (!proposal) {
+          toast.error("Could not fetch proposal details");
+          return;
+        }
+
+        
+
+        // Pre-fill the states with proper data handling
+        const scopeValue = proposal.projectScope || "";
+        const bidValue = proposal.bidAmount ? parseFloat(proposal.bidAmount) : "";
+        const feeValue = proposal.serviceFee ? parseFloat(proposal.serviceFee) : 0;
+        const receiveValue = proposal.youReceive ? parseFloat(proposal.youReceive) : 0;
+        const durationValue = proposal.projectDuration || "";
+        const letterValue = proposal.coverLetter || "";
+
+        setScopeOfWork(scopeValue);
+        setBidAmount(bidValue);
+        setServiceFee(feeValue);
+        setYouReceive(receiveValue);
+        setProjectDuration(durationValue);
+        setCoverLetter(letterValue);
+
+        // Handle milestones
+        if (proposal.projectScope === "By Milestone" && proposal.milestones && proposal.milestones.length > 0) {
+          // Convert milestone dates from ISO string to YYYY-MM-DD format for input fields
+          const formattedMilestones = proposal.milestones.map(milestone => ({
+            title: milestone.title || "",
+            dueDate: milestone.dueDate ? new Date(milestone.dueDate).toISOString().split('T')[0] : "",
+            amount: milestone.amount ? parseFloat(milestone.amount) : ""
+          }));
+          setMilestones(formattedMilestones);
+        }
+
+        // Handle attachments
+        if (proposal.attachment) {
           setUploadedFiles([
-            { name: proposal.fileName, url: proposal.fileUrl },
+            { 
+              name: proposal.attachment.split('/').pop() || "attachment.pdf", 
+              url: proposal.attachment 
+            },
           ]);
         }
       } catch (error) {
         console.error("Error fetching job proposal details:", error);
+        toast.error("Failed to fetch proposal details. Please try again.");
+      } finally {
+        setProposalLoading(false);
       }
     };
 
@@ -287,18 +396,47 @@ const JobProposalEdit = () => {
     setShowFirstModal(true);
   };
 
-  if (loading) {
+  // Test helper removed in production
+  const testSetData = () => {};
+
+  // Debug helper removed in production
+  const setManualProposalId = () => {};
+
+  // Debug helper removed in production
+  const setProposalDataFromAPI = async () => {};
+
+  if (loading || proposalLoading) {
     return (
       <div
         className="d-flex justify-content-center align-items-center min-vh-100"
         style={{ background: "#fff" }}
       >
+        <div className="text-center">
         <div
-          className="spinner-border"
+            className="spinner-border mb-3"
           style={{ color: "#007674" }}
           role="status"
         >
           <span className="visually-hidden">Loading...</span>
+          </div>
+          <p style={{ color: "#666" }}>
+            {loading ? "Loading job details..." : "Loading proposal data..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if we have all required data
+  if (!jobData) {
+    return (
+      <div
+        className="d-flex justify-content-center align-items-center min-vh-100"
+        style={{ background: "#fff" }}
+      >
+        <div className="text-center">
+          <h5 style={{ color: "#666" }}>Job data not found</h5>
+          <p style={{ color: "#999" }}>Unable to load job details for editing</p>
         </div>
       </div>
     );
@@ -336,28 +474,7 @@ const JobProposalEdit = () => {
                   <h2 className="fw-semibold mb-4" style={{ color: "#121212" }}>
                     Edit Proposal
                   </h2>
-                  {/* Proposal Settings, Terms, Milestones, Bid, Duration, Cover Letter, Attachments (reuse JobProposalApply JSX, but keep edit logic/state) */}
-                  {/* Section: Proposal Settings */}
-                  <h5 className="fw-semibold mb-3" style={{ color: "#121212" }}>
-                    Proposal Settings
-                  </h5>
-                  <div className="d-flex flex-wrap gap-4 align-items-center mb-4">
-                    <span
-                      style={{
-                        fontSize: "1.1rem",
-                        color: "#007674",
-                        fontWeight: 600,
-                      }}
-                    >
-                      This proposal requires{" "}
-                      <span style={{ fontWeight: 700 }}>8 Connects</span>.
-                    </span>
-                    <span style={{ fontSize: "1.1rem", color: "#666" }}>
-                      You'll have{" "}
-                      <span style={{ fontWeight: 700 }}>92 Connects</span>{" "}
-                      remaining after submission.
-                    </span>
-                  </div>
+                  
 
                   {/* Section: Terms & Payment */}
                   <h5
@@ -551,6 +668,10 @@ const JobProposalEdit = () => {
                           onChange={handleBidAmountChange}
                           className="form-control text-end"
                           placeholder="0.00"
+                        style={{
+                          border: bidAmount ? "2px solid #007674" : "1px solid #ccc",
+                          backgroundColor: bidAmount ? "#f8f9fa" : "#fff"
+                        }}
                         />
                       </div>
                       <small className="text-muted">
@@ -618,13 +739,13 @@ const JobProposalEdit = () => {
                       value={projectDuration}
                       onChange={(e) => setProjectDuration(e.target.value)}
                       style={{
-                        border: "1px solid #ccc",
+                        border: projectDuration ? "2px solid #007674" : "1px solid #ccc",
                         borderRadius: "8px",
                         padding: "10px",
                         fontSize: "1rem",
                         fontWeight: 500,
                         color: "#333",
-                        backgroundColor: "#fff",
+                        backgroundColor: projectDuration ? "#f8f9fa" : "#fff",
                       }}
                     >
                       <option value="" disabled>
@@ -667,8 +788,8 @@ const JobProposalEdit = () => {
                         fontSize: "1.1rem",
                         fontWeight: 500,
                         borderRadius: "12px",
-                        border: "1.5px solid #e3e3e3",
-                        background: "#fff",
+                        border: coverLetter ? "2px solid #007674" : "1.5px solid #e3e3e3",
+                        background: coverLetter ? "#f8f9fa" : "#fff",
                       }}
                     />
                     <div className="d-flex justify-content-between align-items-center mb-3">
@@ -716,7 +837,43 @@ const JobProposalEdit = () => {
                       onChange={handleFileChange}
                       multiple={false}
                     />
-                    {uploadedFiles.map((file, index) => (
+                                         {uploadedFiles.map((file, index) => {
+                        // Helper function to get file display info
+                        const getFileDisplayInfo = (file) => {
+                          if (file instanceof File) {
+                            // It's a real file object
+                            return {
+                              name: file.name,
+                              size: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
+                              type: 'file'
+                            };
+                          } else if (typeof file === 'object' && file.url) {
+                            // It's a file object with URL (from API)
+                            return {
+                              name: file.name || file.url.split('/').pop() || "attachment.pdf",
+                              size: "PDF Attachment",
+                              type: 'url'
+                            };
+                          } else if (typeof file === 'string') {
+                            // It's a URL string
+                            return {
+                              name: file.split('/').pop() || "attachment.pdf",
+                              size: "PDF Attachment",
+                              type: 'url'
+                            };
+                          } else {
+                            // Fallback
+                            return {
+                              name: "Unknown File",
+                              size: "Unknown Size",
+                              type: 'unknown'
+                            };
+                          }
+                        };
+
+                        const fileInfo = getFileDisplayInfo(file);
+                        
+                        return (
                       <motion.div
                         key={index}
                         initial={{ opacity: 0, y: 20 }}
@@ -724,14 +881,38 @@ const JobProposalEdit = () => {
                         className="mt-2 p-3 rounded d-flex align-items-center justify-content-between"
                         style={{ backgroundColor: "#f8f9fa", border: "1px solid #e3e3e3", maxWidth: 400 }}
                       >
-                        <div className="d-flex align-items-center">
+                           <div className="d-flex align-items-center" style={{ flex: 1, cursor: "pointer" }}>
                           <BsUpload size={24} style={{ color: "#007674", marginRight: "10px" }} />
-                          <div>
+                             <div 
+                               onClick={() => {
+                                 // Handle file opening based on type
+                                 if (fileInfo.type === 'url' && file.url) {
+                                   // For API files, open the URL
+                                   window.open(file.url, '_blank');
+                                 } else if (file instanceof File) {
+                                   // For uploaded files, create object URL
+                                   const objectUrl = URL.createObjectURL(file);
+                                   window.open(objectUrl, '_blank');
+                                   // Clean up the object URL after a delay
+                                   setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+                                 }
+                               }}
+                               style={{ 
+                                 cursor: "pointer",
+                                 transition: "color 0.2s ease"
+                               }}
+                               onMouseEnter={(e) => {
+                                 e.target.style.color = "#007674";
+                               }}
+                               onMouseLeave={(e) => {
+                                 e.target.style.color = "#121212";
+                               }}
+                             >
                             <h6 className="fw-semibold mb-1" style={{ color: "#121212" }}>
-                              {file.name}
+                                 {fileInfo.name}
                             </h6>
                             <small style={{ color: "#666" }}>
-                              {(file.size / 1024 / 1024).toFixed(2)} MB
+                                 {fileInfo.size}
                             </small>
                           </div>
                         </div>
@@ -753,7 +934,8 @@ const JobProposalEdit = () => {
                           <BsX size={16} />
                         </button>
                       </motion.div>
-                    ))}
+                       );
+                     })}
                     {!uploadedFiles.length && (
                       <p className="mt-2 mb-0" style={{ color: "#666", fontSize: "0.85rem" }}>
                         Please upload a PDF file to attach to your proposal.

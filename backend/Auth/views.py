@@ -3248,8 +3248,9 @@ def verify_job_post_email(request, job_id):
 @api_view(["GET"])
 def fetch_job_posts(request):
     try:
-        # MongoEngine fetches references automatically, no need for select_related/prefetch_related
-        job_posts = JobPosts.objects.all()
+        # Fetch jobs sorted by posted time in descending order (newest first)
+        # If postedTime is not available, fall back to createdAt
+        job_posts = JobPosts.objects.all().order_by('-postedTime', '-createdAt')
 
         serializer = JobPostSerializer(job_posts, many=True)
         return Response({"success": True, "data": serializer.data})
@@ -5440,6 +5441,23 @@ def publish_job_post(request, job_id):
         job_post.status = "verified"
         job_post.save()
         return Response({"success": True, "message": "Job post published successfully."}, status=200)
+    except Exception as e:
+        return Response({"success": False, "message": str(e)}, status=500)
+
+
+@api_view(["DELETE"]) 
+@verify_token
+def delete_job_post(request, job_id):
+    try:
+        job_post = JobPosts.objects(id=job_id).first()
+        if not job_post:
+            return Response({"success": False, "message": "Job post not found."}, status=404)
+        # Only the owner can delete
+        if str(job_post.userId.id) != str(request.user.id):
+            return Response({"success": False, "message": "Unauthorized."}, status=403)
+
+        job_post.delete()
+        return Response({"success": True, "message": "Job post deleted successfully."}, status=200)
     except Exception as e:
         return Response({"success": False, "message": str(e)}, status=500)
 

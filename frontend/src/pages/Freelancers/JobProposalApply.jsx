@@ -774,7 +774,7 @@ const JobProposalApply = () => {
                               maxWidth: 400,
                             }}
                           >
-                            <div className="d-flex align-items-center">
+                            <div className="d-flex align-items-center" style={{ flex: 1, cursor: "pointer" }}>
                               <BsUpload
                                 size={24}
                                 style={{
@@ -782,7 +782,27 @@ const JobProposalApply = () => {
                                   marginRight: "10px",
                                 }}
                               />
-                              <div>
+                              <div
+                                onClick={() => {
+                                  // For uploaded files, create object URL
+                                  if (file instanceof File) {
+                                    const objectUrl = URL.createObjectURL(file);
+                                    window.open(objectUrl, '_blank');
+                                    // Clean up the object URL after a delay
+                                    setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+                                  }
+                                }}
+                                style={{ 
+                                  cursor: "pointer",
+                                  transition: "color 0.2s ease"
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.target.style.color = "#007674";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.target.style.color = "#121212";
+                                }}
+                              >
                                 <h6
                                   className="fw-semibold mb-1"
                                   style={{ color: "#121212" }}

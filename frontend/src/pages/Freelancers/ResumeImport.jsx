@@ -356,7 +356,7 @@ const ResumeImport = () => {
                         </div>
 
                         {/* AI Builder Option */}
-                        <div className="mb-5">
+                        {/* <div className="mb-5">
                           <div 
                             className="p-4 rounded-3 border"
                             style={{ 
@@ -398,7 +398,7 @@ const ResumeImport = () => {
                               <BsArrowRight style={{ color: "#007674" }} />
                             </div>
                           </div>
-                        </div>
+                        </div> */}
 
                         {/* Continue Button */}
                         <div className="text-center">

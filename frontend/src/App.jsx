@@ -402,6 +402,12 @@ const App = () => {
             path="/ws/ai-tools/ai-portfolio-web"
             element={<PortfolioBuilderDashboard />}
           />
+          {/* Shared Tarz route accessible by both clients and freelancers */}
+          <Route path="/ws/apps/tarz" element={
+            <RoleBasedRoute>
+              <TarzDashboard />
+            </RoleBasedRoute>
+          } />
           <Route path="/ws/client/" element={
             <RoleBasedRoute>
               <ClientDashboard />

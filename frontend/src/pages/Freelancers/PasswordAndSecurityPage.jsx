@@ -5,6 +5,7 @@ import { BsEye, BsEyeSlash } from "react-icons/bs";
 import { motion } from "framer-motion";
 import axios from "axios";
 import { useUser } from "../../contexts/UserContext";
+import Loader from "../../components/Loader";
 
 const SIDEBAR_WIDTH = 290;
 
@@ -34,20 +35,7 @@ const PasswordAndSecurityPage = () => {
           fontFamily: "Inter, Arial, sans-serif",
         }}
       >
-        <div style={{ textAlign: "center" }}>
-          <div
-            style={{
-              width: "40px",
-              height: "40px",
-              border: "4px solid #f3f3f3",
-              borderTop: "4px solid #007476",
-              borderRadius: "50%",
-              animation: "spin 1s linear infinite",
-              margin: "0 auto 16px",
-            }}
-          />
-          <div style={{ fontSize: 18, color: "#666" }}>Loading...</div>
-        </div>
+        <Loader message="Loading security settings..." />
       </div>
     );
   }
@@ -800,7 +788,17 @@ const PasswordAndSecurityPage = () => {
                 whileTap={!isLoading ? { scale: 0.95 } : {}}
                 disabled={isLoading || !currentPassword || !newPassword || !confirmPassword}
               >
-                {isLoading ? "Changing..." : "Confirm and log out"}
+                {isLoading ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <div
+                      className="spinner-border spinner-border-sm"
+                      style={{ color: "#fff", width: "16px", height: "16px" }}
+                    />
+                    Changing...
+                  </div>
+                ) : (
+                  "Confirm and log out"
+                )}
               </motion.button>
             </div>
           </motion.div>

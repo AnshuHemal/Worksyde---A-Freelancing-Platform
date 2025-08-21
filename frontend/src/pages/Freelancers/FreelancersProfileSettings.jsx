@@ -5,6 +5,7 @@ import { BsQuestionCircle } from "react-icons/bs";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useUser } from "../../contexts/UserContext";
+import Loader from "../../components/Loader";
 
 const SIDEBAR_WIDTH = 290;
 const API_URL = "http://localhost:5000/api/auth";
@@ -288,7 +289,7 @@ const FreelancersProfileSettings = () => {
             fontFamily: "Inter, Arial, sans-serif",
           }}
         >
-          <div style={{ fontSize: 18, color: "#666", textAlign: "center" }}>Loading...</div>
+          <Loader message="Loading profile settings..." />
         </main>
       </div>
     );
@@ -1438,7 +1439,17 @@ const FreelancersProfileSettings = () => {
                       }
                     }}
                   >
-                    {saving ? "Saving..." : "Save Changes"}
+                    {saving ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div
+                          className="spinner-border spinner-border-sm"
+                          style={{ color: "#fff", width: "16px", height: "16px" }}
+                        />
+                        Saving...
+                      </div>
+                    ) : (
+                      "Save Changes"
+                    )}
                   </button>
                 </div>
               </div>

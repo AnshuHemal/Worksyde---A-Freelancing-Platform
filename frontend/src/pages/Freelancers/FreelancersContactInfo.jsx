@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import FreelancersSettingsSidebar from "./FreelancersSettingsSidebar";
 import { useUser } from "../../contexts/UserContext";
+import Loader from "../../components/Loader";
 
 const SIDEBAR_WIDTH = 290;
 const API_URL = "http://localhost:5000/api/auth";
@@ -329,7 +330,7 @@ const FreelancersContactInfo = () => {
             boxSizing: "border-box",
           }}
         >
-          <div style={{ fontSize: 18, color: "#666", textAlign: "center" }}>Loading...</div>
+          <Loader message="Loading contact information..." />
         </main>
       </div>
     );
@@ -536,7 +537,17 @@ const FreelancersContactInfo = () => {
                       opacity: updating ? 0.7 : 1,
                     }}
                   >
-                    {updating ? "Updating..." : "Update"}
+                    {updating ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div
+                          className="spinner-border spinner-border-sm"
+                          style={{ color: "#fff", width: "16px", height: "16px" }}
+                        />
+                        Updating...
+                      </div>
+                    ) : (
+                      "Update"
+                    )}
                   </button>
                   <button
                     onClick={cancelAccountEdit}
@@ -794,7 +805,17 @@ const FreelancersContactInfo = () => {
                       opacity: updating ? 0.7 : 1,
                     }}
                   >
-                    {updating ? "Updating..." : "Update"}
+                    {updating ? (
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <div
+                          className="spinner-border spinner-border-sm"
+                          style={{ color: "#fff", width: "16px", height: "16px" }}
+                        />
+                        Updating...
+                      </div>
+                    ) : (
+                      "Update"
+                    )}
                   </button>
                   <button
                     onClick={cancelLocationEdit}

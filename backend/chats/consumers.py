@@ -93,18 +93,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
 
         # Send notification to receiver
-        await self.channel_layer.group_send(
-            f"notify_{receiver_id}",
-            {
-                "type": "notify_message",
-                "room_id": self.room_id,
-                "message": message,
-                "timestamp": now_ist.isoformat(),
-                "sender_id": sender_id,
-                "_id": str(inserted_id) if inserted_id else None,
-                "attachment": attachment,
-            },
-        )
+        # Notify both receiver and sender so both sides update immediately
+        for uid in [receiver_id, sender_id]:
+            await self.channel_layer.group_send(
+                f"notify_{uid}",
+                {
+                    "type": "notify_message",
+                    "room_id": self.room_id,
+                    "message": message,
+                    "timestamp": now_ist.isoformat(),
+                    "sender_id": sender_id,
+                    "_id": str(inserted_id) if inserted_id else None,
+                    "attachment": attachment,
+                },
+            )
 
 
     async def chat_message(self, event):

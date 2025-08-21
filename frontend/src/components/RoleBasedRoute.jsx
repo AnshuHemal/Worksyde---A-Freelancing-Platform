@@ -56,7 +56,8 @@ const RoleBasedRoute = ({ children }) => {
               '/ws/freelancers',
               '/create-profile',
               '/ws/proposals/interview',
-              '/ws/offers'
+              '/ws/offers',
+              '/ws/apps/tarz'
             ],
             client: [
               '/ws/client/',
@@ -70,7 +71,8 @@ const RoleBasedRoute = ({ children }) => {
               '/ws/client/applicants',
               '/ws/client/offer',
               '/ws/client/payments',
-              '/job-post/instant'
+              '/job-post/instant',
+              '/ws/apps/tarz'
             ],
             admin: [
               '/ws/admin/',
@@ -108,7 +110,11 @@ const RoleBasedRoute = ({ children }) => {
             isAllowed = false;
           }
           
-          if (role === "client" && currentPath.startsWith("/ws/") && !currentPath.startsWith("/ws/client/")) {
+          // Allow shared routes for both clients and freelancers
+          const sharedRoutes = ['/ws/apps/tarz'];
+          const isSharedRoute = sharedRoutes.some(route => currentPath.startsWith(route));
+          
+          if (role === "client" && currentPath.startsWith("/ws/") && !currentPath.startsWith("/ws/client/") && !isSharedRoute) {
             console.log("RoleBasedRoute: Client trying to access freelancer routes - BLOCKED");
             isAllowed = false;
           }

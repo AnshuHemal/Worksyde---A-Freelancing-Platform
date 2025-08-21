@@ -42,6 +42,7 @@ const FreelancersDashboard = () => {
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   const [userId, setUserId] = useState(null);
   const [chatSocket, setChatSocket] = useState(null);
+  const [loadingJobs, setLoadingJobs] = useState(false);
 
   const API_URL = "http://localhost:5000/api/auth";
 
@@ -51,26 +52,74 @@ const FreelancersDashboard = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+    
+    console.log(`Input change - ${name}: ${value}`);
+    
+    // Allow typing any value, but store it as string initially
     if (name === "minPrice") {
-      if (parseInt(maxPrice) - parseInt(value) >= priceGap) {
-        setMinPrice(value);
+      const newValue = value === "" ? 0 : parseInt(value) || 0;
+      console.log(`Setting minPrice to: ${newValue}`);
+      setMinPrice(newValue);
+    } else if (name === "maxPrice") {
+      const newValue = value === "" ? 0 : parseInt(value) || 0;
+      console.log(`Setting maxPrice to: ${newValue}`);
+      setMaxPrice(newValue);
+    }
+  };
+
+  const handleInputBlur = (e) => {
+    const { name, value } = e.target;
+    const numValue = parseInt(value) || 0;
+    
+    console.log(`Input blur - ${name}: ${value}, parsed: ${numValue}`);
+    
+    if (name === "minPrice") {
+      // Validate and adjust min price on blur
+      if (numValue < 0) {
+        console.log(`Min price ${numValue} is negative, setting to 0`);
+        setMinPrice(0);
+      } else if (numValue > parseInt(maxPrice)) {
+        console.log(`Min price ${numValue} exceeds max price ${maxPrice}, adjusting`);
+        setMinPrice(parseInt(maxPrice) - priceGap);
+      } else if (parseInt(maxPrice) - numValue < priceGap) {
+        // Adjust max price to maintain gap
+        console.log(`Gap too small, adjusting max price to ${numValue + priceGap}`);
+        setMaxPrice(numValue + priceGap);
       }
     } else if (name === "maxPrice") {
-      if (parseInt(value) - parseInt(minPrice) >= priceGap) {
-        setMaxPrice(value);
+      // Validate and adjust max price on blur
+      if (numValue < parseInt(minPrice)) {
+        console.log(`Max price ${numValue} is less than min price ${minPrice}, adjusting`);
+        setMaxPrice(parseInt(minPrice) + priceGap);
+      } else if (numValue - parseInt(minPrice) < priceGap) {
+        // Adjust min price to maintain gap
+        console.log(`Gap too small, adjusting min price to ${Math.max(0, numValue - priceGap)}`);
+        setMinPrice(Math.max(0, numValue - priceGap));
       }
     }
   };
 
   const handleRangeChange = (e) => {
     const { name, value } = e.target;
+    const numValue = parseInt(value) || 0;
+    
     if (name === "rangeMin") {
-      if (parseInt(maxPrice) - parseInt(value) >= priceGap) {
-        setMinPrice(value);
+      // For range slider, we can be more flexible
+      if (numValue <= parseInt(maxPrice)) {
+        setMinPrice(numValue);
+        // If the gap becomes too small, adjust max price
+        if (parseInt(maxPrice) - numValue < priceGap) {
+          setMaxPrice(numValue + priceGap);
+        }
       }
     } else if (name === "rangeMax") {
-      if (parseInt(value) - parseInt(minPrice) >= priceGap) {
-        setMaxPrice(value);
+      // For range slider, we can be more flexible
+      if (numValue >= parseInt(minPrice)) {
+        setMaxPrice(numValue);
+        // If the gap becomes too small, adjust min price
+        if (numValue - parseInt(minPrice) < priceGap) {
+          setMinPrice(Math.max(0, numValue - priceGap));
+        }
       }
     }
   };
@@ -97,17 +146,16 @@ const FreelancersDashboard = () => {
     setMinPrice(2500);
     setMaxPrice(7500);
     setSearchTerm("");
+    console.log("Filters reset - Price range reset to:", { minPrice: 2500, maxPrice: 7500 });
   };
 
   useEffect(() => {
     const fetchJobs = async () => {
+      setLoadingJobs(true);
       try {
         const response = await axios.get(`${API_URL}/jobposts/fetch/`);
-        console.log("Raw job data:", response.data.data);
         if (response.data.data && response.data.data.length > 0) {
           console.log("First job structure:", response.data.data[0]);
-          console.log("First job userId:", response.data.data[0].userId);
-          console.log("First job status:", response.data.data[0].status);
         }
         
         // Fetch client details for each job
@@ -188,9 +236,26 @@ const FreelancersDashboard = () => {
           })
         );
         
-        setJobs(jobsWithClientDetails);
+        // Sort jobs by posted time in descending order (newest first)
+        // Note: Backend now returns jobs sorted by postedTime, but we keep frontend sorting as backup
+        const sortedJobs = jobsWithClientDetails.sort((a, b) => {
+          // Use postedTime as primary field, fallback to createdAt
+          const dateA = new Date(a.postedTime || a.createdAt || a.created_at || 0);
+          const dateB = new Date(b.postedTime || b.createdAt || b.created_at || 0);
+          
+          // Ensure we're getting valid dates
+          if (isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+            return 0; // Keep original order if dates are invalid
+          }
+          
+          return dateB - dateA; // Descending order (newest first)
+        });
+        
+        setJobs(sortedJobs);
       } catch (error) {
         console.error("Error fetching job posts:", error);
+      } finally {
+        setLoadingJobs(false);
       }
     };
 
@@ -279,26 +344,70 @@ const FreelancersDashboard = () => {
     };
 
     jobs.forEach((job) => {
-      // Experience level counts - handle different field names
-      const expLevel =
-        job.experienceLevel || job.experience_level || "Not Specified";
-      counts.experienceLevel[expLevel] =
-        (counts.experienceLevel[expLevel] || 0) + 1;
+      // Experience level counts - handle different field names and normalize
+      const expLevel = job.experienceLevel || job.experience_level || "Not Specified";
+      const normalizedExpLevel = expLevel.toLowerCase();
+      
+      // Normalize experience levels to standard categories
+      let category = "Not Specified";
+      if (normalizedExpLevel.includes("entry") || normalizedExpLevel.includes("beginner")) {
+        category = "Entry Level";
+      } else if (normalizedExpLevel.includes("intermediate") || normalizedExpLevel.includes("mid")) {
+        category = "Intermediate";
+      } else if (normalizedExpLevel.includes("expert") || normalizedExpLevel.includes("senior") || normalizedExpLevel.includes("advanced")) {
+        category = "Expert";
+      }
+      
+      counts.experienceLevel[category] = (counts.experienceLevel[category] || 0) + 1;
 
       // Applicants counts - handle different field names
-      const applicants = job.applicants || job.applicant_count || 0;
+      const applicants = parseInt(job.applicants || job.applicant_count || job.proposal_count || 0);
       let applicantRange = "30 +";
       if (applicants < 5) applicantRange = "Less than 5";
       else if (applicants <= 10) applicantRange = "5 to 10";
       else if (applicants <= 15) applicantRange = "10 to 15";
       else if (applicants <= 20) applicantRange = "15 to 20";
       else if (applicants <= 30) applicantRange = "20 to 30";
-      counts.applicants[applicantRange] =
-        (counts.applicants[applicantRange] || 0) + 1;
+      counts.applicants[applicantRange] = (counts.applicants[applicantRange] || 0) + 1;
 
-      // Duration counts - handle different field names
-      const duration = job.duration || job.project_duration || "Not Specified";
-      counts.duration[duration] = (counts.duration[duration] || 0) + 1;
+      // Duration counts - handle different field names and normalize
+      const duration = job.duration || job.project_duration || job.timeline || "Not Specified";
+      const normalizedDuration = duration.toLowerCase();
+      
+      // Normalize duration to standard categories with more precise matching
+      let durationCategory = "Not Specified";
+      
+      // Check for "Less than 1 month" first (weeks only)
+      if (normalizedDuration.includes("1 week") || normalizedDuration.includes("2 weeks") || normalizedDuration.includes("3 weeks") || 
+          normalizedDuration.includes("less than 1 month") || normalizedDuration.includes("less than one month")) {
+        durationCategory = "Less than 1 month";
+      } 
+      // Check for "1 to 3 months" (exact month matches)
+      else if (normalizedDuration.includes("1 month") || normalizedDuration.includes("2 months") || normalizedDuration.includes("3 months") ||
+               normalizedDuration.includes("1 to 3 months") || normalizedDuration.includes("one to three months")) {
+        durationCategory = "1 to 3 months";
+      } 
+      // Check for "3 to 6 months"
+      else if (normalizedDuration.includes("4 months") || normalizedDuration.includes("5 months") || normalizedDuration.includes("6 months") ||
+               normalizedDuration.includes("3 to 6 months") || normalizedDuration.includes("three to six months")) {
+        durationCategory = "3 to 6 months";
+      } 
+      // Check for "More than 6 months"
+      else if (normalizedDuration.includes("7 months") || normalizedDuration.includes("8 months") || normalizedDuration.includes("9 months") || 
+               normalizedDuration.includes("10 months") || normalizedDuration.includes("11 months") || normalizedDuration.includes("12 months") ||
+               normalizedDuration.includes("more than 6 months") || normalizedDuration.includes("more than six months") ||
+               normalizedDuration.includes("ongoing") || normalizedDuration.includes("long term")) {
+        durationCategory = "More than 6 months";
+      }
+      
+      counts.duration[durationCategory] = (counts.duration[durationCategory] || 0) + 1;
+      
+      // Debug duration categorization
+      console.log(`Job "${job.title}" duration categorization:`, {
+        originalDuration: duration,
+        normalizedDuration: normalizedDuration,
+        categorizedAs: durationCategory
+      });
     });
 
     return counts;
@@ -306,13 +415,53 @@ const FreelancersDashboard = () => {
 
   const filterCounts = getFilterCounts();
 
+  // Calculate jobs filtered by price range
+  const jobsFilteredByPrice = jobs.filter((job) => {
+    let finalMinPrice = 0;
+    let finalMaxPrice = 0;
+    
+    if (job.budgetType === "fixed") {
+      // For fixed price jobs, use fixedRate
+      const fixedPrice = parseFloat(job.fixedRate || 0);
+      finalMinPrice = fixedPrice;
+      finalMaxPrice = fixedPrice;
+    } else if (job.budgetType === "hourly") {
+      // For hourly jobs, use hourly rate range
+      finalMinPrice = parseFloat(job.hourlyRateFrom || job.hourly_rate_from || 0);
+      finalMaxPrice = parseFloat(job.hourlyRateTo || job.hourly_rate_to || 0);
+    } else {
+      // Fallback for jobs without budgetType or legacy jobs
+      const jobMinPrice = parseFloat(
+        job.hourlyRateFrom || job.hourly_rate_from || job.minPrice || job.budgetFrom || job.budget_from || 0
+      );
+      const jobMaxPrice = parseFloat(
+        job.hourlyRateTo || job.hourly_rate_to || job.maxPrice || job.budgetTo || job.budget_to || 0
+      );
+      
+      // If job has a single price, use it for both min and max
+      const singlePrice = parseFloat(job.hourlyRate || job.hourly_rate || job.budget || job.price || job.fixedRate || 0);
+      finalMinPrice = jobMinPrice || singlePrice;
+      finalMaxPrice = jobMaxPrice || singlePrice;
+    }
+    
+    if (finalMinPrice === 0 && finalMaxPrice === 0) return true;
+    
+    const jobWithinFilter = finalMinPrice >= minPrice && finalMaxPrice <= maxPrice;
+    const filterWithinJob = minPrice >= finalMinPrice && maxPrice <= finalMaxPrice;
+    const jobMinInFilter = finalMinPrice >= minPrice && finalMinPrice <= maxPrice;
+    const jobMaxInFilter = finalMaxPrice >= minPrice && finalMaxPrice <= maxPrice;
+    
+    return jobWithinFilter || filterWithinJob || jobMinInFilter || jobMaxInFilter;
+  });
+
   // Enhanced filtering logic
   const filteredJobs = jobs.filter((job) => {
     // Search filter
     const searchMatch =
       !searchTerm ||
       job.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      job.description?.toLowerCase().includes(searchTerm.toLowerCase());
+      job.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      job.skills?.some(skill => skill.toLowerCase().includes(searchTerm.toLowerCase()));
 
     // Experience level filter - handle different possible values
     const experienceMatch =
@@ -320,30 +469,101 @@ const FreelancersDashboard = () => {
       selectedFilters.experienceLevel.includes("Any") ||
       selectedFilters.experienceLevel.some((selectedLevel) => {
         // Handle different possible formats of experience level
-        const jobLevel = job.experienceLevel || job.experience_level || "";
-        return (
-          jobLevel.toLowerCase().includes(selectedLevel.toLowerCase()) ||
-          selectedLevel.toLowerCase().includes(jobLevel.toLowerCase())
-        );
+        const jobLevel = (job.experienceLevel || job.experience_level || "").toLowerCase();
+        const selectedLevelLower = selectedLevel.toLowerCase();
+        
+        // Handle exact matches and partial matches
+        if (selectedLevelLower === "any") return true;
+        if (jobLevel === selectedLevelLower) return true;
+        if (jobLevel.includes(selectedLevelLower) || selectedLevelLower.includes(jobLevel)) return true;
+        
+        // Handle common variations
+        if (selectedLevelLower === "entry level" && (jobLevel.includes("entry") || jobLevel.includes("beginner"))) return true;
+        if (selectedLevelLower === "intermediate" && (jobLevel.includes("intermediate") || jobLevel.includes("mid"))) return true;
+        if (selectedLevelLower === "expert" && (jobLevel.includes("expert") || jobLevel.includes("senior") || jobLevel.includes("advanced"))) return true;
+        
+        return false;
       });
 
-    // Price range filter - handle different possible field names
-    const jobMinPrice = parseFloat(
-      job.hourlyRateFrom || job.hourly_rate_from || job.minPrice || 0
-    );
-    const jobMaxPrice = parseFloat(
-      job.hourlyRateTo || job.hourly_rate_to || job.maxPrice || 0
-    );
-    const priceMatch =
-      (jobMinPrice >= minPrice && jobMinPrice <= maxPrice) ||
-      (jobMaxPrice >= minPrice && jobMaxPrice <= maxPrice) ||
-      (jobMinPrice <= minPrice && jobMaxPrice >= maxPrice);
+    // Price range filter - handle both hourly and fixed price jobs
+    let finalMinPrice = 0;
+    let finalMaxPrice = 0;
+    
+    if (job.budgetType === "fixed") {
+      // For fixed price jobs, use fixedRate
+      const fixedPrice = parseFloat(job.fixedRate || 0);
+      finalMinPrice = fixedPrice;
+      finalMaxPrice = fixedPrice;
+    } else if (job.budgetType === "hourly") {
+      // For hourly jobs, use hourly rate range
+      finalMinPrice = parseFloat(job.hourlyRateFrom || job.hourly_rate_from || 0);
+      finalMaxPrice = parseFloat(job.hourlyRateTo || job.hourly_rate_to || 0);
+    } else {
+      // Fallback for jobs without budgetType or legacy jobs
+      const jobMinPrice = parseFloat(
+        job.hourlyRateFrom || job.hourly_rate_from || job.minPrice || job.budgetFrom || job.budget_from || 0
+      );
+      const jobMaxPrice = parseFloat(
+        job.hourlyRateTo || job.hourly_rate_to || job.maxPrice || job.budgetTo || job.budget_to || 0
+      );
+      
+      // If job has a single price, use it for both min and max
+      const singlePrice = parseFloat(job.hourlyRate || job.hourly_rate || job.budget || job.price || job.fixedRate || 0);
+      finalMinPrice = jobMinPrice || singlePrice;
+      finalMaxPrice = jobMaxPrice || singlePrice;
+    }
+    
+    // Improved price matching logic
+    let priceMatch = true;
+    
+    // If both job prices are 0, show the job (no price specified)
+    if (finalMinPrice === 0 && finalMaxPrice === 0) {
+      priceMatch = true;
+    } else {
+      // Check if job price range overlaps with filter price range
+      // Job price range: [finalMinPrice, finalMaxPrice]
+      // Filter price range: [minPrice, maxPrice]
+      
+      // Case 1: Job price range is completely within filter range
+      const jobWithinFilter = finalMinPrice >= minPrice && finalMaxPrice <= maxPrice;
+      
+      // Case 2: Filter range is completely within job price range
+      const filterWithinJob = minPrice >= finalMinPrice && maxPrice <= finalMaxPrice;
+      
+      // Case 3: Job min price is within filter range
+      const jobMinInFilter = finalMinPrice >= minPrice && finalMinPrice <= maxPrice;
+      
+      // Case 4: Job max price is within filter range
+      const jobMaxInFilter = finalMaxPrice >= minPrice && finalMaxPrice <= maxPrice;
+      
+      priceMatch = jobWithinFilter || filterWithinJob || jobMinInFilter || jobMaxInFilter;
+    }
+    
+    // Debug price filtering
+    if (finalMinPrice > 0 || finalMaxPrice > 0) {
+      console.log(`Job "${job.title}" price filtering:`, {
+        budgetType: job.budgetType,
+        jobMinPrice: finalMinPrice,
+        jobMaxPrice: finalMaxPrice,
+        filterMinPrice: minPrice,
+        filterMaxPrice: maxPrice,
+        priceMatch,
+        jobPriceFields: {
+          budgetType: job.budgetType,
+          fixedRate: job.fixedRate,
+          hourlyRateFrom: job.hourlyRateFrom,
+          hourlyRateTo: job.hourlyRateTo,
+          budgetFrom: job.budgetFrom,
+          budgetTo: job.budgetTo
+        }
+      });
+    }
 
     // Applicants filter
     const applicantsMatch =
       selectedFilters.applicants.length === 0 ||
       selectedFilters.applicants.some((filter) => {
-        const applicants = job.applicants || job.applicant_count || 0;
+        const applicants = parseInt(job.applicants || job.applicant_count || job.proposal_count || 0);
         switch (filter) {
           case "Less than 5":
             return applicants < 5;
@@ -362,15 +582,43 @@ const FreelancersDashboard = () => {
         }
       });
 
-    // Duration filter - handle different possible field names
+    // Duration filter - handle different possible field names with improved logic
     const durationMatch =
       selectedFilters.duration.length === 0 ||
       selectedFilters.duration.some((selectedDuration) => {
-        const jobDuration = job.duration || job.project_duration || "";
-        return (
-          jobDuration.toLowerCase().includes(selectedDuration.toLowerCase()) ||
-          selectedDuration.toLowerCase().includes(jobDuration.toLowerCase())
-        );
+        const jobDuration = (job.duration || job.project_duration || job.timeline || "").toLowerCase();
+        const selectedDurationLower = selectedDuration.toLowerCase();
+        
+        // Handle exact matches first
+        if (jobDuration === selectedDurationLower) return true;
+        
+        // Handle specific category matching with improved logic
+        if (selectedDurationLower.includes("less than 1 month")) {
+          return jobDuration.includes("1 week") || jobDuration.includes("2 weeks") || jobDuration.includes("3 weeks") ||
+                 jobDuration.includes("less than 1 month") || jobDuration.includes("less than one month");
+        }
+        
+        if (selectedDurationLower.includes("1 to 3 months")) {
+          return jobDuration.includes("1 month") || jobDuration.includes("2 months") || jobDuration.includes("3 months") ||
+                 jobDuration.includes("1 to 3 months") || jobDuration.includes("one to three months");
+        }
+        
+        if (selectedDurationLower.includes("3 to 6 months")) {
+          return jobDuration.includes("4 months") || jobDuration.includes("5 months") || jobDuration.includes("6 months") ||
+                 jobDuration.includes("3 to 6 months") || jobDuration.includes("three to six months");
+        }
+        
+        if (selectedDurationLower.includes("more than 6 months")) {
+          return jobDuration.includes("7 months") || jobDuration.includes("8 months") || jobDuration.includes("9 months") ||
+                 jobDuration.includes("10 months") || jobDuration.includes("11 months") || jobDuration.includes("12 months") ||
+                 jobDuration.includes("more than 6 months") || jobDuration.includes("more than six months") ||
+                 jobDuration.includes("ongoing") || jobDuration.includes("long term");
+        }
+        
+        // Fallback: handle partial matches for other cases
+        if (jobDuration.includes(selectedDurationLower) || selectedDurationLower.includes(jobDuration)) return true;
+        
+        return false;
       });
 
     const finalMatch =
@@ -390,24 +638,59 @@ const FreelancersDashboard = () => {
         jobLevel: job.experienceLevel || job.experience_level,
         jobDuration: job.duration || job.project_duration,
         jobApplicants: job.applicants || job.applicant_count,
+        jobMinPrice: finalMinPrice,
+        jobMaxPrice: finalMaxPrice,
         selectedFilters,
         finalMatch,
+        durationMatch: durationMatch,
+        durationDetails: {
+          jobDuration: job.duration || job.project_duration || job.timeline,
+          selectedDurations: selectedFilters.duration
+        }
       });
     }
 
-    // Temporarily disable all filters except search for debugging
-    return searchMatch; // && experienceMatch && priceMatch && applicantsMatch && durationMatch;
+    return finalMatch;
   });
 
   // Monitor filtered jobs for debugging
   useEffect(() => {
     console.log("Current filter state:", selectedFilters);
+    console.log("Price range:", { minPrice, maxPrice });
     console.log("Total jobs:", jobs.length);
-    console.log("Filtered jobs:", filteredJobs.length);
+    console.log("Jobs filtered by price:", jobsFilteredByPrice.length);
+    console.log("Final filtered jobs:", filteredJobs.length);
+    
+    // Show price filtering breakdown
+    if (minPrice > 2500 || maxPrice < 7500) {
+      console.log(`Price filtering active: ₹${minPrice.toLocaleString()} - ₹${maxPrice.toLocaleString()}`);
+      console.log(`Jobs excluded by price: ${jobs.length - jobsFilteredByPrice.length}`);
+      
+      // Show breakdown by budget type
+      const fixedJobs = jobs.filter(job => job.budgetType === "fixed");
+      const hourlyJobs = jobs.filter(job => job.budgetType === "hourly");
+      const otherJobs = jobs.filter(job => !job.budgetType || (job.budgetType !== "fixed" && job.budgetType !== "hourly"));
+      
+      console.log(`Job breakdown by budget type:`, {
+        fixed: fixedJobs.length,
+        hourly: hourlyJobs.length,
+        other: otherJobs.length,
+        total: jobs.length
+      });
+      
+      // Show duration breakdown
+      console.log(`Duration filter counts:`, filterCounts.duration);
+    }
+    
     if (filteredJobs.length === 0 && jobs.length > 0) {
       console.log("No jobs match the current filters!");
     }
-  }, [selectedFilters, jobs, filteredJobs]);
+  }, [selectedFilters, minPrice, maxPrice, jobs, filteredJobs, jobsFilteredByPrice]);
+
+  // Monitor price changes for debugging
+  useEffect(() => {
+    console.log("Price state changed - minPrice:", minPrice, "maxPrice:", maxPrice);
+  }, [minPrice, maxPrice]);
 
   return (
     <>
@@ -1039,6 +1322,8 @@ const FreelancersDashboard = () => {
                             name="minPrice"
                             value={minPrice}
                             onChange={handleInputChange}
+                            onBlur={handleInputBlur}
+                            min="0"
                             placeholder="₹0"
                           />
                         </div>
@@ -1050,9 +1335,46 @@ const FreelancersDashboard = () => {
                             name="maxPrice"
                             value={maxPrice}
                             onChange={handleInputChange}
+                            onBlur={handleInputBlur}
+                            min={minPrice}
                             placeholder="₹10,000"
                           />
                         </div>
+                      </div>
+                      <div 
+                        style={{ 
+                          fontSize: "0.85rem", 
+                          color: "#666", 
+                          marginTop: "8px",
+                          textAlign: "center"
+                        }}
+                      >
+                        Range: ₹{minPrice.toLocaleString()} - ₹{maxPrice.toLocaleString()}
+                      </div>
+                      {/* Price filter indicator */}
+                      {(minPrice > 2500 || maxPrice < 7500) && (
+                        <div 
+                          style={{ 
+                            fontSize: "0.8rem", 
+                            color: "#007674", 
+                            marginTop: "4px",
+                            textAlign: "center",
+                            fontWeight: "500"
+                          }}
+                        >
+                          🔍 Price filter active
+                        </div>
+                      )}
+                      {/* Budget type info */}
+                      <div 
+                        style={{ 
+                          fontSize: "0.75rem", 
+                          color: "#888", 
+                          marginTop: "2px",
+                          textAlign: "center"
+                        }}
+                      >
+                        Filters both fixed price and hourly rate jobs
                       </div>
                     </motion.div>
 
@@ -1297,6 +1619,11 @@ const FreelancersDashboard = () => {
                         style={{ color: "#666", fontSize: "1rem" }}
                       >
                         {filteredJobs.length} jobs found
+                        {jobs.length !== filteredJobs.length && (
+                          <span style={{ color: "#007674", fontSize: "0.9rem" }}>
+                            {" "}(filtered from {jobs.length} total)
+                          </span>
+                        )}
                       </p>
                     </div>
                     <div className="d-flex align-items-center">
@@ -1312,22 +1639,55 @@ const FreelancersDashboard = () => {
                   </motion.div>
 
                   {/* Job Cards Grid */}
-                  <div className="row g-3">
-                    {filteredJobs.map((job, index) => (
-                      <motion.div
-                        key={index}
-                        className="col-12"
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3 + index * 0.1, duration: 0.3 }}
+                  {loadingJobs ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2, duration: 0.5 }}
+                      className="text-center py-5"
+                    >
+                      <div
+                        className="d-inline-flex align-items-center justify-content-center mb-3"
+                        style={{
+                          width: "80px",
+                          height: "80px",
+                          borderRadius: "50%",
+                          background: "rgba(0, 118, 116, 0.1)",
+                          color: "#007674",
+                        }}
                       >
-                        <JobCard job={job} onClick={handleCardClick} />
-                      </motion.div>
-                    ))}
-                  </div>
+                        <div className="spinner-border" role="status">
+                          <span className="visually-hidden">Loading...</span>
+                        </div>
+                      </div>
+                      <h5
+                        className="fw-semibold mb-2"
+                        style={{ color: "#121212" }}
+                      >
+                        Loading jobs...
+                      </h5>
+                      <p style={{ color: "#666", fontSize: "1rem" }}>
+                        Please wait while we fetch the latest job opportunities
+                      </p>
+                    </motion.div>
+                  ) : (
+                    <div className="row g-3">
+                      {filteredJobs.map((job, index) => (
+                        <motion.div
+                          key={index}
+                          className="col-12"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.3 + index * 0.1, duration: 0.3 }}
+                        >
+                          <JobCard job={job} onClick={handleCardClick} />
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* No Results */}
-                  {filteredJobs.length === 0 && (
+                  {!loadingJobs && filteredJobs.length === 0 && (
                     <motion.div
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}

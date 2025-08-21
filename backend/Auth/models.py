@@ -42,7 +42,7 @@ class User(Document):
     bannedBy = ReferenceField('self')  # Reference to admin who banned
     bannedAt = DateTimeField()
     
-    # Wallet balance for clients
+    # Wallet balance for users (clients and freelancers)
     walletBalance = FloatField(default=0.0)
     
     createdAt = DateTimeField(default=timezone.now)

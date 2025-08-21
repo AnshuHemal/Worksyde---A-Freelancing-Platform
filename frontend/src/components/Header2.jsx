@@ -380,7 +380,7 @@ const Header2 = () => {
         </div>
 
         <div className=" d-flex align-items-center gap-4 me-3">
-          <TfiHelp className="icon-hover" size={20} />
+          {/* <TfiHelp className="icon-hover" size={20} /> */}
           <div className="position-relative">
             <BsBell 
               className="icon-hover" 
@@ -672,7 +672,7 @@ const Header2 = () => {
                 />{" "}
                 Proposals
               </Link>
-              <div className="dropdown-item d-flex justify-content-between align-items-center">
+              {/* <div className="dropdown-item d-flex justify-content-between align-items-center">
                 <div>
                   <MdOutlineLightMode
                     style={{ width: "20px", height: "18px" }}
@@ -687,7 +687,7 @@ const Header2 = () => {
                     defaultChecked
                   />
                 </div>
-              </div>
+              </div> */}
               <Link to="/ws/settings/contact-info" className="dropdown-item" onClick={closeDropdown}>
                 <LuSettings
                   style={{ width: "20px", height: "18px" }}

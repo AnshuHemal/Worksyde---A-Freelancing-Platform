@@ -24,6 +24,9 @@ const JobProposalSubmit = () => {
   const location = useLocation();
   const pathParts = location.pathname.split("/");
   const jobProposalId = pathParts[3];
+  
+  console.log("JobProposalSubmit - URL parts:", pathParts);
+  console.log("JobProposalSubmit - Extracted proposal ID:", jobProposalId);
 
   const [jobData, setJobData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -151,9 +154,23 @@ const JobProposalSubmit = () => {
 
   const handleEditProposal = () => {
     if (jobData?.jobId?.id) {
-      navigate(`/ws/proposals/job/~${jobData.jobId.id}/edit`, {
-        state: { jobProposalId: jobData._id },
-      });
+      console.log("Navigating to edit with jobData:", jobData);
+      console.log("Proposal ID being passed:", jobData._id);
+      console.log("Job ID being passed:", jobData.jobId.id);
+      
+      // Try to get proposal ID from various sources
+      const proposalId = jobData._id || jobData.id || jobProposalId;
+      
+      if (proposalId) {
+        navigate(`/ws/proposals/job/~${jobData.jobId.id}/edit?proposalId=${proposalId}`, {
+          state: { jobProposalId: proposalId },
+        });
+      } else {
+        console.error("Cannot navigate: missing proposal ID", { jobData, jobProposalId });
+        toast.error("Could not determine proposal ID for editing");
+      }
+    } else {
+      console.error("Cannot navigate: missing jobData or jobId", jobData);
     }
   };
 
@@ -790,25 +807,38 @@ const JobProposalSubmit = () => {
                             alignItems: "center",
                             gap: "12px",
                             marginBottom: "8px",
+                            cursor: "pointer",
+                            padding: "8px",
+                            borderRadius: "8px",
+                            transition: "background-color 0.2s ease",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = "#f8f9fa";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = "transparent";
+                          }}
+                          onClick={() => {
+                            if (attachment.url) {
+                              window.open(attachment.url, '_blank');
+                            }
                           }}
                         >
                           <IoDocumentAttach
                             size={20}
                             style={{ color: "#007476" }}
                           />
-                          <a
-                            href={attachment.url || "#"}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <div
                             style={{
                               color: "#007476",
-                              textDecoration: "underline",
                               fontSize: "18px",
                               fontWeight: "500",
+                              cursor: "pointer",
+                              textDecoration: "underline",
                             }}
                           >
                             {attachment.name || `Attachment ${index + 1}`}
-                          </a>
+                          </div>
                           <span
                             style={{
                               color: "#121212",
@@ -832,23 +862,38 @@ const JobProposalSubmit = () => {
                           display: "flex",
                           alignItems: "center",
                           gap: "8px",
+                          cursor: "pointer",
+                          padding: "8px",
+                          borderRadius: "8px",
+                          transition: "background-color 0.2s ease",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.target.style.backgroundColor = "#f8f9fa";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.target.style.backgroundColor = "transparent";
+                        }}
+                        onClick={() => {
+                          // For demo purposes, you can add a sample file URL here
+                          // window.open("sample-file-url", '_blank');
+                          console.log("Sample attachment clicked");
                         }}
                       >
                         <IoDocumentAttach
                           size={20}
                           style={{ color: "#007476" }}
                         />
-                        <a
-                          href="#"
+                        <div
                           style={{
                             color: "#007476",
                             textDecoration: "underline",
                             fontSize: "16px",
                             fontWeight: "500",
+                            cursor: "pointer",
                           }}
                         >
                           Untitled Project (4).jpg
-                        </a>
+                        </div>
                         <span
                           style={{
                             color: "#121212",

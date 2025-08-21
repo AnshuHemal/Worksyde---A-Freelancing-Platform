@@ -65,6 +65,10 @@ const ClientOverviewPage = () => {
 
   const navigate = useNavigate();
   const [publishingJobId, setPublishingJobId] = useState(null);
+  const [selectedJobForMenu, setSelectedJobForMenu] = useState(null);
+  // Auto-publish draft jobs when both verifications are complete
+  const [autoPublishing, setAutoPublishing] = useState(false);
+  const [autoPublishedJobIds, setAutoPublishedJobIds] = useState([]);
 
   // Function to get greeting based on time
   const getGreeting = () => {
@@ -194,6 +198,47 @@ const ClientOverviewPage = () => {
       .finally(() => setLoadingJobs(false));
   }, [userId]);
 
+  // Auto-publish any draft jobs once both email and phone are verified
+  useEffect(() => {
+    if (loadingJobs) return;
+    if (!verificationStatus.emailVerified || !verificationStatus.phoneVerified) return;
+    if (!jobs || jobs.length === 0) return;
+
+    const draftsToPublish = jobs.filter(
+      (j) => j.status === "draft" && !autoPublishedJobIds.includes(j.id)
+    );
+
+    if (draftsToPublish.length === 0) return;
+
+    const publishDrafts = async () => {
+      setAutoPublishing(true);
+      for (const job of draftsToPublish) {
+        try {
+          const res = await axios.post(
+            `${API_URL}/jobpost/publish/${job.id}/`,
+            {},
+            { withCredentials: true }
+          );
+          if (res.data.success) {
+            setJobs((prev) =>
+              prev.map((j) => (j.id === job.id ? { ...j, status: "verified" } : j))
+            );
+            setAutoPublishedJobIds((prev) => [...prev, job.id]);
+            toast.success(`Job post "${job.title || job.id}" published automatically.`);
+          } else {
+            toast.error(res.data.message || `Failed to publish job ${job.title || job.id}.`);
+          }
+        } catch (err) {
+          // Log and continue publishing others
+          console.error("Auto-publish error for job", job.id, err);
+        }
+      }
+      setAutoPublishing(false);
+    };
+
+    publishDrafts();
+  }, [verificationStatus.emailVerified, verificationStatus.phoneVerified, jobs, loadingJobs, autoPublishedJobIds]);
+
 
 
   const handleJobClick = (job) => {
@@ -237,7 +282,7 @@ const ClientOverviewPage = () => {
     }
   };
 
-  const handleThreeDotsClick = (event) => {
+  const handleThreeDotsClick = (event, job) => {
     event.preventDefault();
     event.stopPropagation();
     const rect = event.currentTarget.getBoundingClientRect();
@@ -247,18 +292,27 @@ const ClientOverviewPage = () => {
     };
     setDropdownPosition(position);
     setShowDropdown((prev) => !prev);
+    setSelectedJobForMenu(job || null);
   };
 
-  const handleEditDraft = () => {
+  const handleRemoveJobPost = async () => {
+    if (!selectedJobForMenu) return;
     setShowDropdown(false);
-    toast.success("Edit draft functionality");
-    // Add your edit draft logic here
-  };
-
-  const handleRemoveDraft = () => {
-    setShowDropdown(false);
-    toast.success("Remove draft functionality");
-    // Add your remove draft logic here
+    const confirmDelete = window.confirm("Are you sure you want to remove this job post? This action cannot be undone.");
+    if (!confirmDelete) return;
+    try {
+      const res = await axios.delete(`${API_URL}/jobpost/delete/${selectedJobForMenu.id}/`, { withCredentials: true });
+      if (res.data && res.data.success) {
+        setJobs((prev) => prev.filter((j) => j.id !== selectedJobForMenu.id));
+        toast.success("Job post removed successfully.");
+      } else {
+        toast.error(res.data?.message || "Failed to remove job post.");
+      }
+    } catch (err) {
+      toast.error("Failed to remove job post.");
+    } finally {
+      setSelectedJobForMenu(null);
+    }
   };
 
   // Phone verification handlers
@@ -1025,7 +1079,7 @@ const ClientOverviewPage = () => {
           <div className="client-greeting">
             {loadingUser ? "Loading..." : `${getGreeting()}, ${userName}.`}
           </div>
-          <Link to="/client/post-job">
+          <Link to="/job-post/instant/welcome">
             <button className="post-job-btn">
               <BsPlus size={18} /> Post a job
             </button>
@@ -1111,7 +1165,7 @@ const ClientOverviewPage = () => {
               style={{ gridColumn: "1 / -1", textAlign: "center" }}
             >
               No job posts yet.{" "}
-              <Link to="/client/post-job">Post your first job</Link>!
+              <Link to="/job-post/instant/welcome">Post your first job</Link>!
             </div>
           ) : (
             jobs.map((job) => {
@@ -1222,7 +1276,7 @@ const ClientOverviewPage = () => {
                             color: "#888",
                             cursor: "pointer",
                           }}
-                          onClick={handleThreeDotsClick}
+                          onClick={(e) => handleThreeDotsClick(e, job)}
                         />
                       </div>
                       <div
@@ -1389,18 +1443,25 @@ const ClientOverviewPage = () => {
                     </>
                   ) : (
                     <>
-                      <div className="job-card-header">
-                        <div className="job-card-title">
+                      <div className="job-card-header" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                        <div className="job-card-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <BsFileText className="job-card-icon" />
                           {job.title || "Untitled Job"}
                         </div>
-                        <span className="job-status-badge">
-                          {job.status === "draft"
-                            ? "Draft"
-                            : job.status === "verified"
-                            ? "Live"
-                            : job.status}
-                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className="job-status-badge">
+                            {job.status === "draft"
+                              ? "Draft"
+                              : job.status === "verified"
+                              ? "Live"
+                              : job.status}
+                          </span>
+                          <BsThreeDots
+                            className="job-card-menu"
+                            style={{ fontSize: 22, color: "#888", cursor: "pointer" }}
+                            onClick={(e) => handleThreeDotsClick(e, job)}
+                          />
+                        </div>
                       </div>
                       <div
                         className="job-status-message"
@@ -1439,7 +1500,7 @@ const ClientOverviewPage = () => {
           {/* Post Job Card */}
           <div className="overview-card">
             <Link
-              to="/client/post-job"
+              to="/job-post/instant/welcome"
               style={{ textDecoration: "none", height: "100%" }}
             >
               <div className="post-job-card">
@@ -1476,28 +1537,10 @@ const ClientOverviewPage = () => {
                 transition: "background-color 0.2s ease",
               }}
               onMouseEnter={(e) => (e.target.style.backgroundColor = "#f3f4f6")}
-              onMouseLeave={(e) =>
-                (e.target.style.backgroundColor = "transparent")
-              }
-              onClick={handleEditDraft}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = "transparent")}
+              onClick={handleRemoveJobPost}
             >
-              Edit draft
-            </div>
-            <div
-              style={{
-                padding: "8px 16px",
-                cursor: "pointer",
-                fontSize: "0.875rem",
-                color: "#374151",
-                transition: "background-color 0.2s ease",
-              }}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = "#f3f4f6")}
-              onMouseLeave={(e) =>
-                (e.target.style.backgroundColor = "transparent")
-              }
-              onClick={handleRemoveDraft}
-            >
-              Remove draft
+              Remove Job Post
             </div>
           </div>
         )}
