@@ -64,7 +64,6 @@ urlpatterns = [
     path('generate-job-title/', views.generate_job_title, name='generate_job_title'),
     path('add-job-scope-details/', views.add_job_scope, name='add_job_scope'),
     path('add-job-budget/', views.add_job_budget, name='add_job_budget'),
-    path('predict-budget/', views.predict_budget, name='predict_budget'),
     path("upload-attachments/", views.upload_job_post_attachment, name="upload_job_post_attachment"),
     # removed client email verification for job post
     path("jobposts/attachments/<str:id>/", views.get_job_attachment, name="get_job_attachment"),
