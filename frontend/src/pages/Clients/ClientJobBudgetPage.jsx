@@ -71,10 +71,69 @@ const ClientJobBudgetPage = () => {
     }
   };
 
-  const fetchPredictedBudget = async (jobData) => {
+  const fetchPredictedBudget = async () => {
     try {
+      setIsLoading(true);
       
+      // First, get the draft job ID using POST
+      console.log('Fetching draft job for user:', userId);
+      const draftRes = await axios.post(`${API_URL}/jobposts/draft/`, 
+        { userId },
+        { 
+          withCredentials: true,
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        }
+      );
       
+      console.log('Draft job response:', draftRes.data);
+      
+      if (!draftRes.data || !draftRes.data.jobPostId) {
+        throw new Error('No draft job found or invalid response format');
+      }
+      
+      const jobId = draftRes.data.jobPostId;
+      console.log('Fetching job details for ID:', jobId);
+      
+      // Then, fetch the job details using the job ID
+      const jobDetailsRes = await axios.get(`${API_URL}/jobposts/fetchJobById/`, {
+        params: { jobId },
+        withCredentials: true,
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      console.log('Job details response:', jobDetailsRes.data);
+      
+      if (!jobDetailsRes.data || !jobDetailsRes.data.success) {
+        throw new Error(jobDetailsRes.data?.message || 'Could not fetch job details');
+      }
+      
+      if (!jobDetailsRes.data.data) {
+        throw new Error('Job data is empty in the response');
+      }
+      
+      const job = jobDetailsRes.data.job || {};
+      console.log('Job details received:', job); // Debug log
+      
+      // Prepare job data for prediction with fallback values
+      const jobData = {
+        job_title: job.title || 'Untitled Job',
+        job_description: job.description || 'No description provided',
+        skills: Array.isArray(job.skills) ? job.skills : [],
+        experience_level: job.experienceLevel || 'Not specified',
+        project_duration: job.duration || 'Not specified',
+        scope: job.scopeOfWork || 'Not specified',
+        contract_type: typeof job.contractToHire === 'string' && job.contractToHire.includes('Yes') 
+          ? 'Contract to Hire' 
+          : 'Fixed Term'
+      };
+      
+      console.log('Sending prediction request with data:', jobData); // Debug log
+      
+      // Make the prediction request
       const res = await axios.post(`${API_URL}/predict-budget/`, jobData, {
         withCredentials: true,
         headers: {
@@ -82,10 +141,11 @@ const ClientJobBudgetPage = () => {
         },
       });
       
-      
       if (res.data.success) {
-        setPredictedBudget(res.data.predicted_budget);
-        toast.success(`AI suggests budget: ₹${res.data.predicted_budget}`);
+        const predictedAmount = res.data.predicted_budget;
+        setPredictedBudget(predictedAmount);
+        setHourlyRateFrom(predictedAmount); // Auto-fill the budget field with predicted value
+        toast.success(`AI suggests budget: ₹${predictedAmount}`);
       } else {
         toast.error(res.data.message || "Failed to get budget prediction");
       }
@@ -101,6 +161,8 @@ const ClientJobBudgetPage = () => {
         console.error("Request setup error:", err.message);
         toast.error("Error setting up the request");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -263,18 +325,24 @@ const ClientJobBudgetPage = () => {
                                   borderRadius: "8px",
                                   padding: "12px",
                                   fontSize: "0.9rem",
-                                  fontWeight: "600"
+                                  fontWeight: "600",
+                                  opacity: isLoading ? 0.8 : 1,
+                                  cursor: isLoading ? 'not-allowed' : 'pointer'
                                 }}
-                                onClick={() => fetchPredictedBudget({
-                                  description: "Sample project description",
-                                  category: "Web Development",
-                                  experience_level: "Intermediate",
-                                  client_country: "India",
-                                  payment_type: 'Fixed'
-                                })}
+                                onClick={fetchPredictedBudget}
+                                disabled={isLoading}
                               >
-                                <BsCalculator className="me-2" size={16} />
-                                Get AI Suggestion
+                                {isLoading ? (
+                                  <>
+                                    <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    Getting Suggestion...
+                                  </>
+                                ) : (
+                                  <>
+                                    <BsCalculator className="me-2" size={16} />
+                                    Get AI Suggestion
+                                  </>
+                                )}
                               </button>
                             </div>
                           </div>

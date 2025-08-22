@@ -48,6 +48,7 @@ const ClientMessagesPage = () => {
   const [selectedChat, setSelectedChat] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [message, setMessage] = useState("");
+  
   const inputRef = useRef(null);
   const [showLanguagePicker, setShowLanguagePicker] = useState(false);
   const [selectedLanguage, setSelectedLanguage] = useState("English");
@@ -220,25 +221,61 @@ const ClientMessagesPage = () => {
       }
       return;
     }
+    
     // Close previous connection
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
+    
     const roomId = selectedChat.room_id;
     roomIdRef.current = roomId;
+    
     if (!roomId) return;
+    
     const ws = new window.WebSocket(`ws://localhost:5000/ws/chat/${roomId}/`);
     wsRef.current = ws;
-    ws.onmessage = (event) => {
+    
+    ws.onopen = () => {
+      console.log('✅ WebSocket connected to room:', roomId);
+      console.log('WebSocket readyState after open:', ws.readyState);
+    };
+    
+    ws.onerror = (error) => {
+      console.error('WebSocket connection error');
+    };
+    
+    ws.onclose = (event) => {
+      console.log('WebSocket closed:', event.code, event.reason);
+      wsRef.current = null;
+    };
+    
+    ws.onmessage = async (event) => {
       const data = JSON.parse(event.data);
+      console.log('Received WebSocket data:', data);
+      
+      // Handle error messages
       if (data.error) {
-        toast.error(data.error);
+        console.log('WebSocket error:', data.error);
+        // Don't show toast for validation errors to prevent spam
         return;
       }
-      // Handle new message event
+
+      // Handle message status updates
+      if (data.status_update) {
+        setMessages(prev => 
+          prev.map(msg => 
+            msg._id === data.message_id 
+              ? { ...msg, status: data.status } 
+              : msg
+          )
+        );
+        return;
+      }
+
+      // Handle new message
       const newMsg = {
-        _id: data._id, // must be provided by backend!
+        _id: data._id || `temp-${Date.now()}`,
         room_id: roomIdRef.current,
         sender_id: data.sender_id,
         receiver_id: data.receiver_id,
@@ -246,92 +283,72 @@ const ClientMessagesPage = () => {
         timestamp: data.timestamp || new Date().toISOString(),
         system: null,
         attachment: data.attachment || null,
+        status: data.sender_id === currentUserId ? 'sent' : 'received'
       };
-      setMessages((prev) => {
-        if (newMsg._id && prev.some((m) => m._id === newMsg._id)) {
-          return prev;
-        }
-        // fallback: dedupe by timestamp/sender/content/attachment if no _id
-        if (
-          !newMsg._id &&
-          prev.some(
-            (m) =>
-              m.timestamp === newMsg.timestamp &&
-              m.sender_id === newMsg.sender_id &&
-              m.content === newMsg.content &&
-              JSON.stringify(m.attachment) === JSON.stringify(newMsg.attachment)
-          )
-        ) {
-          return prev;
-        }
-        return [...prev, newMsg];
+
+      // Update messages list - simple direct update for real-time rendering
+      setMessages(messages => {
+        // Quick duplicate check
+        const exists = messages.find(msg => 
+          msg._id === newMsg._id || 
+          (msg.content === newMsg.content && msg.timestamp === newMsg.timestamp && msg.sender_id === newMsg.sender_id)
+        );
+        
+        if (exists) return messages;
+        
+        // Direct array spread for immediate re-render
+        return [...messages, newMsg];
       });
-      // Always send delivered status for any message received for me (even if chat not open)
-      if (
-        wsRef.current &&
-        wsRef.current.readyState === 1 &&
-        newMsg.receiver_id === currentUserId &&
-        newMsg._id
-      ) {
-        wsRef.current.send(
-          JSON.stringify({
-            message: message,
-            sender_id: currentUserId,
-            receiver_id: selectedChat.other_user_id,
+
+      // Update chat list - direct update for immediate re-render
+      setChatList(chats => {
+        const chatIndex = chats.findIndex(chat => chat.room_id === newMsg.room_id);
+        if (chatIndex === -1) return chats;
+
+        // Create new array for re-render
+        const newChats = [...chats];
+        const targetChat = newChats[chatIndex];
+        
+        // Update chat with new message info
+        newChats[chatIndex] = {
+          ...targetChat,
+          last_message: {
+            content: newMsg.content,
             timestamp: newMsg.timestamp,
-          })
-        );
-      }
-      // If the chat is open and this message is from the selected chat, send read
-      if (
-        wsRef.current &&
-        wsRef.current.readyState === 1 &&
-        selectedChat &&
-        newMsg.sender_id === selectedChat.other_user_id &&
-        newMsg.receiver_id === currentUserId &&
-        newMsg._id
-      ) {
-        wsRef.current.send(
-          JSON.stringify({
-            status_update: true,
-            message_id: newMsg._id,
-            status: "read",
-          })
-        );
-      }
-      // Update chatList last_message in real time for any room, not just the selected one
-      setChatList((prev) => {
-        return prev.map((chat) => {
-          if (chat.room_id === roomId) {
-            // Only update if the message is newer
-            if (
-              !chat.last_message ||
-              new Date(data.timestamp) > new Date(chat.last_message.timestamp)
-            ) {
-              return {
-                ...chat,
-                last_message: {
-                  _id: data._id,
-                  content: data.message,
-                  timestamp: data.timestamp,
-                  sender_id: data.sender_id,
-                  status: data.sender_id === currentUserId ? "read" : "sent", // If I sent it, it's read for me
-                },
-              };
-            }
-          }
-          return chat;
-        });
+            status: newMsg.status,
+            _id: newMsg._id
+          },
+          unread_count: newMsg.sender_id !== currentUserId 
+            ? (targetChat.unread_count || 0) + 1 
+            : 0
+        };
+
+        // Move updated chat to top
+        const [updatedChat] = newChats.splice(chatIndex, 1);
+        return [updatedChat, ...newChats];
       });
-    };
-    ws.onclose = () => {
-      wsRef.current = null;
+
+      // Play notification sound for new messages from others
+      if (newMsg.sender_id !== currentUserId) {
+        const audio = new Audio(notificationSound);
+        audio.play().catch(e => console.log('Audio play failed:', e));
+      }
+
+      // Send delivered status for received messages
+      if (newMsg.receiver_id === currentUserId && newMsg._id) {
+        ws.send(JSON.stringify({
+          status_update: true,
+          message_id: newMsg._id,
+          status: 'delivered'
+        }));
+      }
     };
     return () => {
-      ws.close();
-      wsRef.current = null;
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
     };
-  }, [selectedChat, currentUserId, chatList]);
+  }, [selectedChat, currentUserId]);
 
   // Send read status for all received messages when chat is opened or messages change
   useEffect(() => {
@@ -824,28 +841,56 @@ const ClientMessagesPage = () => {
       system: null,
     };
     try {
-      await axios.post("/api/chats/", {
+      // Store message before clearing it
+      const messageToSend = message.trim();
+      
+      const response = await axios.post("/api/chats/", {
         sender: currentUserId,
         receiver: selectedChat.other_user_id,
-        message: message,
+        message: messageToSend,
       });
+      
+      // Send via WebSocket for real-time update (always send, let backend handle validation)
+      console.log('Checking WebSocket before send:', {
+        wsRef: wsRef.current,
+        readyState: wsRef.current?.readyState,
+        messageToSend: messageToSend
+      });
+      
+      if (wsRef.current && wsRef.current.readyState === 1 && messageToSend && currentUserId && selectedChat.other_user_id) {
+        const wsMessage = {
+          message: messageToSend,
+          sender_id: currentUserId,
+          receiver_id: selectedChat.other_user_id,
+        };
+        console.log('Sending WebSocket message:', wsMessage);
+        wsRef.current.send(JSON.stringify(wsMessage));
+      } else {
+        console.log('WebSocket not ready:', {
+          wsExists: !!wsRef.current,
+          readyState: wsRef.current?.readyState,
+          readyStateValue: wsRef.current?.readyState,
+          messageToSend: messageToSend,
+          currentUserId: currentUserId,
+          otherUserId: selectedChat?.other_user_id,
+          selectedChat: selectedChat
+        });
+      }
+      
+      // Clear input after sending
       setMessage("");
       setSuggestion("");
-      // Send via WebSocket for real-time update
-      if (wsRef.current && wsRef.current.readyState === 1) {
-        wsRef.current.send(
-          JSON.stringify({
-            message: message,
-            sender_id: currentUserId,
-            receiver_id: selectedChat.other_user_id,
-            timestamp: newMsg.timestamp,
-          })
-        );
-      }
       // Do NOT optimistically add the message here (let WebSocket handle it)
       // Do NOT re-fetch after a delay; rely on WebSocket for real-time update
     } catch (err) {
-      alert("Failed to send message: " + err.message);
+      // Handle backend validation errors
+      if (err.response && err.response.data && err.response.data.message) {
+        toast.error(err.response.data.message);
+      } else {
+        toast.error("Failed to send message");
+      }
+      // Don't clear message on error so user can retry
+      return;
     }
   };
 

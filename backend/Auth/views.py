@@ -1,5 +1,26 @@
+import os
+import pickle
+import numpy as np
 from rest_framework.decorators import api_view, parser_classes
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+from rest_framework import status
+from ml_models.budget_predictor import budget_predictor
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.response import Response
+from rest_framework import status
+from django.conf import settings
+
+# Load the budget prediction model
+MODEL_PATH = os.path.join(settings.BASE_DIR, 'ml_models', 'budget_model.pkl')
+try:
+    with open(MODEL_PATH, 'rb') as f:
+        budget_model = pickle.load(f)
+except FileNotFoundError:
+    budget_model = None
+    print(f"Warning: Could not load budget model from {MODEL_PATH}"), JSONParser
+from rest_framework.response import Response
+from rest_framework import status
+from django.conf import settings
 from rest_framework.response import Response
 from rest_framework import status
 from mongoengine.errors import DoesNotExist
@@ -279,8 +300,96 @@ def release_payment_submission(request, submission_id):
         print('release_payment_submission error:', e)
         return Response({"success": False, "message": "Server error"}, status=500)
 
-@api_view(["GET"])
-@verify_token
+@api_view(['POST'])
+@parser_classes([JSONParser])
+def predict_budget(request):
+    """
+    Predict budget based on input features using the trained model.
+    Expected input format:
+    {
+        'job_title': str,
+        'job_description': str,
+        'skills': list[str],
+        'experience_level': str,
+        'project_duration': str,
+        'scope': str,
+        'contract_type': str
+    }
+    """
+    if not budget_predictor.model:
+        return Response(
+            {'success': False, 'message': 'Budget prediction model not available'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE
+        )
+
+    try:
+        data = request.data
+        
+        # Validate required fields
+        required_fields = ['job_title', 'job_description', 'experience_level', 'project_duration']
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        
+        if missing_fields:
+            return Response(
+                {'success': False, 'message': f'Missing required fields: {", ".join(missing_fields)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Prepare input features for prediction
+        input_features = {
+            'job_title': data.get('job_title', ''),
+            'job_description': data.get('job_description', ''),
+            'skills': data.get('skills', []),
+            'experience_level': data.get('experience_level', 'Not specified'),
+            'project_duration': data.get('project_duration', 'Not specified'),
+            'scope': data.get('scope', 'Not specified'),
+            'contract_type': data.get('contract_type', 'Fixed Term')
+        }
+        
+        # Make prediction
+        prediction = budget_predictor.predict_budget(input_features)
+        
+        # Handle different prediction result formats
+        if isinstance(prediction, dict):
+            # If prediction is a dictionary, try to extract a numeric value
+            if 'prediction' in prediction:
+                prediction = prediction['prediction']
+            elif 'value' in prediction:
+                prediction = prediction['value']
+            else:
+                # If no known keys, try to use the first numeric value
+                for val in prediction.values():
+                    if isinstance(val, (int, float, np.number)):
+                        prediction = val
+                        break
+                else:
+                    raise ValueError("Could not extract numeric prediction from dictionary")
+        
+        # Convert numpy types to Python native types for JSON serialization
+        if isinstance(prediction, (np.floating, np.integer)):
+            prediction = float(prediction)
+            
+        # Ensure prediction is within reasonable bounds (100 to 100,000)
+        if not isinstance(prediction, (int, float)):
+            raise ValueError(f"Prediction must be a number, got {type(prediction)}")
+            
+        prediction = max(100, min(prediction, 100000))
+        
+        return Response({
+            'success': True,
+            'predicted_budget': round(prediction, 2),
+            'message': 'Budget prediction successful'
+        })
+        
+    except Exception as e:
+        print(f"Prediction error: {str(e)}")
+        traceback.print_exc()
+        return Response(
+            {'success': False, 'message': f'Error making prediction: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
 def get_submission_pdf(request, submission_id):
     """Serve the submission PDF either from stored binary or return external link if present."""
     try:
@@ -2761,9 +2870,15 @@ def upload_job_post_attachment(request):
         if not job_post:
             return Response({"message": "Job post not found"}, status=404)
 
-        # Update job post with description
+        # Update job post with description if provided
         if description:
             job_post.description = description
+            
+        # Ensure isContractToHire has a valid value before saving
+        if not hasattr(job_post, 'isContractToHire') or not job_post.isContractToHire:
+            job_post.isContractToHire = "No, not at this time"
+        elif job_post.isContractToHire not in ["Yes, this is a contract-to-hire opportunity", "No, not at this time"]:
+            job_post.isContractToHire = "No, not at this time"
         
         # Handle file upload if provided
         if file:

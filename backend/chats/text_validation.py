@@ -6,7 +6,7 @@ f_words = [
 
 # Patterns for contact information and social media
 email_pattern = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b")
-phone_pattern = re.compile(r"(\+?\d{1,3}[\s-]?)?(\(?\d{3,4}\)?[\s.-]?)?[\d\s.-]{7,}")
+phone_pattern = re.compile(r"(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}|\b\d{10,}\b")
 social_media_pattern = re.compile(r"(https?://)?(www\.)?(facebook\.com|instagram\.com|twitter\.com|tiktok\.com|snapchat\.com|linkedin\.com|youtube\.com|whatsapp\.com|telegram\.me|t\.me|wechat\.com|tinder\.com)[/\w\-.?=&%+]*", re.IGNORECASE)
 phone_words_pattern = re.compile(
     r'\b('
@@ -42,7 +42,8 @@ def validate_text(text):
     phone_matches = phone_pattern.findall(text)
     for match in phone_matches:
         # Only block if it looks like a real phone number (not just digits)
-        if len(''.join(filter(str.isdigit, match))) >= 10:
+        digits = ''.join(filter(str.isdigit, match))
+        if len(digits) >= 10:
             return False
     phone_words_matches = phone_words_pattern.findall(text)
     for match in phone_words_matches:
