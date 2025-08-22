@@ -71,17 +71,80 @@ const ClientJobBudgetPage = () => {
     }
   };
 
-  const fetchPredictedBudget = async (jobData) => {
+  const fetchPredictedBudget = async () => {
     try {
+      setIsLoading(true);
       
+      // Default fallback data
+      let jobData = {
+        description: "Web development project with standard features",
+        category: "Web, Mobile & Software Dev",
+        experience_level: "Intermediate",
+        client_country: "India",
+        payment_type: 'Fixed',
+        applicants_num: 15.0,
+        freelancers_num: 8.0
+      };
       
+      try {
+        // Try to fetch job details from the database using the jobId
+        if (userId) {
+          const jobIdRes = await axios.post(`${API_URL}/jobposts/draft/`, {
+            userId,
+          });
+          const jobId = jobIdRes.data.jobPostId;
+          
+          console.log("🔍 Fetching job details for jobId:", jobId);
+          
+          // Fetch job details from the database
+          const jobDetailsRes = await axios.get(`${API_URL}/jobpost/${jobId}/`);
+          console.log("📋 Raw job details response:", jobDetailsRes.data);
+          
+          if (jobDetailsRes.data.success && jobDetailsRes.data.jobPost) {
+            const job = jobDetailsRes.data.jobPost;
+            console.log("📋 Full job object:", job);
+            
+            // Extract actual job data with better field mapping
+            jobData = {
+              description: job.title || job.description || "Creative design project", // Use title as description if available
+              category: job.categoryId?.name || job.category || "Design & Creative", // Better category fallback
+              experience_level: job.experienceLevel || "Entry", // Use actual experience level
+              client_country: "India", // Default for now
+              payment_type: 'Fixed', // Default for now
+              applicants_num: 15.0, // Default for now
+              freelancers_num: 8.0 // Default for now
+            };
+            
+            // If we have scope information, use it to enhance the description
+            if (job.scopeOfWork) {
+              jobData.description = `${jobData.description} - ${job.scopeOfWork} scope`;
+            }
+            
+            // If we have duration, add it to description
+            if (job.duration) {
+              jobData.description = `${jobData.description} (${job.duration})`;
+            }
+            
+            console.log("📋 Extracted and enhanced job data:", jobData);
+          } else {
+            console.log("⚠️ Job details response structure:", jobDetailsRes.data);
+          }
+        }
+      } catch (fetchError) {
+        console.log("⚠️ Could not fetch job details, using defaults:", fetchError.message);
+        console.log("🔍 Fetch error details:", fetchError);
+        // Continue with default values
+      }
+      
+      console.log("🚀 Sending job data to AI prediction:", jobData);
+      
+      // Now make the budget prediction request
       const res = await axios.post(`${API_URL}/predict-budget/`, jobData, {
         withCredentials: true,
         headers: {
           'Content-Type': 'application/json',
         },
       });
-      
       
       if (res.data.success) {
         setPredictedBudget(res.data.predicted_budget);
@@ -101,6 +164,8 @@ const ClientJobBudgetPage = () => {
         console.error("Request setup error:", err.message);
         toast.error("Error setting up the request");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -265,16 +330,22 @@ const ClientJobBudgetPage = () => {
                                   fontSize: "0.9rem",
                                   fontWeight: "600"
                                 }}
-                                onClick={() => fetchPredictedBudget({
-                                  description: "Sample project description",
-                                  category: "Web Development",
-                                  experience_level: "Intermediate",
-                                  client_country: "India",
-                                  payment_type: 'Fixed'
-                                })}
+                                onClick={() => fetchPredictedBudget()}
+                                disabled={isLoading}
                               >
-                                <BsCalculator className="me-2" size={16} />
-                                Get AI Suggestion
+                                {isLoading ? (
+                                  <>
+                                    <div className="spinner-border spinner-border-sm me-2" role="status">
+                                      <span className="visually-hidden">Loading...</span>
+                                    </div>
+                                    Getting AI Suggestion...
+                                  </>
+                                ) : (
+                                  <>
+                                    <BsCalculator className="me-2" size={16} />
+                                    Get AI Suggestion
+                                  </>
+                                )}
                               </button>
                             </div>
                           </div>
