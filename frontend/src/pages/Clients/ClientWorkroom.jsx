@@ -659,11 +659,11 @@ const ClientWorkroom = () => {
                 borderRadius: 12,
                 padding: 24,
                 border: "1px solid #e0e0e0",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-                height: "fit-content",
-                position: "relative",
-                transition: "box-shadow 0.3s ease, border-color 0.3s ease",
-                borderColor: highlightEarnings ? "#007674" : "#e0e0e0",
+                // boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                // height: "fit-content",
+                // position: "relative",
+                // transition: "box-shadow 0.3s ease, border-color 0.3s ease",
+                // borderColor: highlightEarnings ? "#007674" : "#e0e0e0",
                 boxShadow: highlightEarnings
                   ? "0 0 0 3px rgba(0,118,116,0.15), 0 8px 24px rgba(0,0,0,0.08)"
                   : "0 2px 8px rgba(0,0,0,0.1)",
