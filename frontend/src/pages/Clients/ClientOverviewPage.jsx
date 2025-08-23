@@ -42,7 +42,38 @@ const ClientOverviewPage = () => {
   const [viewMode, setViewMode] = useState("grid"); // grid or list
   const [showDropdown, setShowDropdown] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ x: 0, y: 0 });
+  const [lastRefreshTime, setLastRefreshTime] = useState(null);
 
+  // Function to fetch and sort jobs
+  const fetchAndSortJobs = async () => {
+    if (!userId) return;
+    
+    setLoadingJobs(true);
+    try {
+      const res = await axios.get(`${API_URL}/jobposts/client/${userId}/`);
+      const jobsData = res.data.data || [];
+      
+      // Sort jobs by creation/update time in descending order (newest first)
+      const sortedJobs = jobsData.sort((a, b) => {
+        const aTime = a.updatedAt || a.createdAt;
+        const bTime = b.updatedAt || b.createdAt;
+        
+        if (!aTime && !bTime) return 0;
+        if (!aTime) return 1;
+        if (!bTime) return -1;
+        
+        return new Date(bTime) - new Date(aTime);
+      });
+      
+      setJobs(sortedJobs);
+      setLastRefreshTime(new Date());
+    } catch (error) {
+      toast.error("Failed to fetch jobs");
+      console.error("Error fetching jobs:", error);
+    } finally {
+      setLoadingJobs(false);
+    }
+  };
 
   // Phone verification modal states
   const [showPhoneModal, setShowPhoneModal] = useState(false);
@@ -187,15 +218,9 @@ const ClientOverviewPage = () => {
   }, []);
 
   useEffect(() => {
-    if (!userId) return;
-    setLoadingJobs(true);
-    axios
-      .get(`${API_URL}/jobposts/client/${userId}/`)
-      .then((res) => {
-        setJobs(res.data.data || []);
-      })
-      .catch(() => toast.error("Failed to fetch jobs"))
-      .finally(() => setLoadingJobs(false));
+    if (userId) {
+      fetchAndSortJobs();
+    }
   }, [userId]);
 
   // Auto-publish any draft jobs once both email and phone are verified
@@ -220,9 +245,22 @@ const ClientOverviewPage = () => {
             { withCredentials: true }
           );
           if (res.data.success) {
-            setJobs((prev) =>
-              prev.map((j) => (j.id === job.id ? { ...j, status: "verified" } : j))
-            );
+            setJobs((prev) => {
+              const updatedJobs = prev.map((j) => 
+                j.id === job.id ? { ...j, status: "verified", updatedAt: new Date().toISOString() } : j
+              );
+              // Re-sort jobs after update to maintain chronological order
+              return updatedJobs.sort((a, b) => {
+                const aTime = a.updatedAt || a.createdAt;
+                const bTime = b.updatedAt || b.createdAt;
+                
+                if (!aTime && !bTime) return 0;
+                if (!aTime) return 1;
+                if (!bTime) return -1;
+                
+                return new Date(bTime) - new Date(aTime);
+              });
+            });
             setAutoPublishedJobIds((prev) => [...prev, job.id]);
             toast.success(`Job post "${job.title || job.id}" published automatically.`);
           } else {
@@ -303,7 +341,20 @@ const ClientOverviewPage = () => {
     try {
       const res = await axios.delete(`${API_URL}/jobpost/delete/${selectedJobForMenu.id}/`, { withCredentials: true });
       if (res.data && res.data.success) {
-        setJobs((prev) => prev.filter((j) => j.id !== selectedJobForMenu.id));
+        setJobs((prev) => {
+          const filteredJobs = prev.filter((j) => j.id !== selectedJobForMenu.id);
+          // Re-sort remaining jobs to maintain chronological order
+          return filteredJobs.sort((a, b) => {
+            const aTime = a.updatedAt || a.createdAt;
+            const bTime = b.updatedAt || b.createdAt;
+            
+            if (!aTime && !bTime) return 0;
+            if (!aTime) return 1;
+            if (!bTime) return -1;
+            
+            return new Date(bTime) - new Date(aTime);
+          });
+        });
         toast.success("Job post removed successfully.");
       } else {
         toast.error(res.data?.message || "Failed to remove job post.");
@@ -523,7 +574,7 @@ const ClientOverviewPage = () => {
       icon: <BsShield size={20} />,
       action: (
         <Link
-          to="#"
+          to="/ws/client/deposit-method"
           style={{
             color: verificationStatus.billingMethodAdded ? "#007476" : "#000",
             fontWeight: 600,
@@ -567,6 +618,11 @@ const ClientOverviewPage = () => {
       }}
     >
       <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        
         .client-main-container {
           max-width: 1400px;
           margin: 0 auto;
@@ -1142,6 +1198,68 @@ const ClientOverviewPage = () => {
         {/* Overview Section */}
         <div className="overview-header">
           <div className="section-title">Overview</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {lastRefreshTime && (
+              <span style={{ 
+                fontSize: '16px', 
+                color: '#6b7280',
+              }}>
+                Last updated: {lastRefreshTime.toLocaleTimeString()}
+              </span>
+            )}
+            <button
+              onClick={fetchAndSortJobs}
+              disabled={loadingJobs}
+              style={{
+                background: 'transparent',
+                border: '1px solid #d1d5db',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontSize: '14px',
+                color: '#374151',
+                cursor: loadingJobs ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                if (!loadingJobs) {
+                  e.target.style.background = '#f3f4f6';
+                  e.target.style.borderColor = '#9ca3af';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!loadingJobs) {
+                  e.target.style.background = 'transparent';
+                  e.target.style.borderColor = '#d1d5db';
+                }
+              }}
+            >
+              {loadingJobs ? (
+                <>
+                  <div 
+                    style={{
+                      width: '12px',
+                      height: '12px',
+                      border: '2px solid #d1d5db',
+                      borderTop: '2px solid #6b7280',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite'
+                    }}
+                  />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M23 4v6h-6M1 20v-6h6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                  </svg>
+                  Refresh
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="overview-grid">
@@ -1197,11 +1315,22 @@ const ClientOverviewPage = () => {
                     );
                     if (res.data.success) {
                       toast.success("Job post published successfully!");
-                      setJobs((prevJobs) =>
-                        prevJobs.map((j) =>
-                          j.id === job.id ? { ...j, status: "verified" } : j
-                        )
-                      );
+                      setJobs((prevJobs) => {
+                        const updatedJobs = prevJobs.map((j) =>
+                          j.id === job.id ? { ...j, status: "verified", updatedAt: new Date().toISOString() } : j
+                        );
+                        // Re-sort jobs after update to maintain chronological order
+                        return updatedJobs.sort((a, b) => {
+                          const aTime = a.updatedAt || a.createdAt;
+                          const bTime = b.updatedAt || b.createdAt;
+                          
+                          if (!aTime && !bTime) return 0;
+                          if (!aTime) return 1;
+                          if (!bTime) return -1;
+                          
+                          return new Date(bTime) - new Date(aTime);
+                        });
+                      });
                     } else {
                       toast.error(
                         res.data.message || "Failed to publish job post."

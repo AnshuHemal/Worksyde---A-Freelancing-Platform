@@ -39,6 +39,9 @@ const PhotoAndLocationSection = () => {
   });
   const [loading, setLoading] = useState(false);
   const [ageError, setAgeError] = useState("");
+  const [imageUploadError, setImageUploadError] = useState(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
   const navigate = useNavigate();
 
   const API_URL = "http://localhost:5000/api/auth";
@@ -115,6 +118,7 @@ const PhotoAndLocationSection = () => {
     if (file) {
       const imageDataUrl = await readFile(file);
       setImageSrc(imageDataUrl);
+      setSelectedImage(file);
       setShowModal(true);
     }
   };
@@ -131,11 +135,58 @@ const PhotoAndLocationSection = () => {
     };
   };
 
+  // Handle uploading profile image to database
+  const handleUploadProfileImage = async () => {
+    if (!selectedImage) {
+      setImageUploadError("Please select an image to upload");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setImageUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedImage);
+      formData.append("userId", userId);
+
+      const response = await axios.post(`${API_URL}/upload-photo/`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      if (response.data.photoUrl) {
+        // Image uploaded successfully to database
+        setCroppedImage(null);
+        setSelectedImage(null);
+        setImageSrc(null);
+        setCroppedAreaPixels(null);
+        console.log("Profile image uploaded successfully to database");
+      } else {
+        setImageUploadError("Failed to upload image. Please try again.");
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      setImageUploadError(
+        error.response?.data?.message ||
+          "Failed to upload image. Please try again."
+      );
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const handleNext = async () => {
     // Validate age before proceeding
     if (formData.dob && !isUser18Plus(formData.dob)) {
       setAgeError("You must be at least 18 years old to create a freelancer profile.");
       return;
+    }
+
+    // Upload profile image if selected
+    if (selectedImage) {
+      await handleUploadProfileImage();
     }
 
     setLoading(true);
@@ -145,7 +196,6 @@ const PhotoAndLocationSection = () => {
         {
           userId,
           ...formData,
-          photo: croppedImage, // Send the uploaded photo URL
           phone: `${countryCode}${rawPhoneNumber}`,
         }
       );
@@ -170,7 +220,7 @@ const PhotoAndLocationSection = () => {
     }
     
     return (
-      croppedImage &&
+      selectedImage &&
       formData.dob &&
       formData.street &&
       formData.city &&
@@ -390,10 +440,10 @@ const PhotoAndLocationSection = () => {
                     className="mb-5"
                   >
                     <div className="text-center">
-                      {croppedImage ? (
+                      {selectedImage ? (
                         <div className="mb-4 position-relative">
                           <img
-                            src={croppedImage}
+                            src={croppedImage || URL.createObjectURL(selectedImage)}
                             alt="Profile Preview"
                             className="profile-preview mb-3"
                           />
@@ -402,6 +452,7 @@ const PhotoAndLocationSection = () => {
                           <button
                             className="btn position-absolute"
                             onClick={() => {
+                              setSelectedImage(null);
                               setCroppedImage(null);
                               setImageSrc(null);
                               setCroppedAreaPixels(null);
@@ -473,6 +524,24 @@ const PhotoAndLocationSection = () => {
                               Change Photo
                             </button>
                           </div>
+                          
+                          {/* Image Upload Error */}
+                          {imageUploadError && (
+                            <div className="mt-3">
+                              <small style={{ color: "#dc3545", fontSize: "0.9rem" }}>
+                                {imageUploadError}
+                              </small>
+                            </div>
+                          )}
+                          
+                          {/* Image Upload Loading */}
+                          {isUploadingImage && (
+                            <div className="mt-3">
+                              <small style={{ color: "#007674", fontSize: "0.9rem" }}>
+                                Uploading image...
+                              </small>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div
@@ -820,7 +889,7 @@ const PhotoAndLocationSection = () => {
                         className="mt-3 mb-0"
                         style={{ color: "#121212", fontSize: "1.1rem" }}
                       >
-                        Please fill in all required fields and upload a photo.
+                        Please fill in all required fields and select a profile photo.
                       </p>
                     )}
                   </motion.div>

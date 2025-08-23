@@ -272,7 +272,7 @@ const SubmitProfile = () => {
                               className="fw-bold mb-2"
                               style={{ color: "#121212", fontSize: "1.8rem", letterSpacing: '0.3px' }}
                             >
-                              {userDetails.name || "Hemal Katariya"}
+                              {userDetails.name || "Username"}
                             </h3>
                             <div className="d-flex align-items-center mb-2">
                               <BsGeoAlt

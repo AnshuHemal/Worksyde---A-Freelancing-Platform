@@ -1,26 +1,5 @@
-import os
-import pickle
-import numpy as np
 from rest_framework.decorators import api_view, parser_classes
-from rest_framework.response import Response
-from rest_framework import status
-from ml_models.budget_predictor import budget_predictor
-from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from rest_framework.response import Response
-from rest_framework import status
-from django.conf import settings
-
-# Load the budget prediction model
-MODEL_PATH = os.path.join(settings.BASE_DIR, 'ml_models', 'budget_model.pkl')
-try:
-    with open(MODEL_PATH, 'rb') as f:
-        budget_model = pickle.load(f)
-except FileNotFoundError:
-    budget_model = None
-    print(f"Warning: Could not load budget model from {MODEL_PATH}"), JSONParser
-from rest_framework.response import Response
-from rest_framework import status
-from django.conf import settings
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
 from mongoengine.errors import DoesNotExist
@@ -300,96 +279,8 @@ def release_payment_submission(request, submission_id):
         print('release_payment_submission error:', e)
         return Response({"success": False, "message": "Server error"}, status=500)
 
-@api_view(['POST'])
-@parser_classes([JSONParser])
-def predict_budget(request):
-    """
-    Predict budget based on input features using the trained model.
-    Expected input format:
-    {
-        'job_title': str,
-        'job_description': str,
-        'skills': list[str],
-        'experience_level': str,
-        'project_duration': str,
-        'scope': str,
-        'contract_type': str
-    }
-    """
-    if not budget_predictor.model:
-        return Response(
-            {'success': False, 'message': 'Budget prediction model not available'},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE
-        )
-
-    try:
-        data = request.data
-        
-        # Validate required fields
-        required_fields = ['job_title', 'job_description', 'experience_level', 'project_duration']
-        missing_fields = [field for field in required_fields if not data.get(field)]
-        
-        if missing_fields:
-            return Response(
-                {'success': False, 'message': f'Missing required fields: {", ".join(missing_fields)}'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        # Prepare input features for prediction
-        input_features = {
-            'job_title': data.get('job_title', ''),
-            'job_description': data.get('job_description', ''),
-            'skills': data.get('skills', []),
-            'experience_level': data.get('experience_level', 'Not specified'),
-            'project_duration': data.get('project_duration', 'Not specified'),
-            'scope': data.get('scope', 'Not specified'),
-            'contract_type': data.get('contract_type', 'Fixed Term')
-        }
-        
-        # Make prediction
-        prediction = budget_predictor.predict_budget(input_features)
-        
-        # Handle different prediction result formats
-        if isinstance(prediction, dict):
-            # If prediction is a dictionary, try to extract a numeric value
-            if 'prediction' in prediction:
-                prediction = prediction['prediction']
-            elif 'value' in prediction:
-                prediction = prediction['value']
-            else:
-                # If no known keys, try to use the first numeric value
-                for val in prediction.values():
-                    if isinstance(val, (int, float, np.number)):
-                        prediction = val
-                        break
-                else:
-                    raise ValueError("Could not extract numeric prediction from dictionary")
-        
-        # Convert numpy types to Python native types for JSON serialization
-        if isinstance(prediction, (np.floating, np.integer)):
-            prediction = float(prediction)
-            
-        # Ensure prediction is within reasonable bounds (100 to 100,000)
-        if not isinstance(prediction, (int, float)):
-            raise ValueError(f"Prediction must be a number, got {type(prediction)}")
-            
-        prediction = max(100, min(prediction, 100000))
-        
-        return Response({
-            'success': True,
-            'predicted_budget': round(prediction, 2),
-            'message': 'Budget prediction successful'
-        })
-        
-    except Exception as e:
-        print(f"Prediction error: {str(e)}")
-        traceback.print_exc()
-        return Response(
-            {'success': False, 'message': f'Error making prediction: {str(e)}'},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-
+@api_view(["GET"])
+@verify_token
 def get_submission_pdf(request, submission_id):
     """Serve the submission PDF either from stored binary or return external link if present."""
     try:
@@ -2011,7 +1902,11 @@ def add_photo_location(request):
         user_id = request.data.get("userId")
         dob = request.data.get("dob")
         phone = request.data.get("phone")
-        photo = request.data.get("photo")
+        street = request.data.get("street")
+        city = request.data.get("city")
+        state = request.data.get("state")
+        postal_code = request.data.get("postalCode")
+        country = request.data.get("country")
 
         if not user_id:
             return Response({"message": "User ID is required"}, status=400)
@@ -2025,9 +1920,2354 @@ def add_photo_location(request):
             req_obj.dob = dob
         if phone is not None:
             req_obj.phone = phone
-        if photo is not None:
-            req_obj.photograph = photo
+        if street is not None:
+            req_obj.streetAddress = street
+        if city is not None:
+            req_obj.city = city
+        if state is not None:
+            req_obj.state = state
+        if postal_code is not None:
+            req_obj.postalCode = postal_code
+        if country is not None:
+            req_obj.country = country
             
+        req_obj.save()
+
+        return Response(
+            {"message": "Profile details updated successfully"}, status=200
+        )
+
+    except Exception as e:
+        print("Error saving profile details:", e)
+        return Response({"message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser])
+def add_photograph(request):
+    if "file" not in request.FILES:
+        return Response({"message": "No file uploaded"}, status=400)
+
+    file = request.FILES["file"]
+    if not file.content_type.startswith("image/"):
+        return Response({"message": "Only image files are allowed"}, status=400)
+
+    # Get user ID from request data
+    user_id = request.data.get("userId")
+    if not user_id:
+        return Response({"message": "User ID is required"}, status=400)
+
+    try:
+        # Read the file data
+        image_data = file.read()
+        image_content_type = file.content_type
+
+        # Find the user
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        # Store image data directly in the database
+        user.profileImage = image_data
+        user.profileImageContentType = image_content_type
+        user.save()
+
+        print(f"Profile image saved to database successfully: {len(image_data)} bytes, type: {image_content_type}")
+
+        # Return success response with a flag indicating image is stored in database
+        return Response({
+            "message": "Profile image uploaded successfully",
+            "photoUrl": True  # Indicate image is stored in database
+        }, status=200)
+
+    except Exception as e:
+        print("Error uploading photograph:", e)
+        return Response({"message": "Error uploading photograph", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+def get_profile_image(request, user_id):
+    """Serve profile image from database"""
+    try:
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+        
+        if not user.profileImage:
+            return Response({"message": "Profile image not found"}, status=404)
+
+        from django.http import HttpResponse
+        response = HttpResponse(user.profileImage, content_type=user.profileImageContentType)
+        response['Content-Disposition'] = 'inline'
+        return response
+
+    except Exception as e:
+        print("Error serving profile image:", e)
+        return Response({"message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+def add_video_introduction(request):
+    """
+    Save video introduction URL to user's profile
+    """
+    try:
+        data = request.data
+        user_id = data.get("userId")
+        video_url = data.get("videoUrl")
+
+        if not user_id:
+            return Response({"message": "User ID is required"}, status=400)
+
+        # Handle deletion (empty string means delete)
+        if video_url == "":
+            print(f"Deleting video introduction for user: {user_id}")
+            # Find user profile
+            user = User.objects(id=user_id).first()
+            if not user:
+                return Response({"message": "User not found"}, status=404)
+
+            req_obj = Requests.objects(userId=user).first()
+            if req_obj:
+                # Remove video introduction by setting to None
+                req_obj.videoIntro = None
+                req_obj.save()
+                print(f"Video introduction removed for user: {user_id}")
+
+            return Response({
+                "message": "Video introduction removed successfully",
+                "videoUrl": ""
+            }, status=200)
+
+        # Validate YouTube URL format for non-empty URLs
+        if not video_url.startswith("https://www.youtube.com/") and not video_url.startswith("https://youtu.be/"):
+            return Response({"message": "Please provide a valid YouTube URL"}, status=400)
+
+        # Find or create user profile
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        req_obj = Requests.objects(userId=user).first()
+        if not req_obj:
+            req_obj = Requests(userId=user)
+
+        # Save video introduction URL
+        req_obj.videoIntro = video_url
+        req_obj.save()
+        print(f"Video introduction saved for user: {user_id}, URL: {video_url}")
+
+        return Response({
+            "message": "Video introduction saved successfully",
+            "videoUrl": video_url
+        }, status=200)
+
+    except Exception as e:
+        print("Error saving video introduction:", e)
+        return Response({"message": "Error saving video introduction", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+def get_profile_details(request, user_id):
+    try:
+        user_profile = Requests.objects(userId=user_id).first()
+        if not user_profile:
+            return Response({"message": "User profile not found"}, status=404)
+
+        # Get user for profile image
+        user = User.objects(id=user_id).first()
+        has_profile_image = user and user.profileImage is not None
+
+        profile = {
+            "userId": str(user_profile.userId.id),
+            "name": user.name if user else None,  # Add user name
+            "title": user_profile.title,
+            "resume": user_profile.resume,
+            "bio": user_profile.bio,
+            "dob": user_profile.dob,
+            "phone": user_profile.phone,
+            "photograph": f"/api/auth/profile-image/{user_id}/" if has_profile_image else None,  # Return actual image URL
+            "videoIntro": user_profile.videoIntro,
+            "hourlyRate": float(user_profile.hourlyRate or 0),
+            "status": user_profile.status,
+            # Add address fields
+            "street": user_profile.streetAddress,
+            "city": user_profile.city,
+            "state": user_profile.state,
+            "postalCode": user_profile.postalCode,
+            "country": user_profile.country,
+            "category": (
+                {
+                    "_id": str(user_profile.categoryId.id),
+                    "name": user_profile.categoryId.name,
+                }
+                if user_profile.categoryId
+                else None
+            ),
+            "skills": [{"_id": str(s.id), "name": s.name} for s in user_profile.skills],
+            "specialities": [
+                {"_id": str(sp.id), "name": sp.name} for sp in user_profile.specialities
+            ],
+            "languages": [
+                {"name": lang.name, "proficiency": lang.proficiency}
+                for lang in user_profile.languages
+            ],
+            "workExperience": [
+                {
+                    "_id": str(w.id),
+                    "title": w.title,
+                    "company": w.company,
+                    "city": w.city,
+                    "country": w.country,
+                    "startDate": w.startDate,
+                    "endDate": w.endDate,
+                    "description": w.description,
+                }
+                for w in user_profile.workExperience
+            ],
+            "education": [
+                {
+                    "_id": str(e.id),
+                    "school": e.school,
+                    "degree": e.degree,
+                    "fieldOfStudy": e.fieldOfStudy,
+                    "startYear": (e.startYear if e.startYear else None),
+                    "endYear": (e.endYear if e.endYear else None),
+                    "description": e.description,
+                }
+                for e in user_profile.education
+            ],
+            "otherExperiences": [
+                {
+                    "_id": str(exp.id),
+                    "subject": exp.subject,
+                    "description": exp.description,
+                    "createdAt": exp.createdAt,
+                    "updatedAt": exp.updatedAt,
+                }
+                for exp in user_profile.otherExperiences
+            ],
+        }
+
+        return Response(profile)
+
+    except Exception as e:
+        print("Error:", e)
+        return Response({"message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+def add_education(request):
+    try:
+        user_id = request.data.get("userId")
+        if not user_id:
+            return Response({"message": "User ID is required"}, status=400)
+
+        education = Education(
+            userId=user_id,
+            school=request.data.get("school"),
+            degree=request.data.get("degree"),
+            fieldOfStudy=request.data.get("fieldOfStudy"),
+            startYear=request.data.get("startYear"),
+            endYear=request.data.get("endYear"),
+            description=request.data.get("description"),
+        )
+        education.save()
+
+        req_obj = Requests.objects(userId=user_id).first()
+        if not req_obj:
+            return Response({"message": "Request not found"}, status=404)
+
+        req_obj.education.append(education)
+        req_obj.save()
+
+        return Response(
+            {"message": "Education added", "educationId": str(education.id)}, status=200
+        )
+    except Exception as e:
+        print(f"Error: {e}")  # or use logging for more advanced logging
+        return Response(
+            {"message": "Error adding education", "error": str(e)}, status=500
+        )
+
+
+@api_view(["PUT"])
+def update_education(request, education_id):
+    try:
+        education = Education.objects.get(id=education_id)
+        for field in [
+            "school",
+            "degree",
+            "fieldOfStudy",
+            "startYear",
+            "endYear",
+            "description",
+        ]:
+            if field in request.data:
+                setattr(education, field, request.data[field])
+        education.save()
+        return Response(
+            {"message": "Education updated", "educationId": str(education.id)}
+        )
+    except Education.DoesNotExist:
+        return Response({"message": "Education not found"}, status=404)
+    except Exception as e:
+        return Response(
+            {"message": "Error updating education", "error": str(e.message)}, status=500
+        )
+
+
+@api_view(["GET"])
+def get_educations(request, user_id):
+    try:
+        req_obj = Requests.objects(userId=user_id).first()
+        if not req_obj:
+            return Response({"message": "Request not found"}, status=404)
+
+        educations = [
+            {
+                "_id": str(e.id),
+                "school": e.school,
+                "degree": e.degree,
+                "fieldOfStudy": e.fieldOfStudy,
+                "startYear": e.startYear,
+                "endYear": e.endYear,
+                "description": e.description,
+            }
+            for e in req_obj.education
+        ]
+        return Response({"education": educations})
+    except Exception as e:
+        return Response(
+            {"message": "Internal Server Error", "error": str(e.message)}, status=500
+        )
+
+
+@api_view(["DELETE"])
+def delete_education(request, education_id, user_id):
+    try:
+        req_obj = Requests.objects(userId=user_id).first()
+        if not req_obj:
+            return Response({"message": "Request not found"}, status=404)
+
+        req_obj.education = [e for e in req_obj.education if str(e.id) != education_id]
+        req_obj.save()
+        Education.objects.filter(id=education_id).delete()
+
+        return Response({"message": "Education deleted successfully"})
+    except Exception as e:
+        return Response(
+            {"message": "Internal Server Error", "error": str(e)}, status=500
+        )
+
+
+@api_view(["GET"])
+def get_education_by_id(request, education_id):
+    try:
+        education = Education.objects(id=education_id).first()
+        if not education:
+            return Response({"message": "Education not found"}, status=404)
+
+        education_data = {
+            "_id": str(education.id),
+            "school": education.school,
+            "degree": education.degree,
+            "fieldOfStudy": education.fieldOfStudy,
+            "startYear": education.startYear,
+            "endYear": education.endYear,
+            "description": education.description,
+        }
+
+        return Response(education_data)
+
+    except Exception as e:
+        print("Error:", e)
+        return Response({"message": "Server error", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+def submit_for_review(request):
+    user_id = request.data.get("userId")
+    if not user_id:
+        return Response(
+            {"message": "User ID is required"}, status=status.HTTP_400_BAD_REQUEST
+        )
+    try:
+        req_obj = Requests.objects.get(userId=user_id)
+        req_obj.status = "under_review"
+        req_obj.save()
+        user = User.objects.get(id=user_id)
+        send_under_review_email(user.email)
+        return Response(
+            {"message": "Your application is under review. Check your email."},
+            status=status.HTTP_200_OK,
+        )
+    except DoesNotExist:
+        return Response(
+            {"message": "Request or User not found"},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+    except Exception as e:
+        print("Error submitting for review:", e)
+        return Response(
+            {"message": "Error processing request"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+def check_request_status(request):
+    user_id = request.data.get("userId")
+
+    if not user_id:
+        return Response(
+            {"success": False, "message": "Missing userId in request"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        user_request = Requests.objects.filter(userId=user_id).first()
+
+        if not user_request:
+            return Response(
+                {"success": False, "message": "No request found for this user."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        return Response(
+            {
+                "success": True,
+                "status": user_request.status,  # 'draft', 'under_review', or 'approved'
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    except Exception as e:
+        print("Error checking request status:", e)
+        return Response(
+            {"success": False, "message": "Internal server error"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.response import Response
+from rest_framework import status
+from mongoengine.errors import DoesNotExist
+from django.contrib.auth.hashers import make_password, check_password
+from django.utils import timezone
+from django.utils.timezone import make_aware, is_naive, get_default_timezone
+from django.conf import settings
+from django.db import models
+from Auth.models import (
+    User,
+    Category,
+    Speciality,
+    Skill,
+    Resume,
+    Requests,
+    WorkExperience,
+    Education,
+    OtherExperience,
+    JobPosts,
+    JobProposals,
+    ProposalAttachment,
+    Otp,
+    PhoneOtp,
+    JobAttachment,
+    Language,
+    PaymentCard,
+    PayPalAccount,
+    PaymentTransaction,
+    Company,
+    JobInvitation,
+    DeclinedJobInvitation,
+    JobOffer,
+    AcceptedJobOffer,
+    Notification,
+    Milestone,
+    WorksydeWallet,
+    Transaction,
+    ProjectSubmission,
+    SubmissionComment,
+)
+from .serializers import (
+    EducationSerializer,
+    RequestProfileSerializer,
+    JobPostSerializer,
+    JobProposalSerializer,
+    JobInvitationSerializer,
+)
+from Auth.decorators import verify_token
+from Admin.emails import send_otp_email, send_under_review_email
+from django.http import HttpResponse
+import jwt
+from datetime import datetime, timedelta
+@api_view(["POST"])
+@verify_token
+def submit_project_submission(request):
+    """Freelancer submits project for an accepted offer.
+    Expects: acceptedOfferId, title, description, optional pdfFile (PDF only when provided)
+    """
+    try:
+        user = request.user
+        data = request.data
+        accepted_offer_id = data.get('acceptedOfferId')
+        title = (data.get('title') or '').strip()
+        description = data.get('description') or ''
+        pdf_link = None  # disallow external links for submissions
+
+        if not accepted_offer_id or not title:
+            return Response({"success": False, "message": "acceptedOfferId and title are required"}, status=400)
+
+        try:
+            accepted_offer = AcceptedJobOffer.objects.get(id=accepted_offer_id)
+        except AcceptedJobOffer.DoesNotExist:
+            return Response({"success": False, "message": "Accepted offer not found"}, status=404)
+
+        # Only freelancer who owns the offer can submit
+        if str(accepted_offer.freelancerId.id) != str(user.id):
+            return Response({"success": False, "message": "Unauthorized"}, status=403)
+
+        submission = ProjectSubmission(
+            acceptedOfferId=accepted_offer,
+            jobId=accepted_offer.jobId,
+            clientId=accepted_offer.clientId,
+            freelancerId=user,
+            title=title,
+            description=description,
+            pdfLink=pdf_link
+        )
+
+        # Optional file (multipart)
+        try:
+            pdf_file = request.FILES.get('pdfFile') if hasattr(request, 'FILES') else None
+            if pdf_file:
+                content_type = getattr(pdf_file, 'content_type', '') or ''
+                name_lower = getattr(pdf_file, 'name', '').lower()
+                if content_type != 'application/pdf' and not name_lower.endswith('.pdf'):
+                    return Response({"success": False, "message": "Only PDF files are allowed"}, status=400)
+                submission.pdfFile = pdf_file.read()
+                submission.pdfFileContentType = 'application/pdf'
+            # If no file provided, proceed without a file (optional)
+        except Exception:
+            return Response({"success": False, "message": "Invalid file upload"}, status=400)
+
+        submission.save()
+
+        # Notify client
+        try:
+            n = Notification(
+                recipientId=accepted_offer.clientId,
+                senderId=user,
+                jobId=accepted_offer.jobId,
+                notificationType='system',
+                title='Project submitted',
+                message=f"{user.name} submitted work for '{accepted_offer.contractTitle}'.",
+                additionalData={
+                    'acceptedOfferId': str(accepted_offer.id),
+                    'submissionId': str(submission.id),
+                    'title': title,
+                    'pdfLink': pdf_link
+                }
+            )
+            n.save()
+        except Exception as notif_err:
+            print('Warning: submit notification failed:', notif_err)
+
+        return Response({
+            'success': True,
+            'submissionId': str(submission.id)
+        })
+    except Exception as e:
+        print('submit_project_submission error:', e)
+        return Response({"success": False, "message": "Server error"}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def request_changes_submission(request, submission_id):
+    """Client requests changes: add a comment, set status"""
+    try:
+        user = request.user
+        comment_text = (request.data.get('comment') or '').strip()
+        if not comment_text:
+            return Response({"success": False, "message": "comment is required"}, status=400)
+        try:
+            submission = ProjectSubmission.objects.get(id=submission_id)
+        except ProjectSubmission.DoesNotExist:
+            return Response({"success": False, "message": "Submission not found"}, status=404)
+
+        # Only the client of this submission can request changes
+        if str(submission.clientId.id) != str(user.id):
+            return Response({"success": False, "message": "Unauthorized"}, status=403)
+
+        submission.status = 'Changes Requested'
+        submission.comments.append(SubmissionComment(commenterId=user, text=comment_text))
+        submission.save()
+
+        # Notify freelancer
+        try:
+            n = Notification(
+                recipientId=submission.freelancerId,
+                senderId=user,
+                jobId=submission.jobId,
+                notificationType='system',
+                title='Changes requested',
+                message='Client requested changes on your submission.',
+                additionalData={
+                    'submissionId': str(submission.id),
+                    'comment': comment_text
+                }
+            )
+            n.save()
+        except Exception as notif_err:
+            print('Warning: changes notification failed:', notif_err)
+
+        return Response({"success": True})
+    except Exception as e:
+        print('request_changes_submission error:', e)
+        return Response({"success": False, "message": "Server error"}, status=500)
+
+
+@api_view(["POST"])
+@verify_token
+def release_payment_submission(request, submission_id):
+    """Client accepts and releases payment: move funds Worksyde -> Freelancer wallet"""
+    try:
+        user = request.user
+        try:
+            submission = ProjectSubmission.objects.get(id=submission_id)
+        except ProjectSubmission.DoesNotExist:
+            return Response({"success": False, "message": "Submission not found"}, status=404)
+
+        # Only the client can release payment
+        if str(submission.clientId.id) != str(user.id):
+            return Response({"success": False, "message": "Unauthorized"}, status=403)
+
+        # Determine payout from Worksyde wallet entry expected/estimated payout
+        wallet = _get_or_create_worksyde_wallet()
+        payout_amount = 0.0
+        for entry in wallet.entries or []:
+            matches = False
+            try:
+                matches = (str(getattr(entry, 'acceptedOfferId', None).id) == str(submission.acceptedOfferId.id))
+            except Exception:
+                matches = False
+            if matches:
+                # prefer estimatedFreelancerPayout, else expectedPayout
+                payout_amount = float(getattr(entry, 'estimatedFreelancerPayout', None) or getattr(entry, 'expectedPayout', 0.0) or 0.0)
+                # deduct from wallet entry amount and wallet balance
+                try:
+                    # reduce platform wallet balance by payout to freelancer
+                    wallet.balance = float(wallet.balance or 0) - payout_amount
+                    # When releasing, consider both payout and platform fee as leaving escrow
+                    current_amount = float(getattr(entry, 'amount', 0.0) or 0.0)
+                    platform_fee = float(getattr(entry, 'platformFee', 0.0) or 0.0)
+                    amount_to_clear = payout_amount + platform_fee
+                    # If amount_to_clear covers or exceeds escrow, set to 0; else subtract
+                    if amount_to_clear >= current_amount or current_amount == 0:
+                        entry.amount = 0.0
+                    else:
+                        entry.amount = max(0.0, current_amount - amount_to_clear)
+                except Exception:
+                    pass
+                break
+
+        # Credit freelancer wallet
+        freelancer = submission.freelancerId
+        try:
+            freelancer.walletBalance = float(freelancer.walletBalance or 0) + payout_amount
+        except Exception:
+            pass
+        wallet.save()
+        freelancer.save()
+
+        # Update submission status
+        submission.status = 'Completed'
+        submission.save()
+
+        # Update accepted offer financials snapshot if needed
+        try:
+            offer = submission.acceptedOfferId
+            # Increase milestonesPaid, decrease inEscrow
+            current_paid = float(getattr(offer, 'milestonesPaid', 0.0) or 0.0)
+            setattr(offer, 'milestonesPaid', current_paid + payout_amount)
+            current_escrow = float(getattr(offer, 'inEscrow', 0.0) or 0.0)
+            setattr(offer, 'inEscrow', max(0.0, current_escrow - payout_amount))
+            # If nothing remains in escrow, set auto end timestamp (12 hours) and mark status
+            try:
+                if float(getattr(offer, 'inEscrow', 0.0) or 0.0) <= 0.0:
+                    if hasattr(offer, 'status'):
+                        offer.status = 'completed'
+                    try:
+                        offer.autoEndAt = timezone.now() + timedelta(hours=12)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+            offer.save()
+        except Exception as upd_err:
+            print('Warning: could not update offer aggregates:', upd_err)
+
+        # Notify freelancer
+        try:
+            n = Notification(
+                recipientId=freelancer,
+                senderId=user,
+                jobId=submission.jobId,
+                notificationType='system',
+                title='Payment released',
+                message=f'Client released payment: ₹{payout_amount:.2f}. The contract will auto-end in 12 hours unless ended earlier.',
+                additionalData={'submissionId': str(submission.id), 'amount': payout_amount, 'autoEndInHours': 12}
+            )
+            n.save()
+        except Exception as notif_err:
+            print('Warning: payout notification failed:', notif_err)
+
+        return Response({"success": True, "amount": payout_amount, "freelancerWalletBalance": freelancer.walletBalance, "worksydeWalletBalance": wallet.balance})
+    except Exception as e:
+        print('release_payment_submission error:', e)
+        return Response({"success": False, "message": "Server error"}, status=500)
+
+@api_view(["GET"])
+@verify_token
+def get_submission_pdf(request, submission_id):
+    """Serve the submission PDF either from stored binary or return external link if present."""
+    try:
+        user = request.user
+        try:
+            submission = ProjectSubmission.objects.get(id=submission_id)
+        except ProjectSubmission.DoesNotExist:
+            return Response({"success": False, "message": "Submission not found"}, status=404)
+
+        # Only related client or freelancer can access
+        if str(submission.clientId.id) != str(user.id) and str(submission.freelancerId.id) != str(user.id):
+            return Response({"success": False, "message": "Unauthorized"}, status=403)
+
+        if getattr(submission, 'pdfFile', None):
+            content_type = submission.pdfFileContentType or 'application/pdf'
+            response = HttpResponse(submission.pdfFile, content_type=content_type)
+            filename = (submission.title or 'submission').replace(' ', '_') + '.pdf'
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+
+        if submission.pdfLink:
+            return Response({"success": True, "pdfLink": submission.pdfLink})
+
+        return Response({"success": False, "message": "No PDF available"}, status=404)
+    except Exception as e:
+        print('get_submission_pdf error:', e)
+        return Response({"success": False, "message": "Server error"}, status=500)
+
+import json
+from bson import ObjectId
+from django.shortcuts import get_object_or_404
+from django.core.exceptions import ObjectDoesNotExist
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+from django.core.mail import EmailMessage
+import random
+import traceback
+import time
+from twilio.rest import Client
+import uuid
+from rest_framework.permissions import IsAuthenticated
+import requests
+import base64
+
+
+def send_otp_sms(phone_number, otp_code):
+    """
+    Send OTP via SMS using Twilio
+    Returns: (success: bool, message: str)
+    """
+    try:
+        # Get Twilio credentials from settings
+        account_sid = getattr(settings, 'TWILIO_ACCOUNT_SID', None)
+        auth_token = getattr(settings, 'TWILIO_AUTH_TOKEN', None)
+        twilio_phone = getattr(settings, 'TWILIO_PHONE_NUMBER', None)
+        
+        # Check if Twilio credentials are configured
+        if not all([account_sid, auth_token, twilio_phone]):
+            return False, "Twilio credentials not configured"
+        
+        # Initialize Twilio client
+        client = Client(account_sid, auth_token)
+        
+        # Prepare the message
+        message_body = f"Your Worksyde verification code is: {otp_code}. This code will expire in 10 minutes."
+        
+        # Send the SMS
+        message = client.messages.create(
+            body=message_body,
+            from_=twilio_phone,
+            to=phone_number
+        )
+        
+        print(f"Twilio SMS sent successfully. SID: {message.sid}")
+        return True, "SMS sent successfully"
+        
+    except Exception as e:
+        error_msg = f"Failed to send SMS: {str(e)}"
+        print(error_msg)
+        return False, error_msg
+
+
+def generate_token_and_set_cookie(response, user_id):
+    payload = {
+        "userId": str(user_id),
+        "exp": datetime.utcnow() + timedelta(days=7),
+        "iat": datetime.utcnow(),
+    }
+
+    token = jwt.encode(payload, settings.SECRET_KEY, algorithm="HS256")
+
+    response.set_cookie(
+        key="access_token",
+        value=token,
+        httponly=True,
+        secure=settings.DEBUG is False,
+        samesite="Strict",
+        max_age=7 * 24 * 60 * 60,  # 7 days
+    )
+    return token
+def _get_or_create_worksyde_wallet():
+    wallet = WorksydeWallet.objects().first()
+    if not wallet:
+        wallet = WorksydeWallet(balance=0.0).save()
+    return wallet
+
+
+@api_view(["POST"])
+@verify_token
+def transfer_client_to_worksyde(request):
+    try:
+        data = request.data
+        amount = float(data.get("amount", 0))
+        currency = data.get("currency", "INR")
+        client_id = request.user.id
+        freelancer_id = data.get("freelancerId")  # optional context
+
+        if amount <= 0:
+            return Response({"success": False, "message": "Invalid amount"}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects(id=client_id).first()
+        if not user:
+            return Response({"success": False, "message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if user.walletBalance < amount:
+            return Response({"success": False, "message": "Insufficient wallet balance"}, status=status.HTTP_400_BAD_REQUEST)
+
+        wallet = _get_or_create_worksyde_wallet()
+
+        # Perform updates
+        old_client_balance = float(user.walletBalance)
+        old_worksyde_balance = float(wallet.balance)
+        user.walletBalance = old_client_balance - amount
+        wallet.balance = old_worksyde_balance + amount
+        user.save()
+        wallet.save()
+
+        # Record transaction
+        txn = Transaction(
+            fromType="client",
+            toType="worksyde",
+            clientId=user,
+            amount=amount,
+            currency=currency,
+            type="Funding",
+            status="Success",
+        ).save()
+
+        # Optional escrow metadata
+        try:
+            job_id = data.get("jobId")
+            offer_id = data.get("offerId")
+            if job_id or offer_id:
+                from .models import WorksydeWallet as WorksydeWalletModel
+                from .models import JobPosts, AcceptedJobOffer, ProjectSubmission, SubmissionComment
+                entry = WorksydeWalletModel.WorksydeWalletEntry()
+                if job_id:
+                    try:
+                        entry.jobId = JobPosts.objects.get(id=job_id)
+                    except Exception:
+                        entry.jobId = None
+                entry.offerId = str(offer_id) if offer_id else None
+                entry.amount = float(amount)
+                # Compute expected payout to freelancer = subtotal; platform fees are not paid to freelancer
+                try:
+                    # The request from UI charges fixed fees over projectAmount
+                    # For safety, try to recompute from JobOffer if available
+                    subtotal = 0.0
+                    if offer_id:
+                        try:
+                            jo = JobOffer.objects.get(id=offer_id)
+                            # projectAmount could be string like "₹4,000"; sanitize
+                            pa = str(jo.projectAmount).replace('₹','').replace(',','').strip()
+                            subtotal = float(pa) if pa else 0.0
+                        except Exception:
+                            pass
+                    # If not found, fallback to amount minus known fixed fees if provided
+                    marketplace_fee = float(data.get('marketplaceFee', 50))
+                    contract_fee = float(data.get('contractFee', 100))
+                    if subtotal <= 0.0:
+                        subtotal = max(0.0, float(amount) - marketplace_fee - contract_fee)
+                    entry.expectedPayout = subtotal
+                    entry.platformFee = float(amount) - subtotal
+                    # Freelancer fee input; default 10%
+                    freelancer_fee_percent = float(data.get('freelancerFeePercent', 10))
+                    entry.freelancerFeePercent = freelancer_fee_percent
+                    entry.freelancerFee = round(subtotal * (freelancer_fee_percent / 100.0), 2)
+                    entry.estimatedFreelancerPayout = max(0.0, round(subtotal - entry.freelancerFee, 2))
+                except Exception as fee_err:
+                    print('Warning: failed to compute expected payout:', fee_err)
+                wallet.entries.append(entry)
+                wallet.save()
+        except Exception as escrow_err:
+            print("Warning: failed to append escrow entry:", escrow_err)
+
+        return Response({
+            "success": True,
+            "message": "Funds transferred to Worksyde wallet",
+            "clientWalletBalance": user.walletBalance,
+            "worksydeWalletBalance": wallet.balance,
+            "transactionId": str(txn.id),
+        })
+    except Exception as e:
+        print("transfer_client_to_worksyde error:", e)
+        # best-effort rollback if we already deducted/added
+        try:
+            user = User.objects(id=request.user.id).first()
+            wallet = WorksydeWallet.objects().first()
+            # naive rollback not guaranteed in concurrency
+            # only roll back if available
+            if user and wallet:
+                pass
+        except Exception:
+            pass
+        return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
+@verify_token
+def transfer_worksyde_to_freelancer(request):
+    try:
+        data = request.data
+        amount = float(data.get("amount", 0))
+        currency = data.get("currency", "INR")
+        freelancer_id = data.get("freelancerId")
+
+        if amount <= 0 or not freelancer_id:
+            return Response({"success": False, "message": "Invalid request"}, status=status.HTTP_400_BAD_REQUEST)
+
+        freelancer = User.objects(id=freelancer_id).first()
+        if not freelancer:
+            return Response({"success": False, "message": "Freelancer not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        wallet = _get_or_create_worksyde_wallet()
+        if wallet.balance < amount:
+            return Response({"success": False, "message": "Insufficient Worksyde wallet balance"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Perform updates
+        old_worksyde_balance = float(wallet.balance)
+        old_freelancer_balance = float(freelancer.walletBalance or 0)
+        wallet.balance = old_worksyde_balance - amount
+        freelancer.walletBalance = old_freelancer_balance + amount
+        wallet.save()
+        freelancer.save()
+
+        # Record transaction
+        txn = Transaction(
+            fromType="worksyde",
+            toType="freelancer",
+            freelancerId=freelancer,
+            amount=amount,
+            currency=currency,
+            type="Payout",
+            status="Success",
+        ).save()
+
+        return Response({
+            "success": True,
+            "message": "Payout sent to freelancer",
+            "worksydeWalletBalance": wallet.balance,
+            "freelancerWalletBalance": freelancer.walletBalance,
+            "transactionId": str(txn.id),
+        })
+    except Exception as e:
+        print("transfer_worksyde_to_freelancer error:", e)
+        return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["GET"])
+@verify_token
+def get_wallet_transactions(request):
+    try:
+        user_id = request.user.id
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"success": False, "message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Fetch transactions where user is involved (as client or freelancer)
+        txns = Transaction.objects.filter(
+            __raw__={
+                "$or": [
+                    {"clientId": user.id},
+                    {"freelancerId": user.id},
+                ]
+            }
+        ).order_by("-timestamp").limit(20)
+
+        items = []
+        for t in txns:
+            items.append({
+                "id": str(t.id),
+                "from": t.fromType,
+                "to": t.toType,
+                "amount": float(t.amount),
+                "currency": t.currency,
+                "type": t.type,
+                "status": t.status,
+                "timestamp": t.timestamp.isoformat(),
+            })
+
+        wallet = _get_or_create_worksyde_wallet()
+        return Response({
+            "success": True,
+            "transactions": items,
+            "worksydeWalletBalance": float(wallet.balance),
+        })
+    except Exception as e:
+        print("get_wallet_transactions error:", e)
+        return Response({"success": False, "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+
+@api_view(["POST"])
+def signup(request):
+    data = request.data
+    fullname = data.get("fullname")
+    email = data.get("email")
+    password = data.get("password")
+    role = data.get("role")
+
+    if not all([fullname, email, password, role]):
+        return Response(
+            {"success": False, "message": "All fields are required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if User.objects(email=email).first():
+        return Response(
+            {"success": False, "message": "Account already exists.."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    hashed_password = make_password(password)
+
+    user = User(
+        name=fullname, email=email, password=hashed_password, role=role, isverified=True
+    )
+    user.save()
+
+    response = Response(
+        {"success": True, "message": "Account successfully created.."},
+        status=status.HTTP_201_CREATED,
+    )
+
+    generate_token_and_set_cookie(response, user.id)
+
+    return response
+
+
+@api_view(["POST"])
+def login(request):
+    data = request.data
+    email = data.get("email")
+    password = data.get("password")
+
+    if not all([email, password]):
+        return Response(
+            {"success": False, "message": "Email and password are required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user = User.objects(email=email).first()
+    if not user or not check_password(password, user.password):
+        return Response(
+            {"success": False, "message": "Invalid Credentials"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    
+    # Check if user is banned
+    if hasattr(user, 'isBanned') and user.isBanned:
+        return Response({
+            "success": False, 
+            "message": "Your account has been banned",
+            "banned": True,
+            "banReason": getattr(user, 'banReason', 'No reason provided'),
+            "bannedAt": getattr(user, 'bannedAt', None)
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    user.lastLogin = timezone.now()
+    user.onlineStatus = "online"
+    user.lastSeen = timezone.now()
+    user.save()
+
+    response = Response(
+        {
+            "success": True,
+            "message": "Successfully Logged In",
+            "user": {
+                "id": str(user.id),
+                "email": user.email,
+                "name": user.name,
+                "role": user.role,
+                "isverified": user.isverified,
+                "phoneVerified": getattr(user, 'phoneVerified', False),
+                "lastLogin": user.lastLogin,
+                "onlineStatus": user.onlineStatus,
+                "lastSeen": user.lastSeen,
+            },
+        },
+        status=status.HTTP_200_OK,
+    )
+
+    generate_token_and_set_cookie(response, user.id)
+
+    return response
+
+
+@api_view(["POST"])
+@verify_token
+def logout(request):
+    try:
+        # Set user status to offline before logging out
+        user = request.user
+        user.onlineStatus = "offline"
+        user.lastSeen = timezone.now()
+        user.save()
+    except Exception as e:
+        # Continue with logout even if status update fails
+        print(f"Error updating user status on logout: {e}")
+
+    response = Response(
+        {"success": True, "message": "Successfully Logged out.."},
+        status=status.HTTP_200_OK,
+    )
+
+    response.delete_cookie("access_token")
+    return response
+
+
+@api_view(["GET"])
+@verify_token
+def verify_view(request):
+    return Response({"success": True, "message": "Token is valid."}, status=200)
+
+
+@api_view(["GET"])
+@verify_token
+def current_user(request):
+    user = request.user
+    
+    # Check if user is banned
+    if hasattr(user, 'isBanned') and user.isBanned:
+        return Response({
+            "success": False,
+            "message": "Your account has been banned",
+            "banned": True,
+            "banReason": getattr(user, 'banReason', 'No reason provided'),
+            "bannedAt": getattr(user, 'bannedAt', None)
+        }, status=status.HTTP_403_FORBIDDEN)
+    
+    # Only use User model for photograph
+    photograph = True if user.profileImage else None
+    
+    data = {
+        "success": True,
+        "message": "User fetched..",
+        "user": {
+            "_id": str(user.id),
+            "name": user.name,
+            "email": user.email,
+            "phone": user.phone,
+            "role": user.role,
+            "isverified": user.isverified,
+            "phoneVerified": getattr(user, 'phoneVerified', False),
+            "lastLogin": user.lastLogin,
+            "photograph": photograph,
+            "onlineStatus": user.onlineStatus,
+            "lastSeen": user.lastSeen,
+            "isBanned": getattr(user, 'isBanned', False),
+        },
+    }
+    
+    return Response(data, status=status.HTTP_200_OK)
+
+
+@api_view(["GET"])
+@verify_token
+def get_user_profile(request):
+    """Get current user's profile with phone information"""
+    try:
+        user = request.user
+        
+        # Get user's profile from Requests model
+        profile = Requests.objects(userId=user).first()
+        
+        profile_data = {
+            "success": True,
+            "phone": profile.phone if profile else None,
+            "user": {
+                "_id": str(user.id),
+                "name": user.name,
+                "email": user.email,
+                "phone": user.phone,
+                "role": user.role,
+                "isverified": user.isverified,
+            }
+        }
+
+        return Response(profile_data)
+
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)},
+            status=500,
+        )
+
+
+@api_view(["PUT"])
+@verify_token
+def update_user(request):
+    """Update user's basic information (name and email)"""
+    try:
+        user = request.user
+        data = request.data
+        
+        name = data.get("name")
+        email = data.get("email")
+        
+        # Validate required fields
+        if not name or not email:
+            return Response(
+                {"success": False, "message": "Name and email are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Check if email is already taken by another user
+        existing_user = User.objects(email=email).first()
+        if existing_user and str(existing_user.id) != str(user.id):
+            return Response(
+                {"success": False, "message": "Email is already taken by another user"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        # Update user information
+        user.name = name
+        user.email = email
+        user.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "User information updated successfully",
+                "user": {
+                    "_id": str(user.id),
+                    "name": user.name,
+                    "email": user.email,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+        
+    except Exception as e:
+        print("Error updating user:", e)
+        return Response(
+            {"success": False, "message": "Failed to update user information"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def update_online_status(request):
+    user = request.user
+    online_status = request.data.get("status")
+    
+    if online_status not in ["online", "offline"]:
+        return Response(
+            {"success": False, "message": "Invalid status. Must be 'online' or 'offline'."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    
+    try:
+        user.onlineStatus = online_status
+        user.lastSeen = timezone.now()
+        user.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": f"Status updated to {online_status}",
+                "user": {
+                    "_id": str(user.id),
+                    "onlineStatus": user.onlineStatus,
+                    "lastSeen": user.lastSeen,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        return Response(
+            {"success": False, "message": "Failed to update status"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+@verify_token
+def get_user_online_status(request, user_id):
+    try:
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response(
+                {"success": False, "message": "User not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        
+        return Response(
+            {
+                "success": True,
+                "user": {
+                    "_id": str(user.id),
+                    "name": user.name,
+                    "onlineStatus": user.onlineStatus,
+                    "lastSeen": user.lastSeen,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        return Response(
+            {"success": False, "message": "Failed to get user status"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def update_last_seen(request):
+    """Update user's last seen timestamp to keep them online"""
+    try:
+        user = request.user
+        user.lastSeen = timezone.now()
+        user.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": "Last seen updated",
+                "user": {
+                    "_id": str(user.id),
+                    "lastSeen": user.lastSeen,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        return Response(
+            {"success": False, "message": "Failed to update last seen"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["GET"])
+def get_inactive_users(request):
+    """Get users who haven't been active for more than 10 minutes"""
+    try:
+        # Set users to offline if they haven't been active for 10 minutes
+        inactive_threshold = timezone.now() - timezone.timedelta(minutes=10)
+        
+        # Find users who are online but haven't been seen recently
+        inactive_users = User.objects.filter(
+            onlineStatus="online",
+            lastSeen__lt=inactive_threshold
+        )
+        
+        # Set them to offline
+        for user in inactive_users:
+            user.onlineStatus = "offline"
+            user.save()
+        
+        return Response(
+            {
+                "success": True,
+                "message": f"Set {inactive_users.count()} users to offline",
+                "inactive_count": inactive_users.count(),
+            },
+            status=status.HTTP_200_OK,
+        )
+    except Exception as e:
+        return Response(
+            {"success": False, "message": "Failed to process inactive users"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+def send_otp(request):
+    email = request.data.get("email")
+    if not email:
+        return Response({"success": False, "message": "Email is required"}, status=400)
+
+    try:
+        if User.objects(email=email).first():
+            return Response(
+                {"success": False, "message": "Account already exists.."},
+                status=400,
+            )
+
+        otp_code = str(random.randint(100000, 999999))
+
+        # Optional: Delete existing OTPs for the email to avoid duplicates
+        Otp.objects(email=email).delete()
+
+        Otp(email=email, code=otp_code).save()
+        send_otp_email(email, otp_code)
+
+        return Response(
+            {"success": True, "message": "OTP sent to your email.."},
+            status=status.HTTP_201_CREATED,
+        )
+    except Exception as e:
+        return Response(
+            {"success": False, "message": str(e)}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+
+@api_view(["POST"])
+def verify_otp(request):
+    email = request.data.get("email")
+    code = request.data.get("code")
+
+    if not email or not code:
+        return Response(
+            {"success": False, "message": "Email and code are required"},
+            status=400,
+        )
+
+    try:
+        otp = Otp.objects(email=email, code=code).first()
+        if not otp:
+            return Response(
+                {"success": False, "message": "Invalid or expired OTP"}, status=400
+            )
+
+        otp.delete()
+
+        return Response(
+            {"success": True, "message": "Email verified successfully"},
+            status=200,
+        )
+    except Exception as e:
+        return Response(
+            {
+                "success": False,
+                "message": "OTP verification failed",
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def send_verification_code(request):
+    """Send OTP code to phone number for verification"""
+    phone_number = request.data.get("phone_number")
+    
+    if not phone_number:
+        return Response(
+            {"success": False, "message": "Phone number is required"},
+            status=400,
+        )
+
+    try:
+        # Generate 6-digit OTP
+        otp_code = str(random.randint(100000, 999999))
+        
+        # Delete existing OTPs for the phone number to avoid duplicates
+        PhoneOtp.objects(phone_number=phone_number).delete()
+        
+        # Set expiration time (10 minutes from now)
+        from datetime import timedelta
+        expires_at = timezone.now() + timedelta(minutes=10)
+        
+        # Save new OTP with expiration
+        phone_otp_obj = PhoneOtp(phone_number=phone_number, code=otp_code, expiresAt=expires_at)
+        phone_otp_obj.save()
+        print(f"Saved OTP: {phone_otp_obj.id}, expires at: {expires_at}")
+        
+        # Send OTP via SMS
+        sms_success, sms_message = send_otp_sms(phone_number, otp_code)
+        
+        if sms_success:
+            print(f"OTP sent successfully to {phone_number}: {otp_code}")
+            return Response(
+                {
+                    "success": True, 
+                    "message": "Verification code sent successfully via SMS"
+                },
+                status=201,
+            )
+        else:
+            # If SMS fails, still save OTP and return success (for development)
+            print(f"OTP for {phone_number}: {otp_code} (SMS failed: {sms_message})")
+            return Response(
+                {
+                    "success": True, 
+                    "message": "Verification code generated. Check console for OTP.",
+                    "debug_info": sms_message
+                },
+                status=201,
+            )
+            
+    except Exception as e:
+        print(f"Error in send_verification_code: {str(e)}")
+        return Response(
+            {"success": False, "message": f"Failed to send verification code: {str(e)}"},
+            status=500,
+        )
+
+
+@api_view(["POST"])
+@verify_token
+def verify_phone(request):
+    """Verify phone number with OTP code"""
+    phone_number = request.data.get("phone_number")
+    otp_code = request.data.get("otp_code")
+    
+    if not phone_number or not otp_code:
+        return Response(
+            {"success": False, "message": "Phone number and OTP code are required"},
+            status=400,
+        )
+
+    try:
+        print(f"Verifying OTP for phone: {phone_number}, code: {otp_code}")
+        # Find the OTP record
+        phone_otp = PhoneOtp.objects(phone_number=phone_number, code=otp_code).first()
+        print(f"Found OTP record: {phone_otp}")
+        
+        if not phone_otp:
+            return Response(
+                {"success": False, "message": "Invalid OTP code"},
+                status=400,
+            )
+        
+        # Check if OTP has expired (handle cases where expiresAt might not exist)
+        current_time = timezone.now()
+        
+        if hasattr(phone_otp, 'expiresAt') and phone_otp.expiresAt:
+            # Make expiresAt timezone-aware if it's naive
+            expires_at = phone_otp.expiresAt
+            if is_naive(expires_at):
+                expires_at = make_aware(expires_at, get_default_timezone())
+            
+            if expires_at < current_time:
+                # Delete expired OTP
+                phone_otp.delete()
+                return Response(
+                    {"success": False, "message": "OTP code has expired. Please request a new one."},
+                    status=400,
+                )
+        else:
+            # For backward compatibility, if expiresAt doesn't exist, consider it expired after 10 minutes
+            from datetime import timedelta
+            created_at = phone_otp.createdAt
+            if is_naive(created_at):
+                created_at = make_aware(created_at, get_default_timezone())
+            
+            if created_at + timedelta(minutes=10) < current_time:
+                phone_otp.delete()
+                return Response(
+                    {"success": False, "message": "OTP code has expired. Please request a new one."},
+                    status=400,
+                )
+        
+        # Get user from request (from token)
+        user = request.user
+        
+        if not user:
+            return Response(
+                {"success": False, "message": "User not found"},
+                status=404,
+            )
+        
+        # Update user's phone number
+        user.phone = phone_number
+        user.phoneVerified = True
+        user.save()
+        
+        # Delete the used OTP
+        phone_otp.delete()
+        
+        return Response(
+            {
+                "success": True, 
+                "message": "Phone number verified successfully"
+            },
+            status=200,
+        )
+    except Exception as e:
+        print(f"Error in verify_phone: {str(e)}")  # For debugging
+        return Response(
+            {
+                "success": False, 
+                "message": "Phone verification failed",
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+@api_view(["POST"])
+def save_survey_answers(request, user_id):
+    answers = request.data.get("answers")
+
+    if not user_id or not ObjectId.is_valid(user_id):
+        return Response(
+            {"message": "Invalid User ID"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    user = User.objects(id=user_id).first()
+    if not user:
+        return Response({"message": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    user.freelanceSurveyAnswers = answers
+    user.save()
+
+    return Response(
+        {"message": "Answers saved successfully"}, status=status.HTTP_200_OK
+    )
+
+
+@api_view(["POST"])
+def add_category(request):
+    name = request.data.get("name")
+    if not name:
+        return Response({"message": "Category name is required"}, status=400)
+
+    try:
+        category = Category(name=name)
+        category.save()
+        return Response({"_id": str(category.id), "name": category.name}, status=201)
+    except Exception as e:
+        return Response(
+            {"message": "Error creating category", "error": str(e)}, status=500
+        )
+
+
+@api_view(["POST"])
+def add_speciality(request):
+    name = request.data.get("name")
+    category_id = request.data.get("categoryId")
+
+    if not all([name, category_id]):
+        return Response(
+            {"message": "Both name and categoryId are required"}, status=400
+        )
+
+    try:
+        speciality = Speciality(name=name, categoryId=category_id)
+        speciality.save()
+        return Response(
+            {"_id": str(speciality.id), "name": speciality.name}, status=201
+        )
+    except Exception as e:
+        return Response(
+            {"message": "Error creating speciality", "error": str(e)}, status=500
+        )
+
+
+@api_view(["GET"])
+def get_categories(request):
+    """Get all categories for job post selection"""
+    try:
+        categories = Category.objects.all()
+        category_list = [{"id": str(cat.id), "name": cat.name} for cat in categories]
+        return Response(
+            {
+                "success": True,
+                "message": "Categories fetched successfully",
+                "categories": category_list,
+            },
+            status=200,
+        )
+    except Exception as e:
+        return Response(
+            {"success": False, "message": "Error fetching categories", "error": str(e)},
+            status=500,
+        )
+
+
+@api_view(["GET"])
+def get_category_with_speciality(request):
+    try:
+        categories = Category.objects.all()
+        data = []
+
+        for category in categories:
+            specialities = Speciality.objects(categoryId=str(category.id))
+            data.append(
+                {
+                    "category": {"_id": str(category.id), "name": category.name},
+                    "specialities": [
+                        {"_id": str(s.id), "name": s.name} for s in specialities
+                    ],
+                }
+            )
+
+        return Response(data, status=200)
+    except Exception as e:
+        return Response({"message": "Error fetching data", "error": str(e)}, status=500)
+
+
+@api_view(["POST"])
+def add_skill(request):
+    name = request.data.get("name")
+    if not name:
+        return Response({"message": "Skill name is required."}, status=400)
+
+    if Skill.objects(name=name).first():
+        return Response({"message": "Skill already exists."}, status=400)
+
+    try:
+        skill = Skill(name=name)
+        skill.save()
+        return Response(
+            {
+                "message": "Skill added successfully",
+                "skill": {"id": str(skill.id), "name": skill.name},
+            },
+            status=201,
+        )
+    except Exception as e:
+        return Response({"message": "Error adding skill", "error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+def get_skills(request):
+    try:
+        skills = Skill.objects.all()
+        skill_list = [{"id": str(skill.id), "name": skill.name} for skill in skills]
+        return Response(
+            {
+                "success": True,
+                "message": "Skills fetched successfully",
+                "skills": skill_list,
+            },
+            status=200,
+        )
+    except Exception as e:
+        return Response(
+            {"success": False, "message": "Error fetching skills", "error": str(e)},
+            status=500,
+        )
+
+
+@api_view(["PUT"])
+def update_skill(request, id):
+    name = request.data.get("name")
+    if not name:
+        return Response({"message": "Skill name is required."}, status=400)
+
+    try:
+        skill = Skill.objects(id=id).first()
+        if not skill:
+            return Response({"message": "Skill not found."}, status=404)
+
+        skill.name = name
+        skill.save()
+        return Response(
+            {
+                "message": "Skill updated successfully",
+                "skill": {"id": str(skill.id), "name": skill.name},
+            },
+            status=200,
+        )
+    except Exception as e:
+        return Response(
+            {"message": "Error updating skill", "error": str(e)}, status=500
+        )
+
+
+@api_view(["DELETE"])
+def delete_skill(request, id):
+    try:
+        skill = Skill.objects(id=id).first()
+        if not skill:
+            return Response(
+                {"success": False, "message": "Skill not found"}, status=404
+            )
+
+        skill.delete()
+        return Response(
+            {"success": True, "message": "Skill deleted successfully"}, status=200
+        )
+    except Exception as e:
+        return Response(
+            {"success": False, "message": "Server error", "error": str(e)}, status=500
+        )
+
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser])
+def upload_resume(request):
+    try:
+        user_id = request.data.get("userId")
+        file = request.FILES.get("file")
+
+        if not user_id or not ObjectId.is_valid(user_id):
+            return Response({"message": "Valid User ID is required"}, status=400)
+
+        if not file:
+            return Response({"message": "No file uploaded"}, status=400)
+
+        if file.content_type != "application/pdf":
+            return Response({"message": "Only PDF files are allowed"}, status=400)
+
+        if file.size > 5 * 1024 * 1024:
+            return Response({"message": "File size exceeds 5MB"}, status=400)
+
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        file_data = file.read()
+
+        # Check if resume already exists
+        resume = Resume.objects(userId=user).first()
+
+        if resume:
+            resume.fileName = file.name
+            resume.contentType = file.content_type
+            resume.data = file_data
+            resume.save()
+        else:
+            resume = Resume(
+                userId=user,
+                fileName=file.name,
+                contentType=file.content_type,
+                data=file_data,
+            ).save()
+
+        resume_link = f"http://localhost:5000/api/auth/resumes/{resume.id}"
+
+        # Update or create Requests entry
+        request_obj = Requests.objects(userId=user).first()
+        if request_obj:
+            request_obj.resume = resume_link
+            request_obj.save()
+        else:
+            Requests(userId=user, resume=resume_link, status="draft").save()
+
+        return Response({"resumeLink": resume_link}, status=200)
+
+    except Exception as e:
+        print("Error during resume upload:", e)
+        return Response(
+            {
+                "message": "Error uploading resume. Please try again later.",
+                "error": str(e),
+            },
+            status=500,
+        )
+
+
+@api_view(["GET"])
+def get_resume(request, id):
+    try:
+        resume = Resume.objects(id=id).first()
+        if not resume:
+            return HttpResponse("Resume not found", status=404)
+
+        response = HttpResponse(resume.data, content_type=resume.contentType)
+        response["Content-Disposition"] = f'inline; filename="{resume.fileName}"'
+        return response
+
+    except Exception as e:
+        print("Error retrieving resume:", e)
+        return HttpResponse("Error retrieving resume", status=500)
+
+
+@api_view(["POST"])
+def save_specialities(request):
+    try:
+        user_id = request.data.get("userId")
+        category_id = request.data.get("categoryId")
+        speciality_ids = request.data.get("specialities")  # list of speciality _ids
+
+        if not all([user_id, category_id, speciality_ids]):
+            return Response(
+                {"message": "User ID, Category ID, and Specialities are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Fetch referenced documents
+        user = User.objects(id=user_id).first()
+        category = Category.objects(id=category_id).first()
+        specialities = list(Speciality.objects(id__in=speciality_ids))
+
+        if not user or not category or len(specialities) != len(speciality_ids):
+            return Response(
+                {"message": "Invalid user/category/speciality references."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        request_obj = Requests.objects(userId=user).first()
+
+        if request_obj:
+            request_obj.categoryId = category
+            request_obj.specialities = specialities
+            request_obj.save()
+        else:
+            Requests.objects.create(
+                userId=user,
+                categoryId=category,
+                specialities=specialities,
+                status="draft",
+            )
+
+        return Response(
+            {"message": "Specialities saved successfully"}, status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        return Response(
+            {
+                "message": "Error saving specialities. Please try again later.",
+                "error": str(e),
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+def save_title(request):
+    try:
+        user_id = request.data.get("userId")
+        title = request.data.get("title")
+
+        if not user_id or not title:
+            return Response(
+                {"message": "User ID and Title are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response(
+                {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        request_obj = Requests.objects(userId=user).first()
+
+        if request_obj:
+            request_obj.title = title
+            request_obj.save()
+        else:
+            Requests.objects.create(userId=user, title=title, status="draft")
+
+        return Response(
+            {"message": "Title saved successfully"}, status=status.HTTP_200_OK
+        )
+
+    except Exception as e:
+        return Response(
+            {"message": "Error saving title. Please try again later.", "error": str(e)},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+
+
+@api_view(["POST"])
+def add_experience(request):
+    data = request.data
+    required_fields = [
+        "userId",
+        "title",
+        "company",
+        "city",
+        "country",
+        "startDate",
+        "description",
+    ]
+
+    # Check if all required fields are provided
+    if not all(data.get(field) for field in required_fields):
+        return Response({"message": "Please provide all required fields"}, status=400)
+
+    try:
+        # Fetch the user object
+        user = User.objects(id=data["userId"]).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        # Handle the "Present" case for endDate
+        end_date = data.get("endDate", None)
+        if end_date == "Present":
+            end_date = timezone.now()  # Get the current date/time
+
+        # Create the WorkExperience object
+        experience = WorkExperience.objects.create(
+            title=data["title"],
+            company=data["company"],
+            city=data["city"],
+            country=data["country"],
+            startDate=data["startDate"],  # Assuming startDate is a valid date string
+            endDate=end_date,  # Save the actual date here
+            description=data["description"],
+        )
+
+        # Fetch the associated request object
+        req_obj = Requests.objects(userId=user).first()
+        if not req_obj:
+            return Response({"message": "Request not found"}, status=404)
+
+        # Append the work experience to the request object
+        req_obj.workExperience.append(experience)
+        req_obj.save()
+
+        return Response(
+            {
+                "message": "Work experience added successfully",
+                "workExperienceId": str(experience.id),
+            },
+            status=200,
+        )
+
+    except Exception as e:
+        import traceback
+
+        error_details = traceback.format_exc()
+        print(f"Error adding work experience: {error_details}")
+        return Response({"message": "Internal Server Error"}, status=500)
+
+
+from datetime import datetime
+
+
+@api_view(["PUT"])
+def update_experience(request, experience_id):
+    data = request.data
+    try:
+        experience = WorkExperience.objects(id=experience_id).first()
+        if not experience:
+            return Response({"message": "Work experience not found"}, status=404)
+
+        # Check and validate endDate field
+        if "endDate" in data:
+            end_date = data["endDate"]
+            if end_date == "Present":
+                # If "Present", set to the current date
+                data["endDate"] = timezone.now()  # Get current date/time
+            else:
+                # If it's not "Present", make sure it's a valid date
+                try:
+                    # Try to convert endDate to a datetime object
+                    data["endDate"] = datetime.strptime(
+                        end_date, "%Y-%m-%d"
+                    )  # Assuming the format is "YYYY-MM-DD"
+                except ValueError:
+                    return Response(
+                        {"message": "Invalid date format for endDate"}, status=400
+                    )
+
+        # Update fields dynamically
+        for field in [
+            "title",
+            "company",
+            "city",
+            "country",
+            "startDate",
+            "endDate",
+            "description",
+        ]:
+            if field in data:
+                setattr(experience, field, data[field])
+
+        experience.save()
+
+        return Response(
+            {
+                "message": "Work experience updated successfully",
+                "experience": {
+                    "_id": str(experience.id),
+                    "title": experience.title,
+                    "company": experience.company,
+                    "city": experience.city,
+                    "country": experience.country,
+                    "startDate": experience.startDate,
+                    "endDate": experience.endDate,
+                    "description": experience.description,
+                },
+            },
+            status=200,
+        )
+
+    except Exception as e:
+        print("Error updating work experience:", e)
+        return Response({"message": "Internal Server Error"}, status=500)
+
+
+@api_view(["GET"])
+def get_work_experiences(request, user_id):
+    try:
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        req_obj = Requests.objects(userId=user).first()
+        if not req_obj:
+            return Response({"message": "Request not found"}, status=404)
+
+        exp_data = [
+            {
+                "_id": str(exp.id),
+                "title": exp.title,
+                "company": exp.company,
+                "city": exp.city,
+                "country": exp.country,
+                "startDate": exp.startDate,
+                "endDate": exp.endDate,
+                "description": exp.description,
+            }
+            for exp in req_obj.workExperience
+        ]
+
+        return Response({"workExperience": exp_data}, status=200)
+
+    except Exception as e:
+        import traceback
+
+        error_details = traceback.format_exc()
+        print(f"Error fetching work experience: {error_details}")
+        return Response({"message": "Internal Server Error"}, status=500)
+
+
+@api_view(["DELETE"])
+def delete_experience(request, user_id, experience_id):
+    try:
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        req_obj = Requests.objects(userId=user).first()
+        if not req_obj:
+            return Response({"message": "Request not found"}, status=404)
+
+        experience = WorkExperience.objects(id=experience_id).first()
+        if not experience:
+            return Response({"message": "Experience not found"}, status=404)
+
+        if experience in req_obj.workExperience:
+            req_obj.workExperience.remove(experience)
+            req_obj.save()
+            experience.delete()
+            return Response(
+                {"message": "Work experience deleted successfully"}, status=200
+            )
+        else:
+            return Response(
+                {"message": "Experience not linked to this request"}, status=404
+            )
+
+    except Exception as e:
+        print("Error deleting work experience:", e)
+        return Response({"message": "Internal Server Error"}, status=500)
+
+
+# GET WorkExperience by ID
+@api_view(["GET"])
+def get_experience_by_id(request, id):
+    try:
+        experience = WorkExperience.objects(id=id).first()
+        if not experience:
+            return Response({"message": "Work experience not found"}, status=404)
+
+        data = {
+            "id": str(experience.id),
+            "title": experience.title,
+            "company": experience.company,
+            "city": experience.city,
+            "country": experience.country,
+            "startDate": experience.startDate,
+            "endDate": experience.endDate,
+            "description": experience.description,
+        }
+        return Response({"workExperience": data}, status=200)
+
+    except Exception as e:
+        return Response(
+            {"message": "Error fetching work experience", "error": str(e)},
+            status=500,
+        )
+
+
+@api_view(["POST"])
+def add_language(request):
+    user_id = request.data.get("userId")
+    languages = request.data.get("languages")  # Expect list of {name, proficiency}
+
+    if not user_id or not isinstance(languages, list) or not languages:
+        return Response({"message": "Missing required fields"}, status=400)
+
+    try:
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        req_obj = Requests.objects(userId=user).first()
+        if not req_obj:
+            req_obj = Requests(userId=user)
+
+        # Validate language entries
+        cleaned = []
+        for lang in languages:
+            name = lang.get("name")
+            prof = lang.get("proficiency")
+            if not name or not prof:
+                return Response({"message": "Invalid language data"}, status=400)
+            cleaned.append(Language(name=name, proficiency=prof))
+
+        req_obj.languages = cleaned
+        req_obj.save()
+
+        return Response({"message": "Languages saved successfully"}, status=200)
+
+    except Exception as e:
+        print("Error saving languages:", e)
+        return Response(
+            {"message": "Internal server error", "error": str(e)}, status=500
+        )
+
+
+@api_view(["POST"])
+def add_skills_to_requests(request):
+    user_id = request.data.get("userId")
+    skills = request.data.get("skills")  # Expecting a list of strings
+
+    if not user_id or not isinstance(skills, list) or not skills:
+        return Response({"message": "Missing required fields"}, status=400)
+
+    try:
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        # Determine if skills are IDs or names
+        if all(isinstance(s, str) and len(s) == 24 for s in skills):
+            skill_docs = Skill.objects(id__in=skills)
+        else:
+            skill_docs = Skill.objects(name__in=skills)
+
+        if not skill_docs:
+            return Response({"message": "No matching skills found"}, status=404)
+
+        req_obj = Requests.objects(userId=user).first()
+        if not req_obj:
+            req_obj = Requests(userId=user)
+
+        req_obj.skills = list(skill_docs)
+        req_obj.save()
+
+        return Response({"message": "Skills saved successfully"}, status=200)
+
+    except Exception as e:
+        print("Error saving skills:", e)
+        return Response(
+            {"message": "Internal server error", "error": str(e)}, status=500
+        )
+
+
+@api_view(["POST"])
+def add_biography(request):
+    user_id = request.data.get("userId")
+    bio = request.data.get("bio")
+
+    if not user_id or not bio:
+        return Response({"message": "Missing required fields"}, status=400)
+
+    try:
+        # Fetch User or related Request document
+        req_obj = Requests.objects(userId=user_id).first()
+        if not req_obj:
+            return Response({"message": "Request not found"}, status=404)
+
+        req_obj.bio = bio
+        req_obj.save()
+
+        return Response({"message": "Bio saved successfully"}, status=200)
+
+    except Exception as e:
+        print("Error saving bio:", e)
+        return Response(
+            {"message": "Internal server error", "error": str(e)}, status=500
+        )
+
+
+@api_view(["POST"])
+def add_hourly_rate(request):
+    user_id = request.data.get("userId")
+    hourly_rate = request.data.get("hourlyRate")
+
+    if not user_id or hourly_rate is None:
+        return Response({"message": "Missing required fields"}, status=400)
+
+    try:
+        user = User.objects(id=user_id).first()
+        if not user:
+            return Response({"message": "User not found"}, status=404)
+
+        req_obj = Requests.objects(userId=user).first()
+        if not req_obj:
+            req_obj = Requests(userId=user)
+
+        req_obj.hourlyRate = float(hourly_rate)
+        req_obj.save()
+
+        return Response({"message": "Hourly rate saved successfully"}, status=200)
+    except Exception as e:
+        print("Error saving hourly rate:", e)
+        return Response(
+            {"message": "Internal server error", "error": str(e)}, status=500
+        )
+
+
+@api_view(["POST"])
+def add_photo_location(request):
+    try:
+        user_id = request.data.get("userId")
+        dob = request.data.get("dob")
+        phone = request.data.get("phone")
+
+        if not user_id:
+            return Response({"message": "User ID is required"}, status=400)
+
+        req_obj = Requests.objects(userId=user_id).first()
+        if not req_obj:
+            req_obj = Requests(userId=user_id)
+
+        # Only update fields that are provided
+        if dob is not None:
+            req_obj.dob = dob
+        if phone is not None:
+            req_obj.phone = phone
+
         req_obj.save()
 
         return Response(
@@ -2177,15 +4417,22 @@ def get_profile_details(request, user_id):
 
         profile = {
             "userId": str(user_profile.userId.id),
+            "name": user.name if user else None,  # Add user name
             "title": user_profile.title,
             "resume": user_profile.resume,
             "bio": user_profile.bio,
             "dob": user_profile.dob,
             "phone": user_profile.phone,
-            "photograph": True if has_profile_image else None,  # Only use User model for photograph
+            "photograph": f"/api/auth/profile-image/{user_id}/" if has_profile_image else None,  # Return actual image URL
             "videoIntro": user_profile.videoIntro,
             "hourlyRate": float(user_profile.hourlyRate or 0),
             "status": user_profile.status,
+            # Add address fields
+            "street": user_profile.streetAddress,
+            "city": user_profile.city,
+            "state": user_profile.state,
+            "postalCode": user_profile.postalCode,
+            "country": user_profile.country,
             "category": (
                 {
                     "_id": str(user_profile.categoryId.id),
@@ -2238,8 +4485,6 @@ def get_profile_details(request, user_id):
                 for exp in user_profile.otherExperiences
             ],
         }
-
-        
 
         return Response(profile)
 
@@ -2847,6 +5092,86 @@ def add_job_budget(request):
 
 
 @api_view(["POST"])
+def predict_budget(request):
+    """
+    AI-powered budget prediction endpoint
+    """
+    try:
+        # Get job data from request
+        job_data = {
+            'description': request.data.get('description', ''),
+            'category': request.data.get('category', 'Web, Mobile & Software Dev'),
+            'experience_level': request.data.get('experience_level', 'Intermediate'),
+            'client_country': request.data.get('client_country', 'India'),
+            'payment_type': request.data.get('payment_type', 'Fixed'),
+            'applicants_num': request.data.get('applicants_num', 15.0),
+            'freelancers_num': request.data.get('freelancers_num', 8.0)
+        }
+        
+        print(f"🎯 Budget prediction request received: {job_data}")
+        
+        # Import and use the budget predictor
+        try:
+            import sys
+            import os
+            # Get the absolute path to the ml_models directory
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            ml_models_path = os.path.join(current_dir, '..', 'ml_models')
+            sys.path.append(ml_models_path)
+            
+            from budget_predictor import budget_predictor
+            print(f"✅ Successfully imported budget predictor from: {ml_models_path}")
+            
+            # Make prediction
+            result = budget_predictor.predict_budget(job_data)
+            
+            if result['success']:
+                print(f"🎯 Prediction successful: ₹{result['predicted_budget']}")
+                return Response({
+                    "success": True,
+                    "predicted_budget": result['predicted_budget'],
+                    "confidence": result.get('confidence', 'medium'),
+                    "message": result.get('message', 'Budget predicted successfully'),
+                    "model_info": result.get('model_info', {})
+                }, status=status.HTTP_200_OK)
+            else:
+                print(f"❌ Prediction failed: {result.get('message', 'Unknown error')}")
+                return Response({
+                    "success": False,
+                    "message": result.get('message', 'Budget prediction failed'),
+                    "predicted_budget": None
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        except ImportError as e:
+            print(f"❌ Import error: {e}")
+            return Response({
+                "success": False,
+                "message": "AI budget prediction service is currently unavailable",
+                "predicted_budget": None
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+            
+        except Exception as e:
+            print(f"❌ Prediction error: {e}")
+            import traceback
+            traceback.print_exc()
+            return Response({
+                "success": False,
+                "message": f"Budget prediction failed: {str(e)}",
+                "predicted_budget": None
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+    except Exception as e:
+        print(f"❌ General error in predict_budget: {e}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            "success": False,
+            "message": "An unexpected error occurred",
+            "predicted_budget": None
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
 @parser_classes([MultiPartParser, FormParser])
 def upload_job_post_attachment(request):
     job_id = request.data.get("jobId")
@@ -2870,15 +5195,9 @@ def upload_job_post_attachment(request):
         if not job_post:
             return Response({"message": "Job post not found"}, status=404)
 
-        # Update job post with description if provided
+        # Update job post with description
         if description:
             job_post.description = description
-            
-        # Ensure isContractToHire has a valid value before saving
-        if not hasattr(job_post, 'isContractToHire') or not job_post.isContractToHire:
-            job_post.isContractToHire = "No, not at this time"
-        elif job_post.isContractToHire not in ["Yes, this is a contract-to-hire opportunity", "No, not at this time"]:
-            job_post.isContractToHire = "No, not at this time"
         
         # Handle file upload if provided
         if file:
@@ -3171,7 +5490,7 @@ def get_job_post_details(request, job_id):
         if attachment_details:
             response_data["attachmentDetails"] = attachment_details
 
-        return Response(response_data)
+        return Response({"success": True, "jobPost": response_data})
 
     except Exception as e:
         print("Error getting job post:", str(e))
@@ -7667,3 +9986,33 @@ def withdraw_proposal_with_notification(request):
         print("Error in withdraw_proposal_with_notification:", e)
         return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)
 
+
+@api_view(["GET"])
+@verify_token
+def check_user_request_status(request):
+    """Check if user exists in Requests table and get their status"""
+    try:
+        user = request.user
+        
+        # Check if user exists in Requests table
+        try:
+            user_request = Requests.objects.get(userId=user)
+            
+            return Response({
+                "success": True,
+                "exists": True,
+                "status": user_request.status,
+                "message": f"User request found with status: {user_request.status}"
+            })
+            
+        except Requests.DoesNotExist:
+            return Response({
+                "success": True,
+                "exists": False,
+                "status": None,
+                "message": "User not found in Requests table"
+            })
+            
+    except Exception as e:
+        print("Error in check_user_request_status:", e)
+        return Response({"success": False, "message": "Server error", "error": str(e)}, status=500)

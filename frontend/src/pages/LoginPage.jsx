@@ -13,6 +13,7 @@ const LoginPage = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
 
@@ -26,10 +27,12 @@ const LoginPage = () => {
     e.preventDefault();
 
     if (!email || !password) {
-      toast.error("Field cannot be Empty..");
+      toast.error("Please fill in all fields");
       return;
     }
 
+    setIsLoading(true);
+    
     try {
       const response = await axios.post(
         `${API_URL}/login/`,
@@ -38,9 +41,41 @@ const LoginPage = () => {
       );
 
       if (response.data.success) {
-        // Get user role and navigate directly to appropriate dashboard
+        // Get user role
         const userRole = response.data.user?.role;
         
+        // For freelancers, check their request status
+        if (userRole === "freelancer") {
+          try {
+            const requestStatusResponse = await axios.get(
+              `${API_URL}/check-user-request-status/`,
+              { withCredentials: true }
+            );
+
+            if (requestStatusResponse.data.success) {
+              const { exists, status } = requestStatusResponse.data;
+              
+              if (!exists) {
+                // User doesn't exist in Requests table, redirect to create profile
+                toast.success("Welcome! Let's set up your profile");
+                navigate("/create-profile/welcome");
+                return;
+              } else if (status !== "approved") {
+                // User exists but status is not approved
+                toast.error("Your Application is in Under Review state");
+                return;
+              }
+            }
+          } catch (requestError) {
+            console.error("Error checking request status:", requestError);
+            // If there's an error checking request status, proceed with normal flow
+          }
+        }
+        
+        // Show success toast before navigation
+        toast.success(`Welcome back !`);
+        
+        // Navigate based on user role
         if (userRole === "client") {
           navigate("/ws/client/dashboard");
         } else if (userRole === "freelancer") {
@@ -62,23 +97,15 @@ const LoginPage = () => {
         // Check if it's a ban response
         if (error.response.data.banned) {
           const banMessage = `Account Banned: ${error.response.data.banReason || 'No reason provided'}`;
-          toast.error(banMessage, {
-            duration: 8000, // Show for 8 seconds
-            style: {
-              background: '#fff',
-              color: '#007674',
-              fontSize: '16px',
-              padding: '10px',
-              borderRadius: '8px',
-              border: '1px solid #007674',
-            },
-          });
+          toast.error(banMessage);
         } else {
           toast.error(error.response.data.message);
         }
       } else {
         toast.error("Something went wrong. Please try again later.");
       }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -186,8 +213,16 @@ const LoginPage = () => {
                 type="submit"
                 className="login-button w-100 mx-auto d-block border-0 mb-3"
                 style={{fontSize: '16px'}}
+                disabled={isLoading}
               >
-                Let me In
+                {isLoading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Signing In...
+                  </>
+                ) : (
+                  "Let me In"
+                )}
               </button>
 
               <div

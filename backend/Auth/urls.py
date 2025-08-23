@@ -59,11 +59,13 @@ urlpatterns = [
     path('delete-other-experience/<str:other_experience_id>/<str:user_id>/', views.delete_other_experience, name='delete_other_experience'),
     path('get-other-experiences/<str:user_id>/', views.get_other_experiences, name='get_other_experiences'),
     path('check-request-status/', views.check_request_status, name='check_request_status'),
+    path('check-user-request-status/', views.check_user_request_status, name='check_user_request_status'),
 
     path('add-job-post-title/', views.add_job_post_title, name='add_job_post_title'),
     path('generate-job-title/', views.generate_job_title, name='generate_job_title'),
     path('add-job-scope-details/', views.add_job_scope, name='add_job_scope'),
     path('add-job-budget/', views.add_job_budget, name='add_job_budget'),
+    path('predict-budget/', views.predict_budget, name='predict_budget'),
     path("upload-attachments/", views.upload_job_post_attachment, name="upload_job_post_attachment"),
     # removed client email verification for job post
     path("jobposts/attachments/<str:id>/", views.get_job_attachment, name="get_job_attachment"),
@@ -159,11 +161,11 @@ urlpatterns = [
     # Proposal Withdrawal with Notification
     path('proposals/withdraw/', views.withdraw_proposal_with_notification, name='withdraw_proposal_with_notification'),
     
+
+    
     # Project submissions workflow
     path('submissions/submit/', views.submit_project_submission),
     path('submissions/<str:submission_id>/request-changes/', views.request_changes_submission),
     path('submissions/<str:submission_id>/release-payment/', views.release_payment_submission),
     path('submissions/<str:submission_id>/pdf/', views.get_submission_pdf),
-    # Budget prediction endpoint
-    path('predict-budget/', views.predict_budget, name='predict_budget'),
 ]
