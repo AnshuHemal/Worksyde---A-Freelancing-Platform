@@ -74,7 +74,7 @@ Worksyde is a comprehensive freelancing platform that connects businesses with s
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/worksyde.git
+   git clone https://github.com/AnshuHemal/Worksyde---A-Freelancing-Platform.git
    cd worksyde/backend
    ```
 
@@ -182,9 +182,12 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 👥 Team
 
-- [Your Name](https://github.com/yourusername) - Project Lead
-- [Team Member 2](https://github.com/username2)
-- [Team Member 3](https://github.com/username3)
+- [Hemal Katariya](https://github.com/AnshuHemal)
+- [Pal Trivedi](https://github.com/PalTrivedi)
+- [Janvi Kanani](https://github.com/Janvi5647)
+- [Manthan Gohel](https://github.com/manthangohel12)
+- [Rajveer Rajpurohit](https://github.com/Rajveer290704)
+
 
 ## 🙏 Acknowledgments
 
