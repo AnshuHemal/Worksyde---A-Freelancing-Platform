@@ -18,15 +18,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = "django-insecure-(=%p@sx^e$8%b$_-f@!cer10-!%x%(4n)x=+0-re@5)i#&*r*%"
 
-DEBUG = os.environ.get('DEBUG', 'False') == 'True'
+DEBUG = True
 
 ALLOWED_HOSTS = [
+    # "http://localhost:5173",
+    # "http://localhost:5000",
     "localhost",
     "127.0.0.1",
-    ".vercel.app",
-    ".now.sh",
-    ".onrender.com",
-    ".herokuapp.com",
 ]
 
 # Channel Layers Configuration
@@ -60,7 +58,6 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -76,12 +73,7 @@ CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
 
 # Optional: allow frontend if needed
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "https://localhost:5173",
-    "https://your-frontend-domain.vercel.app",
-    "https://your-frontend-domain.netlify.app",
-]
+CORS_ALLOWED_ORIGINS = ["http://localhost:5173"]
 
 SECRET_KEY = "whiteturtlesworkspace"
 
@@ -165,9 +157,6 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
