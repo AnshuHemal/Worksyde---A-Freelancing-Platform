@@ -53,6 +53,8 @@ INSTALLED_APPS = [
     "daphne",
     "channels",
     "chats",
+    "Resume",
+    "tarz_chatbot",
 ]
 
 MIDDLEWARE = [
