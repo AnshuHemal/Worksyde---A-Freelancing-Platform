@@ -60,3 +60,4 @@ openpyxl==3.1.2
 
 # Vercel specific dependencies
 whitenoise==6.6.0 
+disutils
