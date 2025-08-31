@@ -18,5 +18,10 @@
       "src": "/(.*)",
       "dest": "backend/wsgi.py"
     }
-  ]
+  ],
+  "functions": {
+    "backend/wsgi.py": {
+      "runtime": "python3.10"
+    }
+  }
 } 
